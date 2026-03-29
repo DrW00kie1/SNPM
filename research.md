@@ -718,3 +718,14 @@ Live validation result:
 Bounded manual step that remains:
 - SNPM does not automate Notion database-template creation or the `Submit Validation Session` button
 - the correct v1 contract is to document that manual UI step clearly and keep the session body, migration flow, and repo sync path under SNPM control
+
+## 2026-03-29 — Branch Publication and Development Cut
+
+- Branch operations for the new Tall Man feedback response should stay in `C:\\SNPM`, not `C:\\tall-man-training`.
+- The local `C:\\SNPM` worktree was clean at the start of this pass.
+- Local `main` was ahead of `origin/main` by two commits:
+  - `094356a` `Add validation-session manifest sync`
+  - `3111528` `Adopt checkbox-first validation sessions`
+- The only remote branch visible before publication was `origin/main`.
+- In this repo, "merge with main" means publishing the validated local `main` baseline first, then creating `codex/development` from that published tip.
+- If `origin/main` moved before publication, the safe fallback is to merge `origin/main` into local `main`, rerun the relevant SNPM validation, and only then push and cut `codex/development`.

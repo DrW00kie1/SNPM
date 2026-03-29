@@ -201,3 +201,15 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Document the bounded manual Notion UI step for the Tall Man `Validation Sessions` database template and button
 - [x] Add automated tests for checkbox-first default bodies and checkbox markdown round-tripping without weakening the current schema/verification tests
 - [x] Finish with clean live validation on `Tall Man Training` using `sync-check` and `validation-sessions-verify`
+
+## 2026-03-29 — Publish `main` and Cut `codex/development`
+
+- [x] Record the current SNPM branch state and publication assumptions in `research.md`.
+- [x] Add the branch publication and cut sequence to `plan.md`.
+- [ ] Commit the `research.md` and `plan.md` branch-state updates on local `main`.
+- [ ] Run `git fetch --prune origin` and confirm whether `origin/main` is still at `4d47b4a`.
+- [ ] If `origin/main` has not moved, push local `main` directly to `origin/main`.
+- [ ] If `origin/main` has moved and diverged, merge `origin/main` into local `main`, rerun the relevant SNPM validation, and then push the merged `main`.
+- [ ] Create `codex/development` from the final published `main` tip.
+- [ ] Push `codex/development` to `origin` and set upstream tracking.
+- [ ] Confirm `git branch -vv` and `git branch -r` show the expected local and remote branch state after publication.
