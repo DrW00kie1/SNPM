@@ -47,6 +47,57 @@ export const VALIDATION_SESSION_FIELD_ORDER = [
   "Started On",
   "Completed On",
 ];
+export const VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY = "Issue URL";
+
+const VALIDATION_SESSION_REQUIRED_SECTION_HEADINGS = [
+  "## Session Summary",
+  "## Checklist",
+  "## Findings",
+  "## Follow-Up",
+];
+
+const VALIDATION_SESSION_MANUAL_BUNDLE_CHECKS = [
+  {
+    id: "active-sessions-view",
+    title: "Active Sessions view",
+    status: "manual-required",
+    reason: "View management remains a Notion UI step outside the public API.",
+  },
+  {
+    id: "quick-intake-form",
+    title: "Quick Intake form",
+    status: "manual-required",
+    reason: "Form setup and wiring remain UI-managed in Notion.",
+  },
+  {
+    id: "validation-session-template",
+    title: "Validation Session template",
+    status: "manual-required",
+    reason: "Template selection and template-body auditing remain a manual operator check in this slice.",
+  },
+  {
+    id: "button-wiring",
+    title: "Manual button wiring",
+    status: "manual-required",
+    reason: "Button behavior around the database remains a manual UI step and must stay outside the synced page body.",
+  },
+];
+
+function buildValidationSessionBundleMetadata() {
+  return {
+    bundle: {
+      enabled: true,
+      primaryView: "Active Sessions",
+      backupIntakeForm: "Quick Intake",
+      databaseTemplate: "Validation Session",
+      safeExtraProperties: [{
+        name: VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY,
+        type: "url",
+      }],
+    },
+    manualChecks: VALIDATION_SESSION_MANUAL_BUNDLE_CHECKS,
+  };
+}
 
 const VALIDATION_SESSION_SELECT_OPTIONS = {
   Platform: [
@@ -323,6 +374,53 @@ function collectSchemaFailures(dataSource) {
   return failures;
 }
 
+function collectBundlePropertyFailures(dataSource) {
+  const failures = [];
+  const issueUrlProperty = dataSource?.properties?.[VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY];
+
+  if (!issueUrlProperty) {
+    return failures;
+  }
+
+  const propertyType = issueUrlProperty.type || (Object.keys(issueUrlProperty)[0] || "missing");
+  if (propertyType !== "url") {
+    failures.push(
+      `Optional property "${VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY}" on Validation Sessions must be url when present, got ${propertyType}.`,
+    );
+  }
+
+  return failures;
+}
+
+function collectBundleBodyFailures(bodyMarkdown, rowPath) {
+  const failures = [];
+  const normalizedBody = normalizeValidationSessionBodyMarkdown(bodyMarkdown || "");
+
+  for (const heading of VALIDATION_SESSION_REQUIRED_SECTION_HEADINGS) {
+    if (!normalizedBody.includes(heading)) {
+      failures.push(`Bundle body mismatch on ${rowPath}: missing required section "${heading.replace(/^## /, "")}".`);
+    }
+  }
+
+  if (/<button\b/i.test(normalizedBody) || /<\/button>/i.test(normalizedBody)) {
+    failures.push(`Bundle body mismatch on ${rowPath}: button blocks are not supported inside the synced body.`);
+  }
+
+  if (/<form\b/i.test(normalizedBody) || /<\/form>/i.test(normalizedBody)) {
+    failures.push(`Bundle body mismatch on ${rowPath}: form blocks are not supported inside the synced body.`);
+  }
+
+  if (/<table\b/i.test(normalizedBody) || /<\/table>/i.test(normalizedBody)) {
+    failures.push(`Bundle body mismatch on ${rowPath}: table/layout blocks are not supported inside the synced body.`);
+  }
+
+  if (/^\|.+\|\n\|(?:\s*:?-+:?\s*\|)+/m.test(normalizedBody)) {
+    failures.push(`Bundle body mismatch on ${rowPath}: markdown tables are outside the blessed synced-body contract.`);
+  }
+
+  return failures;
+}
+
 async function collectManagedValidationSessionRowFailures(rows, projectName, client) {
   const failures = [];
 
@@ -330,7 +428,13 @@ async function collectManagedValidationSessionRowFailures(rows, projectName, cli
     const rowTitle = getPageTitleProperty(row);
     const rowPath = buildValidationSessionTargetPath(projectName, rowTitle);
     const page = await client.request("GET", `pages/${row.id}`);
-    const markdown = await fetchPageMarkdown(row.id, rowPath, client);
+    let markdown;
+    try {
+      markdown = await fetchPageMarkdown(row.id, rowPath, client);
+    } catch (error) {
+      failures.push(`Validation session "${rowTitle || row.id}" at ${rowPath} could not be read safely: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
     const managedParts = splitManagedPageMarkdownIfPresent(markdown);
 
     if (!managedParts) {
@@ -345,6 +449,32 @@ async function collectManagedValidationSessionRowFailures(rows, projectName, cli
     if (actualCanonical !== rowPath) {
       failures.push(`Canonical Source mismatch on ${rowPath}: expected "${rowPath}", got "${actualCanonical || "missing"}"`);
     }
+  }
+
+  return failures;
+}
+
+async function collectManagedValidationSessionBundleFailures(rows, projectName, client) {
+  const failures = [];
+
+  for (const row of rows) {
+    const rowTitle = getPageTitleProperty(row);
+    const rowPath = buildValidationSessionTargetPath(projectName, rowTitle);
+    let markdown;
+
+    try {
+      markdown = await fetchPageMarkdown(row.id, rowPath, client);
+    } catch (error) {
+      failures.push(`Bundle verification failed on ${rowPath}: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+
+    const managedParts = splitManagedPageMarkdownIfPresent(markdown);
+    if (!managedParts) {
+      continue;
+    }
+
+    failures.push(...collectBundleBodyFailures(managedParts.bodyMarkdown, rowPath));
   }
 
   return failures;
@@ -890,6 +1020,7 @@ export async function verifyValidationSessionsExtension(projectPageId, projectNa
 }
 
 export async function verifyValidationSessionsSurface({
+  bundle = false,
   config,
   projectName,
   projectTokenEnv,
@@ -920,6 +1051,7 @@ export async function verifyValidationSessionsSurface({
       initialized: false,
       failures: [`Validation surface "${buildValidationRootPath(projectName)}" does not exist.`],
       rowCount: 0,
+      ...(bundle ? buildValidationSessionBundleMetadata() : {}),
     };
   }
 
@@ -940,6 +1072,7 @@ export async function verifyValidationSessionsSurface({
         ? `Validation Sessions does not exist at ${targetPath}. Found other child databases under ${buildValidationRootPath(projectName)}: [${otherDatabases.join(", ")}].`
         : `Validation Sessions does not exist at ${targetPath}. Run "validation-sessions init" first.`],
       rowCount: 0,
+      ...(bundle ? buildValidationSessionBundleMetadata() : {}),
     };
   }
 
@@ -959,17 +1092,29 @@ export async function verifyValidationSessionsSurface({
   const dataSourceId = getPrimaryDataSourceId(database);
   const dataSource = await retrieveDataSource(dataSourceId, surfaceClient);
   failures.push(...collectSchemaFailures(dataSource));
+  if (bundle) {
+    failures.push(...collectBundlePropertyFailures(dataSource));
+  }
 
   const rows = await queryDataSource(dataSourceId, surfaceClient);
   failures.push(...(await collectManagedValidationSessionRowFailures(rows, projectName, surfaceClient)));
+  if (bundle) {
+    failures.push(...(await collectManagedValidationSessionBundleFailures(rows, projectName, surfaceClient)));
+  }
 
-  return {
+  const result = {
     targetPath,
     authMode,
     initialized: true,
     failures,
     rowCount: rows.length,
   };
+
+  if (bundle) {
+    Object.assign(result, buildValidationSessionBundleMetadata());
+  }
+
+  return result;
 }
 
 export async function collectValidationSessionScopeChecks(projectPageId, projectName, workspaceClient) {

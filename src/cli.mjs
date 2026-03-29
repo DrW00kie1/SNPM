@@ -47,7 +47,7 @@ import {
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
-const BOOLEAN_FLAGS = new Set(["apply"]);
+const BOOLEAN_FLAGS = new Set(["apply", "bundle"]);
 
 export function usage() {
   return [
@@ -84,7 +84,7 @@ export function usage() {
     '  npm run build-record-diff -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run build-record-push -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run validation-sessions-init -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run validation-sessions-verify -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run validation-sessions-verify -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--bundle]',
     '  npm run validation-session-create -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run validation-session-adopt -- --project "Project Name" --title "Existing Session Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run validation-session-pull -- --project "Project Name" --title "Session Title" --output validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
@@ -101,6 +101,7 @@ export function usage() {
     "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
+    "Validation-session bundle verification is docs-and-verify only; it checks API-visible rules and returns explicit manual UI checks for views/forms/templates/buttons.",
     "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
     "",
     "Optional flags:",
@@ -857,6 +858,7 @@ async function main() {
 
   if (command === "validation-sessions verify" || command === "validation-sessions-verify") {
     const result = await runValidationSessionsVerify({
+      bundle: options.bundle === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
@@ -869,6 +871,10 @@ async function main() {
       initialized: result.initialized,
       failures: result.failures,
       rowCount: result.rowCount,
+      ...(result.bundle ? {
+        bundle: result.bundle,
+        manualChecks: result.manualChecks,
+      } : {}),
     }, null, 2));
     if (!result.initialized || result.failures.length > 0) {
       process.exitCode = 1;

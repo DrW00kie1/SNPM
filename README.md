@@ -28,6 +28,7 @@ Published baseline on `main`:
 - `build-record create`, `build-record pull`, `build-record diff`, and `build-record push` for project-owned build records under `Ops > Builds`
 - `validation-sessions init`, `validation-session create`, `validation-session adopt`, `validation-session pull`, `validation-session diff`, and `validation-session push` for human validation-session records under `Ops > Validation > Validation Sessions`
 - `validation-sessions verify` for narrow read-only verification of the managed validation-session surface on an existing project
+- `validation-sessions verify --bundle` for narrow validation-session UI-bundle verification of API-visible rules plus explicit manual UI checks
 - `sync check`, `sync pull`, and `sync push` for repo-backed validation-session artifacts declared in `snpm.sync.json`
 - project-token scope verification when a project token is provided
 - cross-repo use through the shared `C:\\SNPM` control checkout
@@ -55,6 +56,7 @@ Current project-token-safe sync and mutation rules:
 - validation-session bodies are standardized as `Session Summary`, `Checklist`, `Findings`, and `Follow-Up`
 - the canonical triage subset inside that body is `Callouts`, `Toggle blocks`, and `To-do blocks`
 - buttons, database templates, mentions, and row properties remain richer UI-layer helpers rather than canonical synced body structure
+- the next validation-session milestone is one blessed surrounding UI bundle: `Active Sessions`, `Quick Intake`, `Validation Session`, and manual button wiring
 - manifest-backed sync is intentionally limited to existing managed validation-session rows listed in `snpm.sync.json`
 - `sync` does not implicitly initialize the surface, create rows, or adopt unmanaged rows
 - `doctor` is read-only and summarizes managed surfaces, hard issues, adoptable content, and next-step commands without mutating Notion
@@ -164,6 +166,7 @@ Initialize or standardize the validation-session surface:
 npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --bundle
 ```
 
 Create, adopt, or sync a managed validation-session record:
@@ -195,6 +198,7 @@ For checkbox-first validation sessions, checked task-list items are the passed-s
 For triage-first validation sessions, use one `<callout>` per finding, optional `<details>` blocks for deeper evidence, and to-do items for `Follow-Up`.
 For repo-backed validation-session artifacts, `sync-pull --apply` is the normalization step when `sync-check` reports only stored-shape drift such as end-of-file handling on `<empty-block/>`.
 For existing projects, use `validation-sessions-verify` as the clean success signal for the managed validation surface; `verify-project` remains broader and may still report unrelated historical drift elsewhere in the project subtree.
+For validation-session workflow hardening, `validation-sessions-verify --bundle` is the narrow check for API-visible UI-bundle rules. It returns explicit manual checks for `Active Sessions`, `Quick Intake`, `Validation Session`, and button wiring rather than pretending those UI-only elements were automated.
 
 Defaults:
 - workspace token: `NOTION_TOKEN`, falling back to `INFRASTRUCTURE_HQ_NOTION_TOKEN`
@@ -206,8 +210,8 @@ The chosen next phase is to evolve SNPM into an internal, high-guardrail workflo
 
 The roadmap is now being reset around complete task workflows rather than raw surface expansion. The immediate priorities are:
 - align the published baseline, testing tags, and live roadmap language
-- finish and publish project doctoring/adoption planning cleanly
-- then build workflow bundles for validation, release/build evidence, access changes, and runbook standardization
+- harden the validation-session UI bundle around the already-shipped surface and synced body
+- then resume broader workflow bundles for validation, release/build evidence, access changes, and runbook standardization
 
 The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
 
@@ -249,6 +253,7 @@ Manifest-backed validation-session sync and the checkbox-first validation-sessio
 - [workspace config ownership](./docs/workspace-config.md)
 - [project access workflows](./docs/project-access.md)
 - [validation sessions](./docs/validation-sessions.md)
+- [validation-session UI bundle](./docs/validation-session-ui-bundle.md)
 - [validation-session sync](./docs/validation-session-sync.md)
 - [live Notion doc update guidance](./docs/live-notion-docs.md)
 - [new thread handoff](./docs/new-thread-handoff.md)

@@ -19,6 +19,7 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /npm run build-record-push/);
   assert.match(help, /npm run validation-sessions-init/);
   assert.match(help, /npm run validation-sessions-verify/);
+  assert.match(help, /validation-sessions-verify -- --project "Project Name".*\[--bundle\]/);
   assert.match(help, /npm run validation-session-create/);
   assert.match(help, /npm run validation-session-push/);
   assert.match(help, /npm run sync-check/);
@@ -168,7 +169,7 @@ test("parseArgs supports validation-session subcommands", () => {
   assert.equal(parsed.options.apply, true);
 });
 
-test("parseArgs supports validation-sessions verify", () => {
+test("parseArgs supports validation-sessions verify with bundle mode", () => {
   const parsed = parseArgs([
     "validation-sessions",
     "verify",
@@ -176,11 +177,13 @@ test("parseArgs supports validation-sessions verify", () => {
     "Tall Man Training",
     "--project-token-env",
     "TALLMAN_NOTION_TOKEN",
+    "--bundle",
   ]);
 
   assert.equal(parsed.command, "validation-sessions verify");
   assert.equal(parsed.options.project, "Tall Man Training");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
+  assert.equal(parsed.options.bundle, true);
 });
 
 test("parseArgs supports sync subcommands", () => {

@@ -59,7 +59,20 @@ Boundary signal:
 - bring README, this roadmap, and the live SNPM planning pages back into alignment with what is actually published versus local
 - keep the Access direction, but do not pre-populate project Access pages again
 
-### Phase 1: Build the workflow layer
+### Phase 1: Harden the validation-session UI bundle
+- finish the validation-session workflow as one complete supported bundle:
+  - managed surface
+  - sync-safe canonical body
+  - supported surrounding Notion UI bundle
+  - narrow verification plus operator guidance
+- use one blessed bundle:
+  - `Active Sessions`
+  - `Quick Intake`
+  - `Validation Session`
+  - manual button wiring
+- keep the boundary as docs + verify, not generic UI automation
+
+### Phase 2: Build the workflow layer
 - stop framing next work as "more primitives first"
 - define first-class workflow bundles around real jobs:
   - validation run lifecycle
@@ -73,7 +86,7 @@ Boundary signal:
   - explicit next-step guidance
   - optional repo sync only where it helps
 
-### Phase 2: Add project doctoring and migration support
+### Phase 3: Add project doctoring and migration support
 - add a project-level doctor/recommend layer that tells an operator:
   - which managed surfaces are present
   - which are missing
@@ -83,13 +96,13 @@ Boundary signal:
 - add surface-specific adoption planners before widening broad verification further
 - keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
 
-### Phase 3: Harden cross-repo consumption
+### Phase 4: Harden cross-repo consumption
 - make pinned install/use from other repos a first-class supported path
 - publish testing tags more regularly so testers are not forced onto unpublished local checkouts
 - add a thin agent-facing wrapper only after the CLI workflows are stable
 - keep other repos from embedding workspace ids or workspace policy logic
 
-### Phase 4: Expand only proven surfaces
+### Phase 5: Expand only proven surfaces
 - add new surfaces only when repeated workflow demand justifies them
 - defer broad multi-surface manifest sync, arbitrary CRUD, and generalized workspace automation
 - keep "safe named workflows on approved surfaces" as the product boundary
@@ -98,8 +111,8 @@ Boundary signal:
 
 Current active command-family work:
 - `snpm doctor` / `snpm recommend`
-- tell a thread what exists, what is broken, what is adoptable, and the exact next command to run
-- the follow-on layer after that is workflow bundles, not more raw primitive expansion
+- `validation-sessions verify --bundle`
+- the next product slice is validation-session UI bundle hardening before broader workflow bundles
 
 Workflow bundles:
 - `start validation run`

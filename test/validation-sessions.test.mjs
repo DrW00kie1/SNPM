@@ -16,6 +16,7 @@ function makeValidationFixture({
   childrenMap,
   pageMeta = {},
   markdownByPageId = {},
+  markdownResponsesByPageId = {},
   databases = {},
   dataSources = {},
   rowsByDataSource = {},
@@ -31,6 +32,10 @@ function makeValidationFixture({
 
       if (method === "GET" && /^pages\/[^/]+\/markdown$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length, -"/markdown".length);
+        const customResponse = markdownResponsesByPageId[pageId];
+        if (customResponse) {
+          return clone(customResponse);
+        }
         return {
           markdown: markdownByPageId[pageId] || "",
           truncated: false,
@@ -658,4 +663,177 @@ test("verifyValidationSessionsSurface passes on a healthy managed surface and ig
   assert.equal(result.initialized, true);
   assert.equal(result.rowCount, 1);
   assert.deepEqual(result.failures, []);
+});
+
+test("verifyValidationSessionsSurface bundle mode allows Issue URL and reports manual checks", async () => {
+  const childrenMap = makeBaseChildren();
+  childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
+  const fixture = makeValidationFixture({
+    childrenMap,
+    databases: {
+      "validation-db": {
+        id: "validation-db",
+        title: [{ plain_text: "Validation Sessions" }],
+        icon: { type: "emoji", emoji: "🧪" },
+        data_sources: [{ id: "validation-ds" }],
+      },
+    },
+    dataSources: {
+      "validation-ds": {
+        id: "validation-ds",
+        properties: {
+          Name: { type: "title" },
+          Platform: { type: "select", select: { options: [{ name: "Web" }, { name: "Android" }, { name: "iPhone" }, { name: "Cross-Platform" }] } },
+          "Session State": { type: "select", select: { options: [{ name: "Planned" }, { name: "In Progress" }, { name: "Passed" }, { name: "Failed" }, { name: "Blocked" }] } },
+          Tester: { type: "rich_text" },
+          "Build Label": { type: "rich_text" },
+          "Runbook URL": { type: "url" },
+          "Started On": { type: "date" },
+          "Completed On": { type: "date" },
+          "Issue URL": { type: "url" },
+        },
+      },
+    },
+    rowsByDataSource: {
+      "validation-ds": [{
+        id: "session-row",
+        properties: {
+          Name: { title: [{ plain_text: "Regression Pass 3" }] },
+          Platform: { type: "select", select: { name: "Web" } },
+          "Session State": { type: "select", select: { name: "Passed" } },
+          Tester: { type: "rich_text", rich_text: [{ plain_text: "Sean" }] },
+          "Build Label": { type: "rich_text", rich_text: [{ plain_text: "v0.3.1" }] },
+          "Runbook URL": { type: "url", url: "https://example.com/runbook" },
+          "Started On": { type: "date", date: { start: "2026-03-29" } },
+          "Completed On": { type: "date", date: { start: "2026-03-29" } },
+          "Issue URL": { type: "url", url: "https://example.com/issue/1" },
+        },
+      }],
+    },
+    markdownByPageId: {
+      "session-row": [
+        "Purpose: Validation session",
+        "Canonical Source: Projects \\> SNPM \\> Ops \\> Validation \\> Validation Sessions \\> Regression Pass 3",
+        "Read This When: Session details",
+        "Last Updated: 03-29-2026 12:00:00",
+        "Sensitive: no",
+        "---",
+        "## Session Summary",
+        "- Goal: Confirm the bundle verifier.",
+        "",
+        "## Checklist",
+        "- [ ] Launch app",
+        "",
+        "## Findings",
+        "<callout>",
+        "Issue: Existing finding",
+        "</callout>",
+        "",
+        "<details>",
+        "<summary>Existing detail</summary>",
+        "",
+        "Area:",
+        "Auth",
+        "Expected:",
+        "Login works",
+        "Actual:",
+        "Spinner hangs",
+        "Evidence:",
+        "Video pending",
+        "</details>",
+        "",
+        "## Follow-Up",
+        "- [ ] Retest after auth fix.",
+        "",
+      ].join("\n"),
+    },
+    pageMeta: {
+      "session-row": { icon: { type: "emoji", emoji: "🧾" } },
+    },
+  });
+
+  const result = await verifyValidationSessionsSurface({
+    bundle: true,
+    config: baseConfig(),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.initialized, true);
+  assert.deepEqual(result.failures, []);
+  assert.equal(result.bundle.enabled, true);
+  assert.equal(result.bundle.primaryView, "Active Sessions");
+  assert.equal(result.bundle.safeExtraProperties[0].name, "Issue URL");
+  assert.equal(result.manualChecks.length, 4);
+});
+
+test("verifyValidationSessionsSurface bundle mode fails on unsupported body blocks and wrong Issue URL type", async () => {
+  const childrenMap = makeBaseChildren();
+  childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
+  const fixture = makeValidationFixture({
+    childrenMap,
+    databases: {
+      "validation-db": {
+        id: "validation-db",
+        title: [{ plain_text: "Validation Sessions" }],
+        icon: { type: "emoji", emoji: "🧪" },
+        data_sources: [{ id: "validation-ds" }],
+      },
+    },
+    dataSources: {
+      "validation-ds": {
+        id: "validation-ds",
+        properties: {
+          Name: { type: "title" },
+          Platform: { type: "select", select: { options: [{ name: "Web" }, { name: "Android" }, { name: "iPhone" }, { name: "Cross-Platform" }] } },
+          "Session State": { type: "select", select: { options: [{ name: "Planned" }, { name: "In Progress" }, { name: "Passed" }, { name: "Failed" }, { name: "Blocked" }] } },
+          Tester: { type: "rich_text" },
+          "Build Label": { type: "rich_text" },
+          "Runbook URL": { type: "url" },
+          "Started On": { type: "date" },
+          "Completed On": { type: "date" },
+          "Issue URL": { type: "rich_text" },
+        },
+      },
+    },
+    rowsByDataSource: {
+      "validation-ds": [{
+        id: "session-row",
+        properties: {
+          Name: { title: [{ plain_text: "Regression Pass 4" }] },
+          Platform: { type: "select", select: { name: "Web" } },
+          "Session State": { type: "select", select: { name: "Passed" } },
+          Tester: { type: "rich_text", rich_text: [{ plain_text: "Sean" }] },
+          "Build Label": { type: "rich_text", rich_text: [{ plain_text: "v0.3.2" }] },
+          "Runbook URL": { type: "url", url: "https://example.com/runbook" },
+          "Started On": { type: "date", date: { start: "2026-03-29" } },
+          "Completed On": { type: "date", date: { start: "2026-03-29" } },
+          "Issue URL": { type: "rich_text", rich_text: [{ plain_text: "https://example.com/issue/2" }] },
+        },
+      }],
+    },
+    markdownResponsesByPageId: {
+      "session-row": {
+        markdown: "",
+        truncated: false,
+        unknown_block_ids: ["button-block-1"],
+      },
+    },
+    pageMeta: {
+      "session-row": { icon: { type: "emoji", emoji: "🧾" } },
+    },
+  });
+
+  const result = await verifyValidationSessionsSurface({
+    bundle: true,
+    config: baseConfig(),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.match(result.failures.join("\n"), /Issue URL/);
+  assert.match(result.failures.join("\n"), /unsupported blocks/i);
+  assert.equal(result.manualChecks.length, 4);
 });

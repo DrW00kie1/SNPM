@@ -17,6 +17,7 @@ Initialize or standardize the managed database:
 npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --bundle
 ```
 
 Create or adopt a managed validation-session record:
@@ -223,3 +224,20 @@ SNPM enforces these v1 constraints:
 The API-managed surface stops at the database, schema, row properties, and row page content.
 
 If you want a tester-friendly live intake path, create or tune the database template and any related Notion button manually in the Notion UI so new rows start with the checkbox-first body contract. That bounded template/button setup remains outside SNPM v1 automation.
+
+SNPM now defines one blessed surrounding UI bundle for this workflow:
+- primary working view: `Active Sessions`
+- backup intake form: `Quick Intake`
+- database template: `Validation Session`
+- manual button wiring
+- optional safe extra API-visible property: `Issue URL` as `url`
+
+Use bundle verification when you need the narrow workflow-level check:
+
+```powershell
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --bundle
+```
+
+`--bundle` verifies only API-visible rules and returns explicit manual checks for the view, form, template, and button wiring. It does not pretend those UI-only elements were automated through the public API.
+
+The full bundle contract and manual setup guidance live in [validation-session UI bundle](./validation-session-ui-bundle.md).

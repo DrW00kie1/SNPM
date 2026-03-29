@@ -27,12 +27,14 @@ export async function runValidationSessionsInit({
 }
 
 export async function runValidationSessionsVerify({
+  bundle = false,
   projectName,
   projectTokenEnv,
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   return verifyValidationSessionsSurface({
+    bundle,
     config,
     projectName,
     projectTokenEnv,

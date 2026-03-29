@@ -34,6 +34,7 @@ node src/cli.mjs help
 Trusted live-tester validation:
 - `verify-project` is the default live command because it is read-heavy and validates the real workspace without creating a new project
 - `validation-sessions-verify` is also allowed for trusted testers because it verifies only the managed validation-session surface on an existing project
+- `validation-sessions-verify --bundle` is also allowed for trusted testers on `codex/doctor` because it verifies only API-visible bundle rules and returns manual UI checks for the rest
 - `page-pull` and `page-diff` are also allowed for trusted testers on the approved planning pages
 - preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
 - `runbook-pull`, `runbook-diff`, `build-record-pull`, `build-record-diff`, `validation-session-pull`, and `validation-session-diff` are also allowed for trusted testers on SNPM-managed project pages
@@ -49,6 +50,10 @@ Trusted live-tester validation:
 - use the file produced by `access-domain-pull`, `secret-record-pull`, or `access-token-pull` as the editing base for follow-on Access pushes; the pulled file is the canonical editable shape for those managed pages
 - use the file produced by `validation-session-pull` as the editing base for follow-on validation-session pushes; the local file is the canonical editable shape because it includes normalized YAML front matter plus the managed body
 - when testing validation-session workflow changes, report whether you changed checkbox task-list state, callout/toggle triage content, follow-up to-dos, or a mix of them; that makes markdown round-trip regressions much easier to classify
+- when testing the validation-session UI bundle, report separately:
+  - whether `validation-sessions-verify --bundle` passed
+  - which manual UI elements were configured: `Active Sessions`, `Quick Intake`, `Validation Session`, button wiring
+  - whether the tested row still round-tripped cleanly through `validation-session-pull`, `validation-session-diff`, or manifest sync
 
 Example trusted live check:
 
@@ -56,6 +61,7 @@ Example trusted live check:
 npm run verify-project -- --name "SNPM"
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --bundle
 npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output roadmap.md --project-token-env SNPM_NOTION_TOKEN
 npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
 npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
@@ -103,6 +109,10 @@ When a finding lands:
 - `access-domain`, `secret-record`, and `access-token` mutations should always include the affected project, domain, and record title in the issue if they were part of testing.
 - `runbook` and `build-record` mutations should always include the affected project and target title in the issue if they were part of testing.
 - `validation-session` mutations should always include the affected project and target title in the issue if they were part of testing.
+- validation-session UI-bundle findings should always say whether the failure was in:
+  - the canonical synced body
+  - an API-visible property/schema rule
+  - a manual UI-only step such as the view, form, template, or button
 - `sync` issues should always include the manifest path and whether the failure was `sync-check`, `sync-pull`, or `sync-push`.
 - if you tested an unpublished local checkout instead of a published tag, say so explicitly in the issue.
 - Live Notion validation stays limited to a smaller trusted tester group because SNPM touches a real workspace.

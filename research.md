@@ -1094,3 +1094,81 @@ Product lesson from the live Tall Man scan:
 - the command already delivers value because it can surface adoption work and drift safely
 - legacy custom icons/canonical strings are now a clear migration problem category
 - the next high-value layer after doctor is still workflow bundles, but the strongest immediate follow-on inside doctoring is better migration guidance for known legacy patterns
+
+## 2026-03-29 — Issue #8 and Validation-Session UI Bundle Hardening
+
+Issue `#8` changes the near-term roadmap, but it does not change the core product thesis.
+
+What changes:
+- a complete SNPM workflow now has four required layers:
+  - managed Notion surface
+  - sync-safe canonical body
+  - supported Notion UI bundle around that body
+  - narrow verification plus operator guidance
+- validation sessions are the first place where the product has enough real usage to prove that UI-layer standardization matters as much as the markdown/data model
+
+What does **not** change:
+- SNPM remains a project-token-safe workflow operator, not a generic Notion client
+- generic UI automation is still the wrong boundary for v1
+- the public Notion API remains the control plane for SNPM-managed behavior
+
+Chosen response to issue `#8`:
+- use a `Docs + Verify` approach rather than generic UI automation
+- define one blessed validation-session UI bundle rather than per-project variants
+- keep bundle verification honest:
+  - verify API-visible rules only
+  - return explicit manual checks for UI-only pieces such as views, form wiring, templates, and buttons
+
+Public-API grounding:
+- the Notion API can create and update data sources and create pages from templates
+- the Notion API still does not manage views through the public API; that remains a manual UI concern
+- that means SNPM should standardize and document the UI bundle, and verify only the parts it can safely inspect
+
+Chosen blessed validation-session UI bundle:
+- primary view: `Active Sessions`
+- backup intake form: `Quick Intake`
+- database template: `Validation Session`
+- safe extra API-visible property: `Issue URL` as `url`
+- canonical synced body stays limited to headings, paragraphs, links, to-dos, callouts, and `<details>`
+- unsafe in the canonical synced body:
+  - button blocks
+  - form blocks
+  - unsupported UI/layout blocks
+  - template bodies that diverge from the SNPM-managed canonical body
+
+Roadmap impact:
+- this bundle-hardening slice should land before broader workflow bundles
+- future workflow milestones should explicitly define both:
+  - the canonical sync-safe content contract
+  - the supported surrounding Notion UI bundle
+- `doctor` remains useful and should stay read-only; this milestone hardens one workflow instead of replacing doctoring
+
+## 2026-03-29 — Validation-Session UI Bundle Hardening Result
+
+Implementation result:
+- added `validation-sessions verify --bundle` on top of the existing narrow verifier
+- kept default `validation-sessions verify` behavior unchanged
+- bundle mode now:
+  - reuses the current surface/schema checks
+  - allows the optional `Issue URL` property when it is `url`
+  - verifies managed row bodies still match the blessed sync-safe contract
+  - fails when unsupported or unsafe body content appears
+  - returns explicit manual checks for `Active Sessions`, `Quick Intake`, `Validation Session`, and button wiring
+- added dedicated bundle guidance in repo docs and updated the roadmap/testing docs accordingly
+
+Live result:
+- `Projects > SNPM > Ops > Validation > Validation Sessions` initially failed bundle verification because older fixtures predated the full bundle contract
+- those SNPM fixtures were normalized onto the blessed body shape and `validation-sessions verify --bundle` now passes there
+- `Projects > Tall Man Training > Ops > Validation > Validation Sessions` already passed the API-visible bundle verifier
+- cross-repo `sync-check` from `C:\\tall-man-training` remained clean for the active TestFlight session artifact
+- the live Tall Man runbook `iOS TestFlight Internal Distribution` was standardized and updated to point at the blessed validation-session UI bundle and repo-sync boundary
+- `Templates > Project Templates > Ops > Validation` was updated so shared guidance points at the blessed bundle and the new `--bundle` verifier
+
+Explicit remaining boundary:
+- the public API implementation is complete for this milestone
+- the UI-only steps remain manual by design:
+  - `Active Sessions` view configuration
+  - `Quick Intake` form configuration
+  - `Validation Session` template configuration
+  - button wiring
+- SNPM now documents and reports those manual checks explicitly, but it does not automate them in this slice

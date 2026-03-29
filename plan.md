@@ -355,3 +355,47 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `doctor --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN`
   - cross-repo invocation from `C:\\tall-man-training`
 - [x] Update local docs and live SNPM planning pages so `doctor` is the active next command family and workflow bundles remain the follow-on layer.
+
+## 2026-03-29 — Validation-Session UI Bundle Hardening
+
+- [x] Record the issue `#8` analysis and the UI-bundle roadmap shift in `research.md`.
+- [x] Add the issue `#8` implementation checklist to `plan.md` before code changes.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects validation-session UI bundle hardening as the next milestone.
+- [x] Comment on GitHub issue `#8` with the accepted scope:
+  - one blessed validation-session UI bundle
+  - manual setup for UI-only pieces
+  - narrow API-visible verification
+  - no generic Notion UI builder tooling
+- [x] Extend `validation-sessions verify` with `--bundle`.
+- [x] Keep default `validation-sessions verify` behavior unchanged when `--bundle` is not supplied.
+- [x] In bundle mode, verify:
+  - required validation-session schema still present
+  - safe extra API-visible property `Issue URL` is allowed as `url`
+  - row pages still satisfy the canonical managed-page body contract
+  - unsupported UI blocks do not appear inside the synced body
+- [x] In bundle mode, return explicit manual-check guidance for:
+  - `Active Sessions` primary view
+  - `Quick Intake` backup intake form
+  - `Validation Session` database template
+  - manual button wiring
+- [x] Add automated coverage for:
+  - CLI parsing/output for `validation-sessions verify --bundle`
+  - bundle-pass and bundle-fail cases
+  - safe extra property allowance for `Issue URL`
+  - manual-check reporting without pretending UI-only elements were API-verified
+- [x] Add a dedicated validation-session UI-bundle doc and update:
+  - `README.md`
+  - `docs/operator-roadmap.md`
+  - `docs/github-testing-loop.md`
+  - `docs/validation-sessions.md`
+- [x] Live-validate the bundle verifier on `Projects > SNPM > Ops > Validation > Validation Sessions` first.
+- [ ] Roll the blessed bundle into `Projects > Tall Man Training > Ops > Validation > Validation Sessions` with bounded manual UI work:
+  - `Active Sessions` view
+  - `Quick Intake` form
+  - `Validation Session` template
+  - button wiring
+- [ ] Create one new Tall Man session from the template/button flow, then confirm clean round-tripping with:
+  - `validation-session-pull`
+  - `validation-session-diff`
+  - `sync-pull --apply` or `sync-check`
+- [x] After Tall Man validation, promote the blessed bundle into shared workspace guidance via `Templates > Project Templates > Ops > Validation`.
