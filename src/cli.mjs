@@ -24,7 +24,7 @@ import {
   runBuildRecordPush,
 } from "./commands/build-record.mjs";
 import { runCreateProject } from "./commands/create-project.mjs";
-import { runDoctor } from "./commands/doctor.mjs";
+import { runDoctor, runRecommend } from "./commands/doctor.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPagePush } from "./commands/page-push.mjs";
@@ -55,6 +55,10 @@ export function usage() {
     '  npm run create-project -- --name "Project Name"',
     '  npm run doctor -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run recommend -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --project "Project Name" --intent planning --page "Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --project "Project Name" --intent runbook --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --project "Project Name" --intent secret --domain "App & Backend" --title "Record Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --project "Project Name" --intent repo-doc --repo-path "docs/path.md"',
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
@@ -96,7 +100,8 @@ export function usage() {
     "",
     "Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
     "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
-    "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, and next-step recommendations.",
+    "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
+    "Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
     "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
     "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
@@ -233,7 +238,55 @@ async function main() {
     return;
   }
 
-  if (command === "doctor" || command === "recommend") {
+  if (command === "doctor") {
+    const result = await runDoctor({
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    console.log(JSON.stringify({
+      ok: result.issues.length === 0,
+      command,
+      ...result,
+    }, null, 2));
+    if (result.issues.length > 0) {
+      process.exitCode = 1;
+      return;
+    }
+    return;
+  }
+
+  if (command === "recommend") {
+    if (options.intent) {
+      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|repo-doc|generated-output>.");
+      const result = await runRecommend({
+        projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+        projectTokenEnv: options["project-token-env"],
+        intent,
+        pagePath: intent === "planning"
+          ? requireOption(options, "page", 'Provide --page "Roadmap" or --page "Planning > Roadmap".')
+          : undefined,
+        title: intent === "runbook" || intent === "secret" || intent === "token"
+          ? requireOption(options, "title", 'Provide --title "Title".')
+          : undefined,
+        domainTitle: intent === "secret" || intent === "token"
+          ? requireOption(options, "domain", 'Provide --domain "Access Domain Title".')
+          : undefined,
+        repoPath: intent === "repo-doc" || intent === "generated-output"
+          ? requireOption(options, "repo-path", "Provide --repo-path <path>.")
+          : undefined,
+        workspaceName,
+      });
+      console.log(JSON.stringify({
+        command,
+        ...result,
+      }, null, 2));
+      if (!result.ok) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+
     const result = await runDoctor({
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],

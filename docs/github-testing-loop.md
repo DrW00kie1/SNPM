@@ -12,7 +12,7 @@ Current testing snapshot:
 - `sprint-3-validation-sessions`
 
 `main` remains the integration branch for follow-on work after the current snapshot.
-Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag but are on published `main`. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The read-only `doctor` / `recommend` slice is committed on `codex/doctor`. `codex/validation-bundle` is paused experimental work. If you test any of those newer slices, say explicitly whether you were on published `main`, `codex/development`, `codex/doctor`, `codex/validation-bundle`, or an unpublished local checkout.
+Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag but are on published `main`. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The narrow-band reset plus stdin/stdout ergonomics are committed on `codex/doctor`. Intent-driven truth routing is committed on `codex/truth-routing`. `codex/validation-bundle` is paused experimental work. If you test any of those newer slices, say explicitly whether you were on published `main`, `codex/development`, `codex/doctor`, `codex/truth-routing`, `codex/validation-bundle`, or an unpublished local checkout.
 
 ## Tester Workflow
 
@@ -40,7 +40,8 @@ Trusted live-tester validation:
 - preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
 - `runbook-pull`, `runbook-diff`, `build-record-pull`, `build-record-diff`, `validation-session-pull`, and `validation-session-diff` are also allowed for trusted testers on SNPM-managed project pages
 - `sync-check` and preview-only `sync-pull` are also allowed for trusted testers on repo-backed validation-session artifacts because they do not mutate Notion
-- `doctor` / `recommend` are safe read-only live commands when a tester is explicitly on `codex/doctor`
+- `doctor` is a safe read-only live command on `codex/doctor`
+- `recommend --intent ...` is a safe read-only live command when a tester is explicitly on `codex/truth-routing`
 - `access-domain-pull`, `access-domain-diff`, `secret-record-pull`, `secret-record-diff`, `access-token-pull`, and `access-token-diff` are only relevant when a tester is explicitly on `codex/development`
 - preview-only `access-domain-create`, `access-domain-adopt`, `access-domain-push`, `secret-record-create`, `secret-record-adopt`, `secret-record-push`, and `access-token-create`, `access-token-adopt`, `access-token-push` are likewise `codex/development`-only until that slice is published
 - preview-only `runbook-create`, `runbook-adopt`, `runbook-push`, `build-record-create`, `build-record-push`, `validation-sessions-init`, `validation-session-create`, `validation-session-adopt`, and `validation-session-push` are allowed for trusted testers because they show the exact change without mutating the workspace
@@ -76,6 +77,9 @@ npm run validation-session-diff -- --project "SNPM" --title "SNPM Validation Ses
 npm run sync-check -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run sync-pull -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run recommend -- --project "SNPM" --intent planning --page "Roadmap" --project-token-env SNPM_NOTION_TOKEN
+npm run recommend -- --project "SNPM" --intent secret --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env SNPM_NOTION_TOKEN
+npm run recommend -- --project "SNPM" --intent repo-doc --repo-path "docs/operator-roadmap.md"
 ```
 
 Testing from another repo context is allowed, but direct-clone testing is the default path for this phase.

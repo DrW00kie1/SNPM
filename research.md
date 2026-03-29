@@ -1348,3 +1348,128 @@ Validation result:
 Operational conclusion:
 - the core-band stdin/stdout path removes a real chunk of operator friction without changing the safety model
 - the next meaningful product move should now be truth routing inside `doctor` / `recommend`, not new surfaces and not resumed browser automation
+
+## 2026-03-29 — Truth-Routed `recommend` Next Slice
+
+Current baseline after the ergonomics cleanup:
+- `codex/core-ergonomics` is the clean, pushed narrow-band baseline
+- `codex/doctor` is now the correct integration base once it is fast-forwarded to that baseline
+- `codex/validation-bundle` remains preserved paused experimental work
+
+Competitive product boundary versus a generic Notion connector:
+- SNPM should not compete on raw page/database reach
+- SNPM should compete on:
+  - approved-surface mutation only
+  - exact project-token-safe paths
+  - explicit Notion-vs-repo ownership
+  - exact next commands instead of raw Notion access
+
+Why truth routing is the next bread-and-butter slice:
+- the current doctoring layer can already tell an operator what exists, what is missing, and what is adoptable
+- the next practical gap is deciding where an update belongs before duplication is created
+- this is the clearest place SNPM can be:
+  - better than a generic connector, because it knows policy and approved targets
+  - faster than ad hoc Notion access, because it can emit one exact next command
+  - safer than generic workspace mutation, because it can reject the wrong home up front
+
+Chosen v1 routing scope:
+- keep the feature read-only
+- keep `doctor --project "<Project>"` as the live surface scan
+- keep `recommend --project "<Project>"` without an intent as an alias for that scan
+- add an intent-driven routing form:
+  - `recommend --project "<Project>" --intent <intent> ...`
+
+Chosen v1 intents:
+- `planning`
+- `runbook`
+- `secret`
+- `token`
+- `repo-doc`
+- `generated-output`
+
+Chosen v1 routing policy:
+- `planning` -> `notion`
+- `runbook` -> `notion`
+- `secret` -> `notion`
+- `token` -> `notion`
+- `repo-doc` -> `repo`
+- `generated-output` -> `repo`
+
+Chosen command/context rules:
+- `planning` requires `--page`
+- `runbook` requires `--title`
+- `secret` and `token` require `--domain` plus `--title`
+- `repo-doc` and `generated-output` require `--repo-path`
+
+Chosen behavior rules:
+- repo-primary routes do not emit Notion mutation commands
+- Notion-primary routes emit the exact approved SNPM command shape
+- if the target exists but is unmanaged, route to `adopt` first
+- if the target is missing, route to `create`
+- unsupported or off-policy requests should fail clearly rather than guess
+- no natural-language parsing in v1; routing stays explicit and flag-driven
+
+Chosen implementation shape:
+- reuse `diagnoseProject` rather than create a separate planner stack
+- add one focused routing module that combines:
+  - static ownership policy
+  - required-context validation
+  - live doctor scan results
+  - exact next-command generation
+
+Chosen branch plan:
+- fast-forward `codex/doctor` to the `codex/core-ergonomics` tip
+- create `codex/truth-routing` from the updated `codex/doctor`
+- keep `main`, `codex/development`, and `codex/validation-bundle` unchanged
+
+## 2026-03-29 — Truth-Routed `recommend` Result
+
+Implementation result:
+- fast-forwarded `codex/doctor` to the `codex/core-ergonomics` tip and created `codex/truth-routing` from that clean integration base
+- updated the live `Projects > SNPM > Planning` pages first so truth routing was the active milestone before code changes
+- extended `doctor` with a top-level `truthBoundaries` summary that explains:
+  - planning pages -> `notion`
+  - runbooks -> `notion`
+  - Access records -> `notion`
+  - repo docs -> `repo`
+  - generated outputs -> `repo`
+  - validation-session artifacts -> `hybrid`
+- kept `recommend --project "<Project>"` without `--intent` as the existing read-only scan alias
+- added deterministic intent routing for:
+  - `planning`
+  - `runbook`
+  - `secret`
+  - `token`
+  - `repo-doc`
+  - `generated-output`
+- kept the feature read-only:
+  - no new major surfaces
+  - no browser automation
+  - no generic arbitrary-page routing
+  - no mutation inside `doctor` or `recommend`
+
+Behavior result:
+- Notion-primary intents now return the exact approved SNPM command shape for the current live state:
+  - managed targets route to `pull`, `diff`, and `push`
+  - unmanaged targets route to `adopt`
+  - missing approved targets route to `create`
+- repo-primary intents return one clear repo-owned answer and do not emit Notion mutation commands
+- unsupported intents fail clearly instead of guessing
+- routing remains explicit and flag-driven rather than natural-language based
+
+Validation result:
+- `npm test` passes with the new truth-routing coverage
+- live SNPM-only read-only validation succeeded for:
+  - `recommend --project "SNPM" --intent planning --page "Roadmap" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent runbook --title "SNPM Operator Validation Runbook" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent secret --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent repo-doc --repo-path "docs/operator-roadmap.md"`
+  - `recommend --project "SNPM" --intent generated-output --repo-path "artifacts/build.json"`
+- `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` remained green after the planning-page updates
+
+Product conclusion:
+- this is the clearest differentiation from a generic Notion connector so far
+- SNPM now answers both:
+  - what exists and what is adoptable
+  - where a change should live before duplication is created
+- the next useful layer after this is migration guidance for recurring legacy patterns surfaced by `doctor`, not new surfaces

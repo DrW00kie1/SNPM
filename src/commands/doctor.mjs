@@ -1,5 +1,6 @@
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import { diagnoseProject } from "../notion/doctor.mjs";
+import { recommendProjectUpdate } from "../notion/recommend.mjs";
 
 export async function runDoctor({
   projectName,
@@ -11,5 +12,28 @@ export async function runDoctor({
     config,
     projectName,
     projectTokenEnv,
+  });
+}
+
+export async function runRecommend({
+  projectName,
+  projectTokenEnv,
+  intent,
+  pagePath,
+  title,
+  domainTitle,
+  repoPath,
+  workspaceName = "infrastructure-hq",
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+  return recommendProjectUpdate({
+    config,
+    projectName,
+    projectTokenEnv,
+    intent,
+    pagePath,
+    title,
+    domainTitle,
+    repoPath,
   });
 }

@@ -7,6 +7,8 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   const help = usage();
   assert.match(help, /npm run doctor/);
   assert.match(help, /npm run recommend/);
+  assert.match(help, /--intent planning --page "Roadmap"/);
+  assert.match(help, /--intent repo-doc --repo-path "docs\/path\.md"/);
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
   assert.match(help, /npm run page-push/);
@@ -27,6 +29,7 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /npm run sync-push/);
   assert.match(help, /--output <file\|->/);
   assert.match(help, /--file <file\|->/);
+  assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
   assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
 });

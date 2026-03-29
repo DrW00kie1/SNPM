@@ -14,6 +14,7 @@ import { fetchPageMarkdown } from "./page-markdown.mjs";
 import { expectedCanonicalSource, projectPath } from "./project-model.mjs";
 import { findChildPage, verifyScope } from "./project-service.mjs";
 import { findBuildsContainerTarget, findProjectPathTarget, findValidationSessionsDatabaseTarget, resolveProjectRootTarget } from "./page-targets.mjs";
+import { buildCommand, buildTruthBoundaries } from "./routing-policy.mjs";
 import { getCanonicalSource } from "./template-blocks.mjs";
 import { VALIDATION_SESSIONS_DATABASE_TITLE, verifyValidationSessionsSurface } from "./validation-sessions.mjs";
 
@@ -23,24 +24,6 @@ function iconMatches(icon, expectedIcon) {
 
 function iconLabel(icon) {
   return icon?.emoji || icon?.type || "missing";
-}
-
-function quoteArg(value) {
-  return `"${String(value).replace(/"/g, '\\"')}"`;
-}
-
-function buildCommand(scriptName, args, projectTokenEnv) {
-  const parts = [`npm run ${scriptName} --`];
-
-  for (const [flag, value] of args) {
-    parts.push(`--${flag}`, quoteArg(value));
-  }
-
-  if (projectTokenEnv) {
-    parts.push("--project-token-env", projectTokenEnv);
-  }
-
-  return parts.join(" ");
 }
 
 function pushUnique(list, keySet, key, value) {
@@ -659,6 +642,7 @@ export async function diagnoseProject({
     targetPath: projectRoot.targetPath,
     authMode: "workspace-token",
     projectTokenChecked: Boolean(projectTokenEnv),
+    truthBoundaries: buildTruthBoundaries(),
     surfaces: {},
     issues: [],
     adoptable: [],

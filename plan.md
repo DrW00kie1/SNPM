@@ -466,3 +466,56 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - prove one Access stdin/stdout path on `Projects > SNPM > Access` without touching any other project
 - [x] Re-run `npm test` and `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
 - [x] Update the live SNPM planning pages again after validation so the reset is marked shipped and the next active follow-on is `doctor` truth routing instead of new surface expansion.
+
+## 2026-03-29 — Truth-Routed `recommend`
+
+- [x] Fast-forward `codex/doctor` to the `codex/core-ergonomics` tip and push it so the active integration base includes the narrow-band reset plus stdin/stdout ergonomics.
+- [x] Create `codex/truth-routing` from the updated `codex/doctor`.
+- [x] Record the truth-routing design, branch choice, and competitive boundary versus a generic Notion connector in `research.md`.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the active milestone is truth routing in `doctor` / `recommend`.
+- [x] Keep `doctor --project "<Project>"` as the read-only live surface scan.
+- [x] Keep `recommend --project "<Project>"` without an intent as an alias for the current scan.
+- [x] Add intent-driven routing:
+  - `recommend --project "<Project>" --intent planning --page "<Approved Planning Page>"`
+  - `recommend --project "<Project>" --intent runbook --title "<Runbook Title>"`
+  - `recommend --project "<Project>" --intent secret --domain "<Access Domain>" --title "<Record Title>"`
+  - `recommend --project "<Project>" --intent token --domain "<Access Domain>" --title "<Record Title>"`
+  - `recommend --project "<Project>" --intent repo-doc --repo-path "<Repo Path>"`
+  - `recommend --project "<Project>" --intent generated-output --repo-path "<Repo Path>"`
+- [x] Return structured routing output including:
+  - `ok`
+  - `command`
+  - `projectId`
+  - `intent`
+  - `recommendedHome`
+  - `surface`
+  - `supported`
+  - `reason`
+  - `targetPath` when relevant
+  - `repoPath` when relevant
+  - `warnings`
+  - `nextCommands`
+- [x] Add a top-level truth-boundary summary to `doctor` so the output explains current Notion-primary, repo-primary, and hybrid ownership rather than only surface health.
+- [x] Keep routing read-only:
+  - no mutation inside `doctor` or `recommend`
+  - no new major surfaces
+  - no browser automation work
+  - no generic arbitrary-page routing
+- [x] Reuse the current doctoring code and exact command builders rather than creating a separate planner stack.
+- [x] Add automated coverage for:
+  - CLI parsing for `recommend --intent ...`
+  - required-context validation failures
+  - each v1 intent mapping to the expected `recommendedHome`
+  - repo-primary intents emitting no Notion mutation command
+  - unmanaged or missing Notion targets routing to `adopt` or `create`
+  - unsupported intents failing clearly
+  - `doctor` truth-boundary summary
+  - unchanged `recommend` behavior without `--intent`
+- [x] Live-validate on `Projects > SNPM` only:
+  - `recommend --project "SNPM" --intent planning --page "Roadmap" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent runbook --title "SNPM Operator Validation Runbook" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent secret --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent repo-doc --repo-path "docs/operator-roadmap.md"`
+  - `recommend --project "SNPM" --intent generated-output --repo-path "artifacts/build.json"`
+- [x] Re-run `npm test` and `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
+- [x] Update README and roadmap/tester docs after implementation so the active next differentiator is truth routing rather than new surface expansion.

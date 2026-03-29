@@ -21,7 +21,8 @@ Published baseline on `main`:
 Committed development work beyond published `main`:
 - triage-first validation-session `Findings` / `Follow-Up` redesign
 - first-class project Access surfaces under `Projects > <Project> > Access`
-- read-only `snpm doctor` / `snpm recommend` on `codex/doctor`
+- core-band stdin/stdout ergonomics on `codex/doctor`
+- intent-driven truth routing on `codex/truth-routing`
 - paused experimental Chromium-only `validation-bundle` UI automation on `codex/validation-bundle`
 
 Important publication boundary:
@@ -77,11 +78,12 @@ Boundary signal:
   - which are missing
   - which are unmanaged but adoptable
   - what command to run next
-- the first read-only slice is now implemented on `codex/doctor`
-- extend it next with truth routing:
+- the first read-only scan shipped on `codex/doctor`
+- the next layer is now implemented on `codex/truth-routing`:
   - should this update live in Notion?
   - should it live in the repo?
-  - is a hybrid sync path justified?
+  - which exact approved SNPM command should run next?
+- the next follow-on inside this phase is migration guidance for recurring legacy patterns surfaced by `doctor`
 - add surface-specific adoption planners before widening broad verification further
 - keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
 
@@ -115,7 +117,8 @@ Current active command-family work:
 - `snpm doctor` / `snpm recommend`
 - `validation-sessions verify --bundle`
 - pipe-friendly planning-page, runbook, and Access updates with stdin/stdout
-- the next product slice after ergonomics is truth routing inside `doctor` / `recommend`
+- truth routing is now implemented on `codex/truth-routing`
+- the next product slice after truth routing is migration guidance for recurring legacy patterns before broader workflow bundles
 
 Workflow bundles:
 - `start validation run`
