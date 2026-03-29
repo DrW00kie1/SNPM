@@ -2317,3 +2317,33 @@ Validation result:
   - help-target resolution coverage
   - alias normalization coverage
   - process-level CLI tests for global help, command help, help-with-extra-flags, and unknown-command help
+
+## 2026-04-22 - Main Consolidation And Promotion
+
+Repo state before consolidation:
+- `main` is still at `b2ebee4`
+- branch-only product commits still exist on:
+  - `codex/operational-loop`
+  - `codex/windows-path-stability`
+  - `codex/validation-bundle`
+- the only local dirt before cleanup was user-owned instruction work:
+  - modified `AGENTS.md`
+  - untracked `agents_ver2.md`
+
+Consolidation findings:
+- `codex/operational-loop` and `codex/windows-path-stability` replay cleanly onto current `main` apart from task-local `research.md` / `plan.md` notes
+- `codex/validation-bundle` diverged before several later `main` promotions and collides with:
+  - the newer help-registry CLI
+  - current validation-session docs wording
+  - shared validation-session/template helpers
+- the validation-bundle code itself is still materially useful and adds:
+  - a Playwright Chromium UI lane
+  - bundle-spec helpers
+  - template inspection and repair helpers
+  - validation-bundle tests
+
+Chosen consolidation rule:
+- do not carry stale branch-specific working-memory hunks from earlier tasks
+- keep one fresh consolidation note in `research.md` and `plan.md` instead
+- preserve the validation-session API-visible path as the stable default
+- land `validation-bundle-*` on `main` as an experimental Chromium-only companion lane rather than as the default operator path

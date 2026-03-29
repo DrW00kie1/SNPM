@@ -66,6 +66,12 @@ import {
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
+import {
+  runValidationBundleApply,
+  runValidationBundleLogin,
+  runValidationBundlePreview,
+  runValidationBundleVerify,
+} from "./commands/validation-bundle.mjs";
 
 const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain"]);
 export {
@@ -1161,6 +1167,52 @@ async function main() {
     if (!result.initialized || result.failures.length > 0) {
       process.exitCode = 1;
       return;
+    }
+    return;
+  }
+
+  if (command === "validation-bundle login" || command === "validation-bundle-login") {
+    const result = await runValidationBundleLogin();
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "validation-bundle preview" || command === "validation-bundle-preview") {
+    const result = await runValidationBundlePreview({
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "validation-bundle apply" || command === "validation-bundle-apply") {
+    const result = await runValidationBundleApply({
+      apply: options.apply === true,
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "validation-bundle verify" || command === "validation-bundle-verify") {
+    const result = await runValidationBundleVerify({
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) {
+      process.exitCode = 1;
     }
     return;
   }

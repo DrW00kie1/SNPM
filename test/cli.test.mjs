@@ -20,7 +20,7 @@ function runCli(args) {
   });
 }
 
-test("usage includes the conventional CLI synopsis and command families", () => {
+test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /node src\/cli\.mjs <command> \[options\]/);
   assert.match(help, /node src\/cli\.mjs --help/);
@@ -30,19 +30,46 @@ test("usage includes the conventional CLI synopsis and command families", () => 
   assert.match(help, /page <pull\|diff\|push\|edit>/);
   assert.match(help, /access-domain <create\|adopt\|pull\|diff\|push\|edit>/);
   assert.match(help, /validation-sessions <init\|verify>/);
+  assert.match(help, /validation-bundle <login\|preview\|apply\|verify>/);
   assert.match(help, /sync <check\|pull\|push>/);
   assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
   assert.match(help, /managed doc surface uses doc-\* commands/);
-  assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
+  assert.match(help, /Validation-session bundle verification remains the API-visible check/);
+  assert.match(help, /Validation-bundle automation launches Playwright Chromium directly/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
   assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
   assert.match(help, /support --explain/);
   assert.match(help, /--review-output <dir>/);
+  assert.match(help, /npm run doctor/);
+  assert.match(help, /npm run recommend/);
+  assert.match(help, /npm run page-pull/);
+  assert.match(help, /npm run page-diff/);
+  assert.match(help, /npm run page-push/);
+  assert.match(help, /npm run access-domain-create/);
+  assert.match(help, /npm run secret-record-create/);
+  assert.match(help, /npm run access-token-create/);
+  assert.match(help, /npm run runbook-create/);
+  assert.match(help, /npm run runbook-adopt/);
+  assert.match(help, /npm run build-record-create/);
+  assert.match(help, /npm run build-record-push/);
+  assert.match(help, /npm run validation-sessions-init/);
+  assert.match(help, /npm run validation-sessions-verify/);
+  assert.match(help, /validation-sessions-verify -- --project "Project Name".*\[--bundle\]/);
+  assert.match(help, /npm run validation-bundle-login/);
+  assert.match(help, /npm run validation-bundle-preview/);
+  assert.match(help, /npm run validation-bundle-apply/);
+  assert.match(help, /npm run validation-bundle-verify/);
+  assert.match(help, /npm run validation-session-create/);
+  assert.match(help, /npm run validation-session-push/);
+  assert.match(help, /npm run sync-check/);
+  assert.match(help, /npm run sync-pull/);
+  assert.match(help, /npm run sync-push/);
 });
 
 test("help registry resolves command aliases to the canonical command", () => {
   assert.equal(findCommandHelp("page-push")?.canonical, "page push");
   assert.equal(findCommandHelp("page push")?.canonical, "page push");
+  assert.equal(findCommandHelp("validation-bundle-verify")?.canonical, "validation-bundle verify");
   assert.equal(findCommandHelp("verify")?.canonical, "verify-project");
 });
 
@@ -57,6 +84,10 @@ test("resolveHelpRequest supports global, command, and unknown help targets", ()
   assert.deepEqual(resolveHelpRequest(["help", "page-push"]), {
     type: "command",
     command: "page push",
+  });
+  assert.deepEqual(resolveHelpRequest(["validation-bundle", "verify", "--help"]), {
+    type: "command",
+    command: "validation-bundle verify",
   });
   assert.deepEqual(resolveHelpRequest(["fake-command", "--help"]), {
     type: "unknown",
@@ -245,6 +276,28 @@ test("parseArgs supports validation-sessions verify with bundle mode", () => {
   assert.equal(parsed.options.bundle, true);
 });
 
+test("parseArgs supports validation-bundle commands", () => {
+  const loginParsed = parseArgs([
+    "validation-bundle",
+    "login",
+  ]);
+  const applyParsed = parseArgs([
+    "validation-bundle",
+    "apply",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+    "--apply",
+  ]);
+
+  assert.equal(loginParsed.command, "validation-bundle login");
+  assert.equal(applyParsed.command, "validation-bundle apply");
+  assert.equal(applyParsed.options.project, "SNPM");
+  assert.equal(applyParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
+  assert.equal(applyParsed.options.apply, true);
+});
+
 test("parseArgs supports sync subcommands", () => {
   const parsed = parseArgs([
     "sync",
@@ -319,6 +372,14 @@ test("cli help suppresses required option validation when extra flags are presen
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Command: verify-project/);
   assert.doesNotMatch(result.stdout, /"ok":/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli validation-bundle help prints command help and bypasses option validation", () => {
+  const result = runCli(["validation-bundle", "preview", "--help"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: validation-bundle preview/);
+  assert.match(result.stdout, /experimental Chromium-only UI lane/i);
   assert.equal(result.stderr, "");
 });
 

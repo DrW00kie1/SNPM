@@ -933,3 +933,29 @@ Status:
 - `node src/cli.mjs help`, `node src/cli.mjs --help`, and `node src/cli.mjs -h` now print global help and exit `0`
 - `node src/cli.mjs verify-project --help`, `node src/cli.mjs page push -h`, and `node src/cli.mjs help page-push` now print command-scoped help and exit `0`
 - unknown-command help requests such as `node src/cli.mjs fake-command --help` now print the error plus global help and exit `1`
+
+## 2026-04-22 - Main Consolidation And Promotion
+
+- [x] Re-read the repo state before mutating `main`.
+- [x] Stash the user-owned local instruction drafts:
+  - `AGENTS.md`
+  - `agents_ver2.md`
+- [x] Branch from fresh `origin/main` as `codex/main-consolidation`.
+- [x] Replay:
+  - `0c3de8a`
+  - `f17ff75`
+  - `a73ba56`
+- [in-progress] Integrate `55763e0` onto the current help-registry baseline:
+  - keep conventional `--help` / `-h`
+  - add `validation-bundle` to the shared help registry
+  - keep the Chromium UI lane explicit and experimental in repo docs
+- [pending] Replay `73f2780` on top of the integrated validation-bundle lane.
+- [pending] Run:
+  - `npm test`
+  - `node src/cli.mjs --help`
+  - `node src/cli.mjs validation-bundle preview --help`
+  - `node src/cli.mjs validation-bundle verify --help`
+  - `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `npm run verify-workspace-docs`
+- [pending] Fast-forward local `main`, push `origin/main`, restore the stashed instruction drafts, and then refresh the durable Notion surfaces named in the approved plan.

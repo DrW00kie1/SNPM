@@ -35,11 +35,11 @@ Stable baseline on `main`:
 - curated doc routing via `recommend --intent project-doc|template-doc|workspace-doc`
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
 
-Still outside the active supported path:
+Still outside the stable supported path:
 - build records
 - validation sessions
 - manifest sync
-- `validation-bundle`
+- experimental `validation-bundle`
 
 ## Tester Workflow
 
@@ -59,6 +59,7 @@ Read-heavy live checks:
 - `verify-project`
 - `doctor`
 - `recommend --intent ...`
+- `validation-bundle-preview` / `validation-bundle-verify` after `validation-bundle-login`, when you are explicitly testing the experimental UI lane
 - `page-pull` / `page-diff`
 - `runbook-pull` / `runbook-diff`
 - Access pull/diff commands
@@ -82,6 +83,8 @@ Example SNPM-only checks:
 ```powershell
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run validation-bundle-preview -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run validation-bundle-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run recommend -- --project "SNPM" --intent project-doc --path "Root > Overview" --project-token-env SNPM_NOTION_TOKEN
 npm run recommend -- --project "SNPM" --intent implementation-note --repo-path "notes/implementation.md"
 npm run doc-pull -- --project "SNPM" --path "Root" --output - --project-token-env SNPM_NOTION_TOKEN

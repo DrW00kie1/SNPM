@@ -22,11 +22,11 @@ Supported on `main`:
 - stdin/stdout ergonomics on the core band
 - EOF-stable managed-page round-trips
 
-Still outside the supported line:
+Still outside the stable supported line:
 - build records
 - validation sessions
 - manifest-backed sync
-- paused `validation-bundle`
+- experimental `validation-bundle`
 
 ## Why SNPM Beats A Generic Connector
 
@@ -69,20 +69,29 @@ Those surfaces continue to use their own command families.
 - reduce small-edit ceremony with editor-backed operational commands
 - make auth mode, target resolution, child-page preservation, and normalization behavior explicit before apply
 
-### Phase 1: Workflow Bundles
-- only after the operational loop stays low-friction under real use
+### Phase 1: Validation-Session UI Lane
+- keep `validation-sessions verify --bundle` as the stable API-visible check
+- keep `validation-bundle-*` narrow, Chromium-only, and explicitly experimental
+- use the UI lane only for the surrounding Notion bundle:
+  - `Active Sessions`
+  - `Quick Intake`
+  - `Validation Session`
+  - `New Validation Session`
+
+### Phase 2: Workflow Bundles
+- only after the operational loop and the experimental validation-session UI lane stay low-friction under real use
 - likely first bundles:
   - validation run lifecycle
   - release/build evidence capture
   - project secret management
   - runbook standardization
 
-### Phase 2: Harden Cross-Repo Consumption
+### Phase 3: Harden Cross-Repo Consumption
 - keep pinned install/use from other repos straightforward
 - keep the CLI as the policy layer for other Codex threads
 - add wrappers only after the CLI workflows are stable
 
-### Phase 3: Expand Only Proven Surfaces
+### Phase 4: Expand Only Proven Surfaces
 - add new surfaces only when repeated demand justifies them
 - avoid generic arbitrary workspace CRUD
 - keep the product boundary explicit
@@ -94,7 +103,7 @@ Keep these boundaries:
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
-- browser automation stays paused unless it becomes clearly necessary again
+- UI automation stays narrow, explicit, Chromium-only, and non-default
 
 ## Success Criteria
 

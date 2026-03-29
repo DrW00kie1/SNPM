@@ -79,6 +79,44 @@ export async function queryDataSource(dataSourceId, client, body = {}) {
   return results;
 }
 
+export async function listDataSourceTemplates(dataSourceId, client, { name } = {}) {
+  const templates = [];
+  let cursor = null;
+
+  do {
+    const query = new URLSearchParams();
+    query.set("page_size", "100");
+    if (name) {
+      query.set("name", name);
+    }
+    if (cursor) {
+      query.set("start_cursor", cursor);
+    }
+
+    const response = await client.request("GET", `data_sources/${dataSourceId}/templates?${query.toString()}`);
+    templates.push(...(response.results || response.templates || []));
+    cursor = response.has_more ? response.next_cursor : null;
+  } while (cursor);
+
+  return templates;
+}
+
+export async function createPageInDataSource(dataSourceId, {
+  properties = {},
+  template = null,
+  children = undefined,
+} = {}, client) {
+  return client.request("POST", "pages", {
+    parent: {
+      type: "data_source_id",
+      data_source_id: dataSourceId,
+    },
+    properties,
+    ...(template ? { template } : {}),
+    ...(children ? { children } : {}),
+  });
+}
+
 export function getPageTitleProperty(page, propertyName = "Name") {
   const property = page?.properties?.[propertyName];
   if (!property) {

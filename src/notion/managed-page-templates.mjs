@@ -3,6 +3,7 @@ import {
   normalizeEditableBodyMarkdown,
   normalizeMarkdownNewlines,
 } from "./page-markdown.mjs";
+import { buildValidationSessionTemplateCanonicalPath } from "../notion-ui/validation-bundle-spec.mjs";
 
 export const RUNBOOK_ICON = { type: "emoji", emoji: "📘" };
 export const BUILD_RECORD_ICON = { type: "emoji", emoji: "📦" };
@@ -96,6 +97,41 @@ export function buildDefaultValidationSessionBody(title) {
     "",
     "## Session Summary",
     `- Goal: Describe what "${title}" is validating and why this run exists.`,
+    "- Scope: Record the environment, account, or delivery lane in scope for this run.",
+    "- Tester context: Capture any device, build, or setup detail that changes how the checklist should be interpreted.",
+    "",
+    "## Checklist",
+    "- [ ] Confirm the exact validation target, environment, and account for this run.",
+    "- [ ] Execute the primary happy-path flow for this session.",
+    "- [ ] Re-check any recent fixes, high-risk areas, or release blockers tied to this run.",
+    "",
+    "## Findings",
+    "<callout>",
+    "Blocker / Issue / Note: Summarize the finding in one line.",
+    "</callout>",
+    "",
+    "<details>",
+    "<summary>Optional finding detail</summary>",
+    "",
+    "Area:",
+    "Expected:",
+    "Actual:",
+    "Evidence:",
+    "</details>",
+    "",
+    "## Follow-Up",
+    "- [ ] Capture the concrete next action, owner, and retest trigger.",
+    "- [ ] Link the follow-up issue, PR, or runbook update if one exists.",
+    "",
+  ].join("\n"));
+}
+
+export function buildDefaultValidationSessionTemplateBody() {
+  return ensureTrailingNewline([
+    "> Use this validation-session template to create one human validation run with a checkbox-first checklist and a structured triage log.",
+    "",
+    "## Session Summary",
+    "- Goal: Describe what this run is validating and why it exists.",
     "- Scope: Record the environment, account, or delivery lane in scope for this run.",
     "- Tester context: Capture any device, build, or setup detail that changes how the checklist should be interpreted.",
     "",
@@ -325,6 +361,20 @@ export function buildManagedValidationSessionMarkdown({ projectName, title, body
 
   return headerMarkdown + ensureTrailingNewline(
     bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultValidationSessionBody(title),
+  );
+}
+
+export function buildManagedValidationSessionTemplateMarkdown({ projectName, bodyMarkdown, timestamp }) {
+  const canonicalPath = buildValidationSessionTemplateCanonicalPath(projectName);
+  const headerMarkdown = buildManagedHeaderMarkdown({
+    purpose: "This page is the SNPM-managed validation-session template for this project.",
+    canonicalPath,
+    readThisWhen: "You are creating a new validation-session row from the blessed validation-session UI bundle.",
+    timestamp,
+  });
+
+  return headerMarkdown + ensureTrailingNewline(
+    bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultValidationSessionTemplateBody(),
   );
 }
 

@@ -41,7 +41,7 @@ Present in the repo but outside the current supported line:
 - build records
 - validation sessions
 - manifest-backed sync
-- paused `validation-bundle` Chromium UI automation
+- experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
 
@@ -173,6 +173,17 @@ npm run doc-push -- --path "Runbooks > Notion Workspace Workflow" --file notion-
 npm run verify-workspace-docs
 ```
 
+Experimental validation-session UI bundle lane on `main`:
+
+```bash
+npm run validation-bundle-login
+npm run validation-bundle-preview -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-bundle-apply -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run validation-bundle-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Use that Chromium-only lane only when the surrounding Notion UI bundle matters. The stable default remains `validation-sessions-verify --bundle` for the API-visible checks plus manual UI setup where needed.
+
 The file produced by `page-pull`, `runbook-pull`, Access pull commands, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
 - `--file -` reads markdown from stdin
@@ -233,7 +244,7 @@ Broader direction:
 - keep the narrow band usable and safe
 - expand doc adoption and verification before broader workflow bundles
 - return to workflow bundles only after the core band and curated docs are stable under real use
-- keep browser automation paused unless the narrow band proves it is worth resuming
+- keep Chromium UI automation narrow and explicitly experimental while the API-visible validation-session flow stays the default operator path
 
 The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
 

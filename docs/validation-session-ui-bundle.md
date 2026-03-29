@@ -6,12 +6,12 @@ SNPM now treats a complete validation-session workflow as four layers:
 - supported Notion UI bundle around that body
 - narrow verification plus operator guidance
 
-This document defines the blessed validation-session UI bundle and the paused experimental Chromium-only UI automation lane that was built to reconcile it.
+This document defines the blessed validation-session UI bundle and the experimental Chromium-only UI automation lane that can reconcile it.
 
 Current product boundary:
 - `validation-sessions verify --bundle` remains the supported API-visible check
-- `validation-bundle-*` remains preserved on `codex/validation-bundle` as paused experimental work
-- the browser lane is not the active near-term publication target
+- `validation-bundle-*` is available on `main` as an experimental Chromium-only reconciliation lane
+- the default operator path is still the API-visible workflow plus explicit manual UI steps when the browser lane is unnecessary
 
 ## Blessed Bundle
 
@@ -37,7 +37,7 @@ npm run validation-sessions-verify -- --project "Project Name" --project-token-e
 
 That command verifies only API-visible rules and still returns explicit manual checks because the public Notion API cannot manage the whole surrounding UI bundle.
 
-The UI automation lane is separate and currently paused experimental work:
+The UI automation lane is separate and experimental:
 
 ```powershell
 npm run validation-bundle-login
@@ -53,7 +53,7 @@ Behavior:
 - `validation-bundle-apply` stays preview-only until `--apply` is present
 - `validation-bundle-verify` combines the API-visible bundle check with UI bundle inspection
 
-Do not treat that lane as the default operator path today. It is preserved branch work, not the core supported product line.
+Do not treat that lane as the default operator path. Use it only when the surrounding Notion UI bundle matters and the stable API-visible checks are already healthy.
 
 ## Browser Boundary
 

@@ -232,9 +232,9 @@ SNPM also has a separate Chromium-only UI automation lane for the blessed surrou
 
 Current status:
 - `validation-sessions verify --bundle` remains the supported API-visible check
-- `validation-bundle-*` is preserved as paused experimental branch work, not the active core product line
+- `validation-bundle-*` is available on `main` as an experimental Chromium-only lane for the surrounding UI bundle
 
-Use the UI lane only when you are explicitly testing the paused experimental browser path:
+Use the UI lane only when you are explicitly testing or repairing the surrounding Notion UI bundle:
 
 ```powershell
 npm run validation-bundle-login
@@ -257,7 +257,7 @@ npm run validation-sessions-verify -- --project "Project Name" --project-token-e
 - it stores browser state outside the repo
 - it still requires one initial interactive Chromium login seed through `validation-bundle-login`
 
-That lane is not the active near-term publication target while SNPM is focused on the narrower core band.
+That lane is not the default operator path. Keep the API-visible validation-session surface plus manual UI setup as the stable baseline, and use the Chromium lane only when the richer UI bundle matters.
 
 Rows created from the `Validation Session` template inherit the managed contract immediately. The template uses the canonical placeholder path `... > <Session Title>` until the first SNPM pull/push normalizes the header to the exact row title.
 

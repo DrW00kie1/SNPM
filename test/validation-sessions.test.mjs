@@ -877,6 +877,92 @@ test("verifyValidationSessionsSurface bundle mode allows Issue URL and reports m
   assert.equal(result.manualChecks.length, 4);
 });
 
+test("verifyValidationSessionsSurface accepts template-managed canonical placeholders", async () => {
+  const childrenMap = makeBaseChildren();
+  childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
+  const fixture = makeValidationFixture({
+    childrenMap,
+    databases: {
+      "validation-db": {
+        id: "validation-db",
+        title: [{ plain_text: "Validation Sessions" }],
+        icon: { type: "emoji", emoji: "🧪" },
+        data_sources: [{ id: "validation-ds" }],
+      },
+    },
+    dataSources: {
+      "validation-ds": {
+        id: "validation-ds",
+        properties: {
+          Name: { type: "title" },
+          Platform: { type: "select", select: { options: [{ name: "Web" }, { name: "Android" }, { name: "iPhone" }, { name: "Cross-Platform" }] } },
+          "Session State": { type: "select", select: { options: [{ name: "Planned" }, { name: "In Progress" }, { name: "Passed" }, { name: "Failed" }, { name: "Blocked" }] } },
+          Tester: { type: "rich_text" },
+          "Build Label": { type: "rich_text" },
+          "Runbook URL": { type: "url" },
+          "Started On": { type: "date" },
+          "Completed On": { type: "date" },
+        },
+      },
+    },
+    rowsByDataSource: {
+      "validation-ds": [/* template-created row; exact title becomes known after creation, but template canonical still uses the placeholder path */
+        {
+          id: "session-row",
+          properties: {
+            Name: { title: [{ plain_text: "Regression Pass 4" }] },
+            Platform: { type: "select", select: { name: "Web" } },
+            "Session State": { type: "select", select: { name: "Planned" } },
+            Tester: { type: "rich_text", rich_text: [] },
+            "Build Label": { type: "rich_text", rich_text: [] },
+            "Runbook URL": { type: "url", url: null },
+            "Started On": { type: "date", date: null },
+            "Completed On": { type: "date", date: null },
+          },
+        },
+      ],
+    },
+    markdownByPageId: {
+      "session-row": [
+        "Purpose: This page is the SNPM-managed validation-session template for this project.",
+        "Canonical Source: Projects \\> SNPM \\> Ops \\> Validation \\> Validation Sessions \\> <Session Title>",
+        "Read This When: You are creating a new validation-session row from the blessed validation-session UI bundle.",
+        "Last Updated: 03-29-2026 12:55:00",
+        "Sensitive: no",
+        "---",
+        "",
+        "## Session Summary",
+        "- Goal: Describe what this run is validating and why it exists.",
+        "",
+        "## Checklist",
+        "- [ ] Confirm the exact validation target, environment, and account for this run.",
+        "",
+        "## Findings",
+        "<callout>",
+        "Blocker / Issue / Note: Summarize the finding in one line.",
+        "</callout>",
+        "",
+        "## Follow-Up",
+        "- [ ] Capture the concrete next action, owner, and retest trigger.",
+        "",
+      ].join("\n"),
+    },
+    pageMeta: {
+      "session-row": { icon: { type: "emoji", emoji: "🧾" } },
+    },
+  });
+
+  const result = await verifyValidationSessionsSurface({
+    config: baseConfig(),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.initialized, true);
+  assert.deepEqual(result.failures, []);
+});
+
 test("verifyValidationSessionsSurface bundle mode fails on unsupported body blocks and wrong Issue URL type", async () => {
   const childrenMap = makeBaseChildren();
   childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);

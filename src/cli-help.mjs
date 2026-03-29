@@ -1109,7 +1109,94 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --bundle',
         ],
         notes: [
-          "Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
+          "Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "validation-bundle",
+    subcommands: [
+      {
+        name: "login",
+        summary: "Seed or refresh the local Chromium Notion session used by the validation-bundle lane.",
+        usageLines: [
+          "node src/cli.mjs validation-bundle login",
+        ],
+        examples: [
+          "node src/cli.mjs validation-bundle login",
+          "npm run validation-bundle-login",
+        ],
+        notes: [
+          "This opens a headed Playwright Chromium window and stores the local session state outside the repo.",
+          "Use this only when you are explicitly testing or repairing the experimental validation-bundle UI lane.",
+        ],
+      },
+      {
+        name: "preview",
+        summary: "Inspect the experimental validation-session UI bundle without mutating the workspace.",
+        usageLines: [
+          'node src/cli.mjs validation-bundle preview --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-bundle preview --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+          'npm run validation-bundle-preview -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+        ],
+        notes: [
+          "Preview requires a seeded Chromium session from validation-bundle login.",
+          "This lane is experimental and complements, but does not replace, validation-sessions verify --bundle.",
+        ],
+      },
+      {
+        name: "apply",
+        summary: "Preview or apply experimental validation-session UI bundle reconciliation.",
+        usageLines: [
+          'node src/cli.mjs validation-bundle apply --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-bundle apply --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+          'npm run validation-bundle-apply -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --apply',
+        ],
+        notes: [
+          "Without --apply this stays preview-only.",
+          "Use this only when the surrounding Notion UI bundle matters and the stable API-visible lane is already healthy.",
+        ],
+      },
+      {
+        name: "verify",
+        summary: "Verify the experimental Chromium-only validation-session UI bundle lane.",
+        usageLines: [
+          'node src/cli.mjs validation-bundle verify --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-bundle verify --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+          'npm run validation-bundle-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+        ],
+        notes: [
+          "Verify requires a seeded Chromium session from validation-bundle login.",
+          "This is the experimental UI-layer companion to validation-sessions verify --bundle.",
         ],
       },
     ],
@@ -1329,6 +1416,7 @@ const GLOBAL_COMMAND_GROUPS = [
     title: "Validation And Sync:",
     entries: [
       ["validation-sessions <init|verify>", "Initialize or verify the Validation Sessions surface."],
+      ["validation-bundle <login|preview|apply|verify>", "Experimental Chromium-only UI bundle commands."],
       ["validation-session <create|adopt|pull|diff|push>", "Managed validation-session reports."],
       ["sync <check|pull|push>", "Manifest-backed validation-session sync."],
     ],
@@ -1431,8 +1519,9 @@ export function usage() {
     "  Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
-    "  Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
+    "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
     "  Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+    "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "  For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
     "  When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",

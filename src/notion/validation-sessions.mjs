@@ -24,6 +24,11 @@ import {
   buildManagedValidationSessionMarkdown,
 } from "./managed-page-templates.mjs";
 import {
+  VALIDATION_BUNDLE_EXTRA_URL_PROPERTY,
+  buildValidationSessionBundleMetadata,
+  isValidationSessionCanonicalSourceAccepted,
+} from "../notion-ui/validation-bundle-spec.mjs";
+import {
   canonicalizeManagedBodyMarkdown,
   choosePageSyncAuth,
   diffMarkdownText,
@@ -48,7 +53,7 @@ export const VALIDATION_SESSION_FIELD_ORDER = [
   "Started On",
   "Completed On",
 ];
-export const VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY = "Issue URL";
+export const VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY = VALIDATION_BUNDLE_EXTRA_URL_PROPERTY;
 
 const VALIDATION_SESSION_REQUIRED_SECTION_HEADINGS = [
   "## Session Summary",
@@ -56,49 +61,6 @@ const VALIDATION_SESSION_REQUIRED_SECTION_HEADINGS = [
   "## Findings",
   "## Follow-Up",
 ];
-
-const VALIDATION_SESSION_MANUAL_BUNDLE_CHECKS = [
-  {
-    id: "active-sessions-view",
-    title: "Active Sessions view",
-    status: "manual-required",
-    reason: "View management remains a Notion UI step outside the public API.",
-  },
-  {
-    id: "quick-intake-form",
-    title: "Quick Intake form",
-    status: "manual-required",
-    reason: "Form setup and wiring remain UI-managed in Notion.",
-  },
-  {
-    id: "validation-session-template",
-    title: "Validation Session template",
-    status: "manual-required",
-    reason: "Template selection and template-body auditing remain a manual operator check in this slice.",
-  },
-  {
-    id: "button-wiring",
-    title: "Manual button wiring",
-    status: "manual-required",
-    reason: "Button behavior around the database remains a manual UI step and must stay outside the synced page body.",
-  },
-];
-
-function buildValidationSessionBundleMetadata() {
-  return {
-    bundle: {
-      enabled: true,
-      primaryView: "Active Sessions",
-      backupIntakeForm: "Quick Intake",
-      databaseTemplate: "Validation Session",
-      safeExtraProperties: [{
-        name: VALIDATION_SESSION_BUNDLE_EXTRA_URL_PROPERTY,
-        type: "url",
-      }],
-    },
-    manualChecks: VALIDATION_SESSION_MANUAL_BUNDLE_CHECKS,
-  };
-}
 
 const VALIDATION_SESSION_SELECT_OPTIONS = {
   Platform: [
@@ -447,7 +409,7 @@ async function collectManagedValidationSessionRowFailures(rows, projectName, cli
     }
 
     const actualCanonical = extractManagedCanonicalSource(managedParts.headerMarkdown);
-    if (actualCanonical !== rowPath) {
+    if (!isValidationSessionCanonicalSourceAccepted(actualCanonical, projectName, rowTitle)) {
       failures.push(`Canonical Source mismatch on ${rowPath}: expected "${rowPath}", got "${actualCanonical || "missing"}"`);
     }
   }
