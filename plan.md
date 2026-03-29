@@ -92,12 +92,12 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 ## GitHub Testing Loop Rollout
 
 - [x] Record the current GitHub repo state, tester constraints, and light-structure rollout direction in `research.md`
-- [ ] Add a short tester workflow doc for direct-clone testing, trusted live validation, issue filing, and the maintainer fix loop
-- [ ] Add GitHub issue templates plus template config while keeping blank issues enabled
-- [ ] Update `README.md` so testers can find the GitHub testing workflow and the current tagged snapshot
-- [ ] Run repo-level validation again before publishing the baseline
-- [ ] Commit the current validated repo state to `main`
-- [ ] Push the baseline to GitHub
-- [ ] Create the first tagged testing snapshot for the public test round
-- [ ] Seed the lightweight GitHub label set for bug intake and triage
-- [ ] Confirm the tag, labels, and issue templates are visible on GitHub
+- [x] Add a short tester workflow doc for direct-clone testing, trusted live validation, issue filing, and the maintainer fix loop
+- [x] Add GitHub issue templates plus template config while keeping blank issues enabled
+- [x] Update `README.md` so testers can find the GitHub testing workflow and the current tagged snapshot
+- [x] Run repo-level validation again before publishing the baseline
+- [x] Commit the current validated repo state to `main`
+- [x] Push the baseline to GitHub
+- [x] Create the first tagged testing snapshot for the public test round
+- [x] Seed the lightweight GitHub label set for bug intake and triage
+- [x] Confirm the tag, labels, and issue templates are visible on GitHub

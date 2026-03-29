@@ -290,3 +290,25 @@ Chosen rollout direction:
 - create a tagged testing snapshot so issue reports can name an exact tested version
 - add light GitHub intake structure only: issue templates, a few labels, and a short tester workflow doc
 - keep blank issues available for edge cases instead of forcing a heavy process
+
+## GitHub Testing Loop Rollout Result
+
+GitHub rollout completed on `2026-03-28`:
+- the current validated repo state was committed on `main` as `ad8d72b` with message `Prepare SNPM sprint 1 testing baseline`
+- the baseline was pushed to `origin/main`
+- the first tagged testing snapshot was created and pushed as `sprint-1-foundation`
+- the repo now contains GitHub issue forms for `bug report` and `testing finding`, plus template config that keeps blank issues enabled
+- the repo now contains `docs/github-testing-loop.md`, which documents the default direct-clone tester path, trusted live-test guidance, issue requirements, and the maintainer fix loop
+- `README.md` now points testers to the GitHub testing workflow and the current snapshot tag
+
+GitHub-side intake setup now present:
+- labels created: `bug`, `testing-feedback`, `repo-only`, `live-workspace`, `needs-repro`, `regression`
+- issue templates are present on `main` under `.github/ISSUE_TEMPLATE/`
+- the repo remains private and issues remain enabled
+
+Verification result:
+- `npm test` passed before publication
+- `npm run verify-project -- --name "SNPM"` passed before publication
+- remote tag lookup confirms `refs/tags/sprint-1-foundation` exists on `origin`
+- GitHub API confirms the issue-template files are present on `main`
+- GitHub label listing confirms the new intake labels exist alongside the default GitHub labels
