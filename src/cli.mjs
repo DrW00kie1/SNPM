@@ -27,6 +27,7 @@ import {
   runValidationSessionsVerify,
 } from "./commands/validation-session.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
+import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
 const BOOLEAN_FLAGS = new Set(["apply"]);
 
@@ -54,12 +55,16 @@ export function usage() {
     '  npm run validation-session-pull -- --project "Project Name" --title "Session Title" --output validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run validation-session-diff -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run validation-session-push -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run sync-check -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run sync-pull -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run sync-push -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     "",
     "Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
     "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
     "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
+    "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
     "",
     "Optional flags:",
     "  --workspace infrastructure-hq",
@@ -132,6 +137,33 @@ function printDiff(diff) {
   }
 
   console.log("No body changes.");
+}
+
+function printSyncEntryResults(entries) {
+  let printedAny = false;
+
+  for (const entry of entries) {
+    if (entry.failure) {
+      console.log(`[${entry.kind}] ${entry.title} (${entry.file})`);
+      console.log(`Error: ${entry.failure}`);
+      console.log("");
+      printedAny = true;
+      continue;
+    }
+
+    if (!entry.diff) {
+      continue;
+    }
+
+    console.log(`[${entry.kind}] ${entry.title} (${entry.file})`);
+    console.log(entry.diff.trimEnd());
+    console.log("");
+    printedAny = true;
+  }
+
+  if (!printedAny) {
+    console.log("No sync changes.");
+  }
 }
 
 async function main() {
@@ -571,6 +603,62 @@ async function main() {
       pageId: result.pageId,
       timestamp: result.timestamp,
     }, null, 2));
+    return;
+  }
+
+  if (command === "sync check" || command === "sync-check") {
+    const result = await runSyncCheck({
+      manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
+      projectTokenEnv: options["project-token-env"],
+      workspaceOverride: options.workspace,
+    });
+    printSyncEntryResults(result.entries);
+    console.log(JSON.stringify({
+      ok: result.failures.length === 0 && result.driftCount === 0,
+      ...result,
+    }, null, 2));
+    if (result.failures.length > 0 || result.driftCount > 0) {
+      process.exitCode = 1;
+      return;
+    }
+    return;
+  }
+
+  if (command === "sync pull" || command === "sync-pull") {
+    const result = await runSyncPull({
+      apply: options.apply === true,
+      manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
+      projectTokenEnv: options["project-token-env"],
+      workspaceOverride: options.workspace,
+    });
+    printSyncEntryResults(result.entries);
+    console.log(JSON.stringify({
+      ok: result.failures.length === 0,
+      ...result,
+    }, null, 2));
+    if (result.failures.length > 0) {
+      process.exitCode = 1;
+      return;
+    }
+    return;
+  }
+
+  if (command === "sync push" || command === "sync-push") {
+    const result = await runSyncPush({
+      apply: options.apply === true,
+      manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
+      projectTokenEnv: options["project-token-env"],
+      workspaceOverride: options.workspace,
+    });
+    printSyncEntryResults(result.entries);
+    console.log(JSON.stringify({
+      ok: result.failures.length === 0,
+      ...result,
+    }, null, 2));
+    if (result.failures.length > 0) {
+      process.exitCode = 1;
+      return;
+    }
     return;
   }
 

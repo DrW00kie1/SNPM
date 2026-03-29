@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { parseArgs, usage } from "../src/cli.mjs";
 
-test("usage includes planning sync plus runbook, build-record, and validation-session commands", () => {
+test("usage includes planning sync plus runbook, build-record, validation-session, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
@@ -16,6 +16,9 @@ test("usage includes planning sync plus runbook, build-record, and validation-se
   assert.match(help, /npm run validation-sessions-verify/);
   assert.match(help, /npm run validation-session-create/);
   assert.match(help, /npm run validation-session-push/);
+  assert.match(help, /npm run sync-check/);
+  assert.match(help, /npm run sync-pull/);
+  assert.match(help, /npm run sync-push/);
 });
 
 test("parseArgs supports page subcommands and boolean apply flags", () => {
@@ -106,4 +109,21 @@ test("parseArgs supports validation-sessions verify", () => {
   assert.equal(parsed.command, "validation-sessions verify");
   assert.equal(parsed.options.project, "Tall Man Training");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
+});
+
+test("parseArgs supports sync subcommands", () => {
+  const parsed = parseArgs([
+    "sync",
+    "push",
+    "--manifest",
+    "C:\\tall-man-training\\snpm.sync.json",
+    "--project-token-env",
+    "TALLMAN_NOTION_TOKEN",
+    "--apply",
+  ]);
+
+  assert.equal(parsed.command, "sync push");
+  assert.equal(parsed.options.manifest, "C:\\tall-man-training\\snpm.sync.json");
+  assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
+  assert.equal(parsed.options.apply, true);
 });

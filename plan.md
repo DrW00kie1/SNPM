@@ -172,3 +172,18 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Add automated tests for the new verifier and the new `nextStep` fields
 - [x] Run live validation on `Projects > SNPM` and `Projects > Tall Man Training` to prove the narrow verifier distinguishes healthy validation-session adoption from unrelated broad project drift
 - [x] Confirm the new tag exists remotely and the tester docs point to it
+
+## Manifest-Backed Validation-Session Artifact Sync
+
+- [x] Record the validation-session-only manifest-sync rationale and Tall Man Training consumer signal in `research.md`
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects validation-session artifact sync as the next milestone
+- [x] Add repo-local manifest support with `version`, `workspace`, `project`, and validation-session `entries`
+- [x] Add `sync check --manifest <path> [--project-token-env TOKEN_ENV]`
+- [x] Add `sync pull --manifest <path> [--project-token-env TOKEN_ENV] [--apply]`
+- [x] Add `sync push --manifest <path> [--project-token-env TOKEN_ENV] [--apply]`
+- [x] Add npm wrappers for `sync-check`, `sync-pull`, and `sync-push`
+- [x] Keep sync limited to existing managed validation-session rows; do not implicitly initialize, create, or adopt
+- [x] Add automated tests for manifest parsing, duplicate validation, relative path resolution, preview/apply behavior, and missing-row / unmanaged-row / missing-surface failures
+- [x] Add a focused sync doc for the manifest workflow and update README, roadmap, and GitHub testing docs after implementation
+- [x] Dogfood the manifest workflow in `C:\\tall-man-training` by adding `snpm.sync.json` and updating the Tall Man Training validation-session docs to use it
+- [x] Run live sync validation on `Tall Man Training` plus cross-repo execution from `C:\\tall-man-training`

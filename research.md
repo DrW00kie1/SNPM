@@ -591,3 +591,67 @@ Live validation result:
 Publication result:
 - the current validation-session slice is now the baseline to publish to `origin/main`
 - the tester-facing snapshot name for this milestone is `sprint-3-validation-sessions`
+
+## Manifest-Backed Validation-Session Artifact Sync Re-scope
+
+The next credible milestone after issue `#4` is not broader surface expansion. It is reducing repo workflow friction for the validation-session surface that already exists.
+
+What the current repo and consumer state show:
+- SNPM now has stable per-record commands for `validation-session create`, `pull`, `diff`, `push`, and the narrow `validation-sessions verify` check
+- `C:\\tall-man-training` already treats `ops/validation-sessions/` as repo-side sync artifacts rather than the primary reporting surface
+- the Tall Man Training docs explicitly keep runbooks, build history, current status, and active planning primary in Notion
+- that means the first manifest-backed sync slice should not try to batch every managed surface SNPM can touch
+
+Consumer-repo signal from `C:\\tall-man-training`:
+- `docs/dev-guide.md` explicitly calls out `ops/validation-sessions/` as the repo-owned sync-artifact surface
+- `ops/validation-sessions/README.md` already documents pull / diff / push behavior for managed session files
+- there is already a real managed artifact file at `ops/validation-sessions/iphone-testflight-0.5.1-2-sean-2026-03-28.md`
+- there is no equivalent repo-side artifact inventory for runbooks or build records; those remain deliberately Notion-first
+
+Chosen milestone direction:
+- add a small repo-local manifest and batch sync commands for validation-session files only
+- make `C:\\tall-man-training` the first dogfood consumer
+- keep this as repo-backed artifact sync, not a general Notion multi-surface sync layer
+
+Chosen v1 sync shape:
+- repo manifest file: `snpm.sync.json`
+- manifest fields: `version`, `workspace`, `project`, and `entries`
+- entry shape: `{ kind, title, file }`
+- `kind` is limited to `validation-session`
+- `title` is the Notion row title under `Ops > Validation > Validation Sessions`
+- `file` is relative to the manifest directory
+
+Chosen behavioral boundaries:
+- `sync check` compares local files to existing managed validation-session rows and reports drift per entry
+- `sync pull` previews or writes local files from Notion, but it does not initialize or adopt anything
+- `sync push` previews or writes Notion rows from local files, but it does not initialize or adopt anything
+- missing surface, missing row, or unmanaged row are operator errors with explicit guidance to use `validation-sessions init`, `validation-session create`, or `validation-session adopt`
+- project token remains the documented normal path, with workspace-token fallback still constrained to the same project-owned validation-session surface
+
+## Manifest-Backed Validation-Session Artifact Sync Result
+
+The validation-session artifact-sync milestone was implemented and live-validated on `2026-03-29`.
+
+Implementation result:
+- added `snpm.sync.json` parsing with strict validation for `version`, `workspace`, `project`, and validation-session `entries`
+- added `sync check`, `sync pull`, and `sync push` as validation-session-only batch commands
+- kept sync scoped to existing SNPM-managed validation-session rows; no implicit surface initialization, row creation, or unmanaged-row adoption
+- reused the existing validation-session pull/diff/push services rather than introducing a second content format or target model
+- added a focused repo doc for manifest-backed validation-session sync plus consumer-repo docs and a Tall Man Training manifest
+
+Repo-level validation result:
+- `npm test` passed with `73` tests after adding sync-manifest, sync-service, and CLI coverage
+- `node src/cli.mjs help` prints the new sync command surface and manifest-scope constraints
+
+Live dogfood result on `C:\\tall-man-training`:
+- `validation-sessions-verify --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN` passed before and after sync testing
+- `sync-check` passed against `C:\\tall-man-training\\snpm.sync.json` before mutation
+- `sync-pull` preview and `sync-pull --apply` both succeeded from the Tall Man Training repo context while using `C:\\SNPM` as the control checkout
+- a temporary local edit to `ops/validation-sessions/iphone-testflight-0.5.1-2-sean-2026-03-28.md` produced the expected `sync-push` preview and `sync-push --apply` mutation against the live validation-session row
+- the temporary change was then removed locally and pushed back to Notion successfully
+- the final local artifact required one more `sync-pull --apply` normalization pass because Notion's stored markdown shape preserves `<empty-block/>` without a final newline
+- final `sync-check` returned `No sync changes.`
+
+Important live-workflow nuance:
+- repo-backed validation-session artifacts can show drift that is only end-of-file normalization on `<empty-block/>`
+- the safe resolution is `sync-pull --apply`, not manual cleanup of the stored artifact shape

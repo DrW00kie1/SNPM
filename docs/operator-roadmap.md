@@ -14,11 +14,12 @@ Today SNPM is implemented and validated for:
 - first-class `build-record` create/pull/diff/push commands for project-owned build records under `Ops > Builds`
 - first-class `validation-sessions init` plus `validation-session` create/adopt/pull/diff/push commands for human validation-session records under `Ops > Validation > Validation Sessions`
 - `validation-sessions verify` as a narrow read-only verifier for existing-project adoption of the managed validation-session surface
+- manifest-backed `sync check`, `sync pull`, and `sync push` for repo-backed validation-session files declared in `snpm.sync.json`
 - optional project-token scope verification
 - cross-repo usage through a known local control repo
 
 Today SNPM does **not** yet ship:
-- manifest-backed multi-page sync
+- manifest-backed multi-surface sync beyond validation-session artifacts
 - broad page pull/push across arbitrary non-approved targets
 - scaffold commands for non-project surfaces
 - broad workspace verification beyond the current project bootstrap contract
@@ -89,6 +90,7 @@ SNPM now has three shipped post-bootstrap slices:
 - planning-page body sync for the four approved `Planning` pages
 - first-class project-token-safe day-to-day operations for `Runbooks` and `Ops > Builds`
 - first-class project-token-safe human validation-session reporting under `Ops > Validation > Validation Sessions`
+- repo-backed artifact sync for validation-session files through `snpm.sync.json`
 
 Why these came first:
 - it fits the current page-tree-heavy workspace model
@@ -124,6 +126,9 @@ Current project-token day-to-day commands:
 - `snpm validation-session pull`
 - `snpm validation-session diff`
 - `snpm validation-session push`
+- `snpm sync check`
+- `snpm sync pull`
+- `snpm sync push`
 
 Current project-token day-to-day constraints:
 - project-owned surfaces only: `Runbooks`, `Ops > Builds`, and `Ops > Validation > Validation Sessions`
@@ -135,10 +140,12 @@ Current project-token day-to-day constraints:
 - `validation-session adopt` is the supported path for bringing legacy headerless session pages under SNPM management
 - pull / diff / push operate on SNPM-managed pages only
 - mutating commands stay preview-first and require `--apply`
+- manifest sync is intentionally limited to repo-backed validation-session files
+- manifest sync operates only on existing SNPM-managed validation-session rows listed in `snpm.sync.json`
+- manifest sync does not implicitly initialize the surface, create rows, or adopt unmanaged rows
 
 Still planned after these slices:
-- `snpm sync check`
-- `snpm sync push`
+- broader manifest-backed sync beyond validation-session artifacts
 - broader workspace verification
 - additional approved project-owned operational surfaces
 
@@ -160,6 +167,8 @@ Chosen model:
 - call the SNPM CLI from repo scripts or `npm exec`
 - keep only a small repo-local manifest that maps approved local markdown files to approved Notion targets
 - do not vendor SNPM workspace ids, starter-tree rules, or policy logic into product repos
+
+Current manifest-backed repo consumption is validation-session-only. Broader manifest sync remains a later expansion.
 
 In this model:
 - the product repo owns code and durable repo docs
