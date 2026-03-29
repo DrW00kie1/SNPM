@@ -12,7 +12,7 @@ Current testing snapshot:
 - `sprint-3-validation-sessions`
 
 `main` remains the integration branch for follow-on work after the current snapshot.
-Manifest-backed validation-session sync, the checkbox-first validation-session workflow, and the triage-first findings / follow-up redesign landed after that published tag. If you test `sync-check`, `sync-pull`, `sync-push`, or the richer validation-session body contract, say explicitly that you were on an unpublished local checkout unless a newer published tag exists.
+Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag but are on published `main`. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. If you test any of those newer slices, say explicitly whether you were on published `main`, `codex/development`, or an unpublished local checkout.
 
 ## Tester Workflow
 
@@ -38,11 +38,14 @@ Trusted live-tester validation:
 - preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
 - `runbook-pull`, `runbook-diff`, `build-record-pull`, `build-record-diff`, `validation-session-pull`, and `validation-session-diff` are also allowed for trusted testers on SNPM-managed project pages
 - `sync-check` and preview-only `sync-pull` are also allowed for trusted testers on repo-backed validation-session artifacts because they do not mutate Notion
+- `access-domain-pull`, `access-domain-diff`, `secret-record-pull`, `secret-record-diff`, `access-token-pull`, and `access-token-diff` are only relevant when a tester is explicitly on `codex/development`
+- preview-only `access-domain-create`, `access-domain-adopt`, `access-domain-push`, `secret-record-create`, `secret-record-adopt`, `secret-record-push`, and `access-token-create`, `access-token-adopt`, `access-token-push` are likewise `codex/development`-only until that slice is published
 - preview-only `runbook-create`, `runbook-adopt`, `runbook-push`, `build-record-create`, `build-record-push`, `validation-sessions-init`, `validation-session-create`, `validation-session-adopt`, and `validation-session-push` are allowed for trusted testers because they show the exact change without mutating the workspace
-- `create-project`, `page-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, `runbook-push --apply`, `build-record-create --apply`, `build-record-push --apply`, `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, `validation-session-push --apply`, `sync-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
+- `create-project`, `page-push --apply`, `access-domain-create --apply`, `access-domain-adopt --apply`, `access-domain-push --apply`, `secret-record-create --apply`, `secret-record-adopt --apply`, `secret-record-push --apply`, `access-token-create --apply`, `access-token-adopt --apply`, `access-token-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, `runbook-push --apply`, `build-record-create --apply`, `build-record-push --apply`, `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, `validation-session-push --apply`, `sync-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
 - use workspace and project tokens only if you already have approved access
 - use the file produced by `page-pull` as the editing base for `page-push`; Notion may re-escape markdown-sensitive characters such as `>` on read-back
 - use the file produced by `runbook-pull` or `build-record-pull` as the editing base for follow-on push commands for the same reason
+- use the file produced by `access-domain-pull`, `secret-record-pull`, or `access-token-pull` as the editing base for follow-on Access pushes; the pulled file is the canonical editable shape for those managed pages
 - use the file produced by `validation-session-pull` as the editing base for follow-on validation-session pushes; the local file is the canonical editable shape because it includes normalized YAML front matter plus the managed body
 - when testing validation-session workflow changes, report whether you changed checkbox task-list state, callout/toggle triage content, follow-up to-dos, or a mix of them; that makes markdown round-trip regressions much easier to classify
 
@@ -95,6 +98,7 @@ When a finding lands:
 - `main` remains the integration branch.
 - Tags are the reproducible testing contract.
 - `page push --apply` should always include the affected project and page path in the issue if it was part of testing.
+- `access-domain`, `secret-record`, and `access-token` mutations should always include the affected project, domain, and record title in the issue if they were part of testing.
 - `runbook` and `build-record` mutations should always include the affected project and target title in the issue if they were part of testing.
 - `validation-session` mutations should always include the affected project and target title in the issue if they were part of testing.
 - `sync` issues should always include the manifest path and whether the failure was `sync-check`, `sync-pull`, or `sync-push`.

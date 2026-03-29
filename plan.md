@@ -228,3 +228,87 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Update validation-session docs, sync docs, roadmap docs, and tester docs with the primitive ranking plus canonical-vs-UI rules.
 - [x] Run automated tests covering the new body contract and round-tripping of callout/toggle/to-do markdown.
 - [x] Live-validate the new triage body on SNPM-managed validation-session fixtures with pull / diff / push / verify.
+
+## 2026-03-29 — First-Class Project Access Surfaces
+
+- [x] Record the issue `#7` analysis, live Access-template findings, and chosen scope in `research.md`.
+- [x] Add the Access-surface milestone checklist to `plan.md`.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects Access surfaces as the next milestone.
+- [x] Comment on GitHub issue `#7` with the current manual answer for Contour plus the accepted managed-surface scope.
+- [x] Add approved target resolution for:
+  - `Projects > <Project> > Access`
+  - `Projects > <Project> > Access > <Domain>`
+  - `Projects > <Project> > Access > <Domain> > <Record>`
+- [x] Add managed templates and icons for:
+  - Access domain pages
+  - secret record pages
+  - access token record pages
+- [x] Add first-class `access-domain create`, `access-domain adopt`, `access-domain pull`, `access-domain diff`, and `access-domain push`.
+- [x] Add first-class `secret-record create`, `secret-record adopt`, `secret-record pull`, `secret-record diff`, and `secret-record push`.
+- [x] Add first-class `access-token create`, `access-token adopt`, `access-token pull`, `access-token diff`, and `access-token push`.
+- [x] Keep Access mutations confined to `Projects > <Project> > Access` and explicitly out of `Access Index`.
+- [x] Rework verification so dynamic descendants under `Access` are allowed while managed Access descendants are recursively validated without weakening unrelated drift checks.
+- [x] Add automated tests for Access target resolution, managed templates, create/adopt flows, pull/diff/push round-tripping, missing-domain failures, and verification behavior.
+- [x] Add a dedicated repo doc for project Access workflows with:
+  - the current manual template-based workflow
+  - the new managed SNPM workflow
+  - the exact Contour-style path `Access > App & Backend > GEMINI_API_KEY`
+- [x] Update README and roadmap/tester docs so Access workflow discovery is easy for Codex threads.
+- [x] Live-validate the feature on `Projects > SNPM > Access` by:
+  - creating or adopting `App & Backend`
+  - creating a managed secret fixture under it
+  - creating a managed token fixture under it
+  - round-tripping both record types with `SNPM_NOTION_TOKEN`
+  - rerunning `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] After code validation, update the live template library by adding `Secret Record Template` under `Templates > Misc Templates > Project Subpage Templates`.
+- [x] After code validation, update `Templates > Project Templates > Access` so it points to the real available template set and no longer references a missing secret template.
+
+## 2026-03-29 — Remove SNPM Access Test Pages Only
+
+- [x] Record the Contour correction in `research.md`: Contour was not mutated; the live test pages exist only under `Projects > SNPM > Access`.
+- [x] Record this cleanup sequence in `plan.md` before mutating the live workspace.
+- [x] Re-read `Projects > SNPM > Access` immediately before deletion and confirm it contains only:
+  - `App & Backend`
+  - `App & Backend > GEMINI_API_KEY`
+  - `App & Backend > SNPM_NOTION_TOKEN`
+- [x] Re-read `Projects > Contour > Access` immediately before deletion and confirm it is still empty.
+- [x] Delete the two SNPM Access child record pages first:
+  - `Projects > SNPM > Access > App & Backend > GEMINI_API_KEY`
+  - `Projects > SNPM > Access > App & Backend > SNPM_NOTION_TOKEN`
+- [x] Delete the parent SNPM Access domain page last:
+  - `Projects > SNPM > Access > App & Backend`
+- [x] Read back `Projects > SNPM > Access` and confirm it has no child pages.
+- [x] Run `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
+- [x] Re-read `Projects > Contour > Access` after cleanup and confirm it remains unchanged.
+
+## 2026-03-29 — Workflow Operator Roadmap Reset
+
+- [x] Record the multi-project usage lessons, publication-boundary correction, and workflow-operator re-scope in `research.md`.
+- [x] Add the roadmap-reset execution checklist to `plan.md`.
+- [x] Update `README.md` so it distinguishes:
+  - published `main` baseline
+  - latest published testing tag
+  - committed development-branch work
+  - no unpublished feature slices that are still pretending to be part of the committed branch
+- [x] Rewrite `docs/operator-roadmap.md` around the workflow-operator thesis, phased roadmap, and next high-value product ideas.
+- [x] Update `Projects > SNPM > Planning > Roadmap` so it resets the product thesis and phased roadmap around workflow bundles, doctoring, and selective expansion.
+- [x] Update `Projects > SNPM > Planning > Current Cycle` so it stops presenting the Access slice as the active completed milestone and instead frames the immediate objective as roadmap reset plus baseline/publication alignment.
+- [x] Update `Projects > SNPM > Planning > Backlog` so future work is grouped under:
+  - baseline publication alignment
+  - workflow bundles
+  - doctoring/adoption planners
+  - cross-repo distribution hardening
+  - proven-surface expansion only
+- [x] Update `Projects > SNPM > Planning > Decision Log` with the explicit direction change from surface-first expansion to workflow-operator development.
+- [x] Read back the updated planning pages and confirm they no longer claim unpublished Access work is part of the current shipped baseline.
+- [x] Run `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` after the planning-page updates.
+
+## 2026-03-29 — Stabilize `codex/development`
+
+- [x] Preserve the passing Access slice as its own development-branch commit.
+- [ ] Commit the roadmap/publication-boundary reset separately so it reflects Access as committed on `codex/development` rather than local-only worktree state.
+- [ ] Update the live SNPM planning pages so they distinguish published `main`, the latest published testing tag, and committed `codex/development`.
+- [ ] Run `npm test` and `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` after the cleanup commits.
+- [ ] Confirm `git status --short` is clean.
+- [ ] Push the cleaned `codex/development` branch to `origin`.
+- [ ] Create `codex/doctor` from the cleaned development tip.

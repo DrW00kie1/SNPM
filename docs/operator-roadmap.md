@@ -1,220 +1,146 @@
 # SNPM Operator Roadmap
 
-SNPM currently ships as a conservative Infrastructure HQ Notion bootstrap and verification tool.
+SNPM is being re-scoped around one product thesis:
 
-The chosen next phase is broader: turn SNPM into an internal, high-guardrail Notion workspace operator that can safely scaffold, verify, and sync selected workspace surfaces without becoming a generic free-form Notion shell.
+SNPM is not a generic Notion client and not just a bootstrap tool. It is a project-token-safe workflow operator for real project work inside Infrastructure HQ.
 
-## Current state
+## Current Product Line
 
-Today SNPM is implemented and validated for:
+Published baseline on `main`:
 - project bootstrap from `Templates > Project Templates`
-- structural verification of the created project subtree
-- markdown-backed `page pull`, `page diff`, and `page push` for approved project planning pages
-- first-class `runbook` create/adopt/pull/diff/push commands for project-owned runbooks
-- first-class `build-record` create/pull/diff/push commands for project-owned build records under `Ops > Builds`
-- first-class `validation-sessions init` plus `validation-session` create/adopt/pull/diff/push commands for human validation-session records under `Ops > Validation > Validation Sessions`
-- `validation-sessions verify` as a narrow read-only verifier for existing-project adoption of the managed validation-session surface
-- manifest-backed `sync check`, `sync pull`, and `sync push` for repo-backed validation-session files declared in `snpm.sync.json`
-- optional project-token scope verification
-- cross-repo usage through a known local control repo
-
-Today SNPM does **not** yet ship:
-- manifest-backed multi-surface sync beyond validation-session artifacts
-- broad page pull/push across arbitrary non-approved targets
-- scaffold commands for non-project surfaces
-- broad workspace verification beyond the current project bootstrap contract
-- package-installable consumption for other repos
-
-## What the Notion API is easy at right now
-
-With a valid token and the right page sharing, the current Notion platform is already good at:
-- reading and searching pages and block trees
-- creating pages and appending/updating supported block content
-- querying structured data sources and databases
-- working with comments, file uploads, and webhooks
-- converting supported page content to and from Markdown through the newer markdown-oriented APIs
-
-Official references:
-- [Capabilities](https://developers.notion.com/reference/capabilities)
-- [Working with Markdown content](https://developers.notion.com/guides/data-apis/working-with-markdown-content)
-- [Webhooks](https://developers.notion.com/reference/webhooks)
-- [Data source API](https://developers.notion.com/reference/data-source)
-
-## What is still challenging or risky
-
-Even with the newer API surface, several things are still operationally tricky:
-- permission and sharing boundaries are easy to get wrong and often fail as `object_not_found`
-- page content that drifts outside supported markdown/block shapes can round-trip poorly
-- recursive block trees require pagination and careful child traversal
-- large updates need batching because append/list operations are paginated and limited
-- UI-only workflows still exist, especially around integration creation and page sharing
-- broad free-form mutation increases the risk of damaging validated workspace structure
-- pinned API-version drift can make a legacy client shape increasingly expensive to extend
-
-## Why SNPM should be an opinionated internal operator
-
-Infrastructure HQ is not modeled as a generic Notion sandbox. It already has named surfaces, ownership boundaries, and safety rules around:
-- `Projects`
-- `Access Index`
-- `Runbooks`
-- `Vendors`
-- `Incidents`
-
-That means the highest-value tool is not a raw Notion client. The highest-value tool is one that:
-- understands this workspace model
-- protects high-risk pages and boundaries
-- makes the safe path the default path
-- gives maintainers and Codex threads explicit commands with human-readable verification output
-
-## Chosen product shape
-
-The chosen direction is:
-- private Git-installable internal package
-- richer CLI as the primary interface
-- reusable internal JavaScript core underneath the CLI
-- internal-only, highly opinionated workspace policy layer
-
-Recommended architecture:
-- Notion adapter layer
-- workspace policy and target-resolution layer
-- markdown sync engine
-- scaffold engine
-- verifier layer
-- CLI entrypoint
-
-One explicit future platform step should be upgrading off the current pinned Notion API version in [`config/workspaces/infrastructure-hq.json`](../config/workspaces/infrastructure-hq.json) so SNPM can rely on newer markdown and data-source capabilities without deeper legacy lock-in.
-
-## Shipped project-token slices
-
-SNPM now has three shipped post-bootstrap slices:
+- structural `verify-project`
 - planning-page body sync for the four approved `Planning` pages
-- first-class project-token-safe day-to-day operations for `Runbooks` and `Ops > Builds`
-- first-class project-token-safe human validation-session reporting under `Ops > Validation > Validation Sessions`
-- repo-backed artifact sync for validation-session files through `snpm.sync.json`
+- first-class `runbook` create/adopt/pull/diff/push
+- first-class `build-record` create/pull/diff/push under `Ops > Builds`
+- first-class `validation-sessions init`
+- first-class `validation-session` create/adopt/pull/diff/push
+- narrow `validation-sessions verify`
+- manifest-backed `sync check`, `sync pull`, and `sync push` for repo-backed validation-session artifacts
+- checkbox-first validation-session body contract
 
-Why these came first:
-- it fits the current page-tree-heavy workspace model
-- it gives other repos and Codex threads safe, explicit commands for real project work without vendoring workspace logic
-- it creates a strong safety boundary by limiting mutations to named, approved targets and managed page shapes
-- it matches the real downstream signal from project work, where planning pages, runbooks, and build records are all active operational memory surfaces
+Committed development line on `codex/development`:
+- triage-first validation-session `Findings` / `Follow-Up` redesign
+- first-class project Access surfaces under `Projects > <Project> > Access`
 
-Current planning-page commands:
-- `snpm page pull`
-- `snpm page diff`
-- `snpm page push`
+Important publication boundary:
+- the latest published testing tag is still `sprint-3-validation-sessions`
+- that tag is older than the current published `main` baseline
+- the docs and live planning pages should distinguish published `main`, published testing tags, and committed development-branch work whenever they differ
 
-Current planning-page constraints:
-- approved targets only: `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
-- only the body below the standard header divider belongs to the synced file
-- project token is preferred when a project-local token exists, otherwise the workspace token is used
-- unsupported markdown shapes fail loudly instead of silently flattening content
+## What The Usage Has Taught Us
 
-Current project-token day-to-day commands:
-- `snpm runbook create`
-- `snpm runbook adopt`
-- `snpm runbook pull`
-- `snpm runbook diff`
-- `snpm runbook push`
-- `snpm build-record create`
-- `snpm build-record pull`
-- `snpm build-record diff`
-- `snpm build-record push`
-- `snpm validation-sessions init`
-- `snpm validation-sessions verify`
-- `snpm validation-session create`
-- `snpm validation-session adopt`
-- `snpm validation-session pull`
-- `snpm validation-session diff`
-- `snpm validation-session push`
-- `snpm sync check`
-- `snpm sync pull`
-- `snpm sync push`
+Tall Man signal:
+- the most valuable work was not generic CRUD
+- the valuable work was workflow quality: narrow verifiers, checkbox-first execution, triage structure, and selective repo sync for durable artifacts
 
-Current project-token day-to-day constraints:
-- project-owned surfaces only: `Runbooks`, `Ops > Builds`, and `Ops > Validation > Validation Sessions`
-- `runbook adopt` is the supported path for bringing legacy headerless runbooks under SNPM management
-- `build-record create` may create `Ops > Builds` on demand, but it does not change the required starter-tree baseline for all projects
-- `validation-sessions init` may create the optional `Validation Sessions` database under `Ops > Validation`, but it does not change the required starter-tree baseline for all projects
-- `validation-sessions verify` is intentionally narrower than `verify-project` so existing projects can prove the health of the managed validation surface without hiding unrelated legacy drift elsewhere
-- validation-session files use YAML front matter for row properties plus the managed page body below the divider
-- managed validation-session bodies are checkbox-first and standardized as `Session Summary`, `Checklist`, `Findings`, and `Follow-Up`
-- the canonical synced triage subset is `Callouts`, `Toggle blocks`, and `To-do blocks`
-- buttons, database templates, mentions, and row properties remain UI-layer accelerators rather than part of the canonical synced body contract
-- `validation-session adopt` is the supported path for bringing legacy headerless session pages under SNPM management
-- pull / diff / push operate on SNPM-managed pages only
-- mutating commands stay preview-first and require `--apply`
-- manifest sync is intentionally limited to repo-backed validation-session files
-- manifest sync operates only on existing SNPM-managed validation-session rows listed in `snpm.sync.json`
-- manifest sync does not implicitly initialize the surface, create rows, or adopt unmanaged rows
+Contour signal:
+- the important answer was a safe, project-local workflow for secrets
+- the important problem was discoverability and guardrails, not raw Notion access
 
-Still planned after these slices:
-- broader manifest-backed sync beyond validation-session artifacts
-- broader workspace verification
-- additional approved project-owned operational surfaces
-- any future template/button automation should happen only after the manual UI-layer guidance proves to be recurring drag
+Cross-repo Codex signal:
+- threads want explicit task commands they can shell out to
+- if SNPM does not expose the task, they fall back to ad hoc Notion logic
 
-## Planned command families after that
+Adoption signal:
+- existing-project support is mandatory
+- every successful surface family needed `adopt`, narrow verification, or explicit normalization guidance
 
-Second-wave commands should focus on safe scaffolding and verification:
-- `snpm workspace verify`
-- `snpm scaffold runbook`
-- `snpm scaffold vendor`
-- `snpm scaffold access-domain`
-- `snpm scaffold incident`
+Boundary signal:
+- Notion should stay primary for current operational state
+- repo sync should exist only where the repo truly owns the artifact
+- project token should stay the default trust boundary
+- manual UI steps are acceptable only when they are bounded and documented
 
-These commands are **planned, not implemented yet**.
+## Roadmap Reset
 
-## How other repos should use SNPM
+### Phase 0: Stabilize and publish the real baseline
+- publish the currently useful post-`sprint-3-validation-sessions` baseline more cleanly, or explicitly pause slices that are not ready
+- bring README, this roadmap, and the live SNPM planning pages back into alignment with what is actually published versus local
+- keep the Access direction, but do not pre-populate project Access pages again
 
-Chosen model:
-- install SNPM from the private Git repo at a pinned tag or commit
-- call the SNPM CLI from repo scripts or `npm exec`
-- keep only a small repo-local manifest that maps approved local markdown files to approved Notion targets
-- do not vendor SNPM workspace ids, starter-tree rules, or policy logic into product repos
+### Phase 1: Build the workflow layer
+- stop framing next work as "more primitives first"
+- define first-class workflow bundles around real jobs:
+  - validation run lifecycle
+  - release/build evidence capture
+  - project access record creation/update
+  - runbook standardization and maintenance
+- each workflow should include:
+  - creation/update path
+  - adoption path
+  - narrow verifier
+  - explicit next-step guidance
+  - optional repo sync only where it helps
 
-Current manifest-backed repo consumption is validation-session-only. Broader manifest sync remains a later expansion.
+### Phase 2: Add project doctoring and migration support
+- add a project-level doctor/recommend layer that tells an operator:
+  - which managed surfaces are present
+  - which are missing
+  - which are unmanaged but adoptable
+  - what command to run next
+- add surface-specific adoption planners before widening broad verification further
+- keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
 
-In this model:
-- the product repo owns code and durable repo docs
-- SNPM owns workspace-safe mutation rules and target resolution
-- Notion remains the home for current operational state
+### Phase 3: Harden cross-repo consumption
+- make pinned install/use from other repos a first-class supported path
+- publish testing tags more regularly so testers are not forced onto unpublished local checkouts
+- add a thin agent-facing wrapper only after the CLI workflows are stable
+- keep other repos from embedding workspace ids or workspace policy logic
 
-## How other Codex threads should use SNPM
+### Phase 4: Expand only proven surfaces
+- add new surfaces only when repeated workflow demand justifies them
+- defer broad multi-surface manifest sync, arbitrary CRUD, and generalized workspace automation
+- keep "safe named workflows on approved surfaces" as the product boundary
 
-Chosen model:
-- other Codex threads shell out to the SNPM CLI
-- repo onboarding or `AGENTS.md` should tell threads to use SNPM instead of writing ad hoc Notion API code
-- SNPM should remain the auditable policy layer between a thread and the live workspace
+## What SNPM Should Probably Build Next
 
-Later, if usage volume justifies it, a thin agent-facing adapter or Codex skill can sit on top of the same CLI/core.
+`snpm doctor` / `snpm recommend`:
+- tell a thread what exists, what is broken, what is adoptable, and the exact next command to run
+- this is the clearest next product step after repeated demand for narrow verifiers and adoption guidance
 
-That is a follow-on convenience layer, not the first implementation priority.
+Workflow bundles:
+- `start validation run`
+- `record release build`
+- `add project secret`
+- `standardize this runbook`
+- these should orchestrate existing primitives rather than replace them
 
-## How this experiment will be judged
+Project capability profiles:
+- a machine-readable view of which optional project-owned surfaces are present
+- this lets Codex threads discover what a project supports without tree spelunking
 
-The broader question is not whether Notion feels elegant. The broader question is whether `Notion + SNPM` reduces document sprawl while staying usable and trustworthy for AI-assisted work.
+Workflow-linked evidence:
+- the next high-value step after validation/build/access is linking the approved surfaces into coherent operator flows
+- examples:
+  - build record linked to a validation session
+  - validation session linked to release readiness
+  - access record linked to the runbook that depends on it
 
-The living scorecard should stay in `Projects > SNPM > Planning > Roadmap`, with this repo doc acting only as a supporting reference.
+## Guardrails
 
-Use `Pass`, `Watch`, or `Fail` for these criteria:
-- source-of-truth clarity: each document category has one obvious home
-- agent usability: Codex threads can find and use the right page without ad hoc exploration
-- safe mutation: supported workspace changes happen through SNPM or another explicit guarded workflow
-- operational freshness: current state in Notion stays current enough to be useful
-- repo / Notion boundary health: durable code truth stays in repo, while current ops and planning stay in Notion
-- manual-friction tolerance: required UI-only steps stay occasional and bounded
+Keep these boundaries:
+- project token stays the default safety boundary
+- approved project-owned surfaces stay explicit
+- repo sync stays selective
+- manual UI-only steps remain bounded and documented
+- `Access Index` and other workspace-global surfaces remain out of scope for project-local day-to-day mutation
 
-Failure signals to watch for:
+## How This Experiment Should Be Judged
+
+The question is whether `Notion + SNPM` reduces document sprawl while staying usable and trustworthy for AI-assisted work.
+
+Use `Pass`, `Watch`, or `Fail` for:
+- source-of-truth clarity
+- agent usability
+- safe mutation
+- operational freshness
+- repo / Notion boundary health
+- manual-friction tolerance
+
+Failure signals:
 - repeated duplicate docs across repo and Notion
 - frequent ad hoc one-off scripts or manual structure fixes
 - low trust in page accuracy or page location
 - too many critical workflows blocked by Notion UI friction
 
-## Review cadence
-
-Use a layered cadence:
-- per-change checks: read-back after live page-body edits and `verify-project` whenever structure might have changed
-- weekly review: re-score the broader experiment in `Projects > SNPM > Planning > Roadmap`
-- milestone-exit review: decide whether to continue, constrain, or abandon the broader operator direction
-
-The current-cycle proof points should stay in `Projects > SNPM > Planning > Current Cycle`, where the team can judge whether the present milestone is actually succeeding.
+The living scorecard should stay in `Projects > SNPM > Planning > Roadmap`. This file is the supporting reference.

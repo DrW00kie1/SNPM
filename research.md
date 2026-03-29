@@ -798,3 +798,172 @@ Scope intentionally preserved:
 - no new validation-session commands were added
 - no row schema changes were introduced
 - Notion buttons/templates remain a documented UI-layer accelerator rather than a new SNPM automation surface
+
+## 2026-03-29 — Project Access Surfaces Re-scope
+
+GitHub issue `#7` from the Contour team is a product/API gap, not a bug in the current shipped surface.
+
+Current repo and workspace facts:
+- `Projects > <Project> > Access` is part of the standard starter tree and already exists for `Contour`
+- the current shipped CLI has no `Access` command family and the repo docs do not define a supported workflow for creating child pages under `Projects > <Project> > Access`
+- the live `Access` landing page explicitly says it is an index/context page, not the default raw-secret dump target
+- that same page already points operators at three subpage patterns:
+  - `Access Domain Template`
+  - `Access Token Record Template`
+  - `Secret Record Template`
+- the live template library currently contains:
+  - `Templates > Misc Templates > Project Subpage Templates > Access Domain Template`
+  - `Templates > Misc Templates > Project Subpage Templates > Access Token Record Template`
+- the live template library does **not** currently contain `Secret Record Template`, even though the project `Access` landing page tells operators to use it
+- the live access taxonomy already includes the domain `App & Backend`
+
+Immediate product answer for Contour:
+- `Access Index` remains out of scope for project work
+- project-token writes remain the intended normal path
+- the intended project-local destination for a service secret like `GEMINI_API_KEY` is:
+  - `Projects > Contour > Access > App & Backend > GEMINI_API_KEY`
+
+Chosen milestone direction:
+- do two things together:
+  - document the current manual workflow clearly and prominently
+  - ship a first-class managed Access surface so other repos and Codex threads do not fall back to ad hoc Notion mutation
+- first-wave Access support should cover:
+  - Access domain pages directly under `Projects > <Project> > Access`
+  - generic secret record pages under an Access domain
+  - scoped access token record pages under an Access domain
+- direct children of `Projects > <Project> > Access` should be Access domain pages only
+- generic secret and token records should live under a domain page, not directly under the `Access` root
+- the managed implementation should reuse the existing SNPM page model:
+  - managed header above the divider
+  - body ownership below the divider
+  - create / adopt / pull / diff / push flows
+  - project-token-preferred auth with workspace-token fallback
+
+Chosen live-validation boundary:
+- do **not** mutate `Projects > Contour` in this milestone
+- prove the feature only on `Projects > SNPM > Access` fixtures
+- after the code path is validated, add `Secret Record Template` to the live template library and fix the `Project Templates > Access` page so the manual workflow and the managed workflow agree
+
+## 2026-03-29 — Project Access Surfaces Result
+
+The first-class project Access-surface milestone was implemented and live-validated on `codex/development`.
+
+Implementation result:
+- SNPM now ships first-class managed commands for:
+  - `access-domain create|adopt|pull|diff|push`
+  - `secret-record create|adopt|pull|diff|push`
+  - `access-token create|adopt|pull|diff|push`
+- the Access target model is now explicit in code and docs:
+  - direct children of `Projects > <Project> > Access` are domain pages
+  - secret and token records live under a domain page
+  - `Access Index` remains out of scope for project-token-safe day-to-day work
+- managed Access pages reuse the existing SNPM page model:
+  - standard managed header above the divider
+  - body ownership below the divider
+  - create/adopt/pull/diff/push workflow
+  - project-token-preferred auth with workspace-token fallback
+- verification now allows dynamic descendants under `Access` while recursively validating managed Access descendants without weakening unrelated drift checks
+
+Repo/documentation result:
+- a dedicated `docs/project-access.md` now explains both:
+  - the current manual template-based workflow
+  - the new managed SNPM workflow
+- README, roadmap, and tester docs now expose the Access surface clearly enough that a Codex thread should not need to infer it from the workspace tree alone
+
+Live validation result on `Projects > SNPM`:
+- created `Projects > SNPM > Access > App & Backend`
+- created managed secret fixture `Projects > SNPM > Access > App & Backend > GEMINI_API_KEY`
+- created managed token fixture `Projects > SNPM > Access > App & Backend > SNPM_NOTION_TOKEN`
+- `secret-record-pull`, `secret-record-diff`, `secret-record-push --apply`, follow-on `secret-record-pull`, and final clean `secret-record-diff` succeeded with `SNPM_NOTION_TOKEN`
+- `access-token-pull`, `access-token-diff`, `access-token-push --apply`, follow-on `access-token-pull`, and final clean `access-token-diff` succeeded with `SNPM_NOTION_TOKEN`
+- `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed after the Access fixtures existed
+
+Live workspace documentation/template result:
+- added `Secret Record Template` under `Templates > Misc Templates > Project Subpage Templates`
+- updated `Templates > Misc Templates > Project Subpage Templates` so the template library now lists domain, secret, and token Access templates together
+- updated `Templates > Project Templates > Access` so it now explicitly says:
+  - domain pages are the direct children of the Access root
+  - secret and token records should be nested under a domain page
+  - `App & Backend` is a valid first example domain
+
+Scope intentionally preserved:
+- `Projects > Contour` was not mutated in this milestone
+- `Access Index` was not touched
+- no new narrow Access-only verifier was added
+
+## 2026-03-29 — SNPM Access Fixture Cleanup Correction
+
+Live re-check after the Contour follow-up request:
+- `Projects > Contour > Access` is still untouched and has no child pages
+- the Access test fixtures created during the Access-surface milestone exist only under `Projects > SNPM > Access`
+- live SNPM Access fixture tree before cleanup:
+  - `Projects > SNPM > Access > App & Backend`
+  - `Projects > SNPM > Access > App & Backend > GEMINI_API_KEY`
+  - `Projects > SNPM > Access > App & Backend > SNPM_NOTION_TOKEN`
+
+Accepted cleanup scope:
+- remove only the live SNPM Access fixtures listed above
+- keep the Access feature implementation in the repo
+- keep the Access template-library updates and project-template guidance in place
+- do not mutate `Projects > Contour`
+
+Cleanup result:
+- trashed the two child record pages first, then trashed the parent `App & Backend` domain page
+- `Projects > SNPM > Access` is now empty again
+- `Projects > Contour > Access` remains empty
+- `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed after cleanup
+
+## 2026-03-29 — Workflow Operator Roadmap Reset
+
+After real use by `Tall Man Training`, `Contour`, and additional Codex-thread testing, the strongest product signal is now clear:
+- users do **not** primarily want a broader generic Notion client
+- users want a project-token-safe workflow operator for normal project work
+- the winning unit of product value is not "one more page surface"; it is "one more complete task workflow"
+
+Key lessons from shipped slices and issue flow:
+- Tall Man validated that human workflow quality matters as much as API coverage:
+  - the critical improvements were `validation-sessions verify`, checkbox-first session bodies, manifest-backed artifact sync, and triage-first `Findings` / `Follow-Up`
+  - that is a workflow-UX signal, not a CRUD-surface signal
+- Contour validated that discoverability and safe mutation boundaries matter more than generic flexibility:
+  - the useful answer was the exact project-local secret path plus a managed project-local Access model
+  - the wrong answer would have been "use the workspace however you want"
+- Cross-repo Codex usage validated that the product boundary should stay task-oriented:
+  - if SNPM does not expose the task directly, threads fall back to ad hoc Notion API logic
+  - that defeats the guardrail model the repo is supposed to provide
+- Existing-project adoption is now a first-class requirement:
+  - every successful surface family needed some combination of `adopt`, narrow verification, or explicit normalization guidance
+  - greenfield-only tooling would not match the real workspace
+- Repo sync demand is selective, not universal:
+  - repo-backed sync clearly fits validation-session artifacts
+  - there is not yet the same downstream signal for making runbooks, build records, or Access records repo-primary
+
+Publication and roadmap-boundary correction:
+- published `main` currently includes:
+  - planning-page sync
+  - runbook/build-record operations
+  - validation-session reporting plus `validation-sessions verify`
+  - manifest-backed validation-session sync
+  - checkbox-first validation-session workflow
+- the latest published tester-facing tag is still `sprint-3-validation-sessions`, so the testing contract lags the published `main` baseline
+- `codex/development` adds the committed triage-workflow slice and the committed Access-surface slice on top of published `main`
+- the first-class Access-surface implementation should now be treated as committed development-branch work, not published baseline
+
+Chosen roadmap reset:
+- re-scope SNPM around the thesis: "project-token-safe workflow operator for real project work"
+- shift roadmap language away from "more primitive surfaces and broader sync first"
+- organize next work into phases:
+  - Phase 0: stabilize and publish the real shipped baseline, or explicitly pause newer local-only slices
+  - Phase 1: build workflow bundles for the real jobs teams are doing
+  - Phase 2: add project doctoring, recommendation, and adoption planning
+  - Phase 3: harden distribution and repeatable cross-repo consumption
+  - Phase 4: expand only those surfaces that repeated workflow demand justifies
+
+High-value product ideas surfaced by this reset:
+- `snpm doctor` / `snpm recommend` to tell an operator what exists, what is missing, what is unmanaged but adoptable, and what command to run next
+- workflow bundles that orchestrate existing primitives for:
+  - validation run lifecycle
+  - release/build evidence capture
+  - project access record creation/update
+  - runbook standardization and maintenance
+- project capability profiles so Codex threads can discover optional project-owned surfaces without tree spelunking
+- workflow-linked evidence models that connect builds, validation sessions, release readiness, and project-scoped access changes
