@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { chromium } from "playwright";
@@ -8,6 +8,7 @@ import {
   getChromiumExecutablePath,
   getNotionUiArtifactsDir,
   getNotionUiProfileDir,
+  getNotionUiStorageStatePath,
   SNPM_PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH_ENV,
   sanitizeTimestampForPath,
 } from "./env.mjs";
@@ -39,29 +40,44 @@ export async function launchChromiumSession({
   timestamp,
 }) {
   const profileDir = ensureDirectory(getNotionUiProfileDir());
+  const storageStatePath = getNotionUiStorageStatePath();
+  ensureDirectory(path.dirname(storageStatePath));
   const artifacts = buildArtifactsPaths(timestamp, command);
+  const executablePath = getChromiumExecutablePath() || undefined;
+  const launchArgs = [
+    "--disable-features=msEdgeTextScaleFactor",
+  ];
 
   try {
-    const context = await chromium.launchPersistentContext(profileDir, {
+    const browser = await chromium.launch({
       headless: !headed,
-      executablePath: getChromiumExecutablePath() || undefined,
+      executablePath,
+      args: launchArgs,
+    });
+    const context = await browser.newContext({
       viewport: { width: 1600, height: 1000 },
-      args: [
-        "--disable-features=msEdgeTextScaleFactor",
-      ],
+      storageState: existsSync(storageStatePath) ? storageStatePath : undefined,
     });
     context.setDefaultTimeout(15_000);
 
     const page = context.pages()[0] || await context.newPage();
     return {
+      browser,
       context,
       page,
       profileDir,
+      storageStatePath,
       artifacts,
     };
   } catch (error) {
     wrapChromiumLaunchError(error);
   }
+}
+
+export async function persistChromiumStorageState(context, storageStatePath = getNotionUiStorageStatePath()) {
+  ensureDirectory(path.dirname(storageStatePath));
+  await context.storageState({ path: storageStatePath });
+  return storageStatePath;
 }
 
 export async function captureFailureArtifact(page, artifacts) {

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
 import { nowTimestamp, getProjectToken, getWorkspaceToken } from "../notion/env.mjs";
 import { makeNotionClient } from "../notion/client.mjs";
 import { choosePageSyncAuth, fetchPageMarkdown, replacePageMarkdown, splitManagedPageMarkdownIfPresent } from "../notion/page-markdown.mjs";
@@ -15,7 +18,8 @@ import {
   buildValidationSessionBundleMetadata,
   buildValidationSessionTemplateCanonicalPath,
 } from "./validation-bundle-spec.mjs";
-import { captureFailureArtifact, launchChromiumSession } from "./chromium.mjs";
+import { captureFailureArtifact, launchChromiumSession, persistChromiumStorageState } from "./chromium.mjs";
+import { ensureDirectory, getNotionUiLoginLockPath } from "./env.mjs";
 import { verifyValidationSessionsSurface, normalizeValidationSessionBodyMarkdown } from "../notion/validation-sessions.mjs";
 
 const NOTION_BASE_URL = "https://www.notion.so";
@@ -56,18 +60,178 @@ function buildButtonTargetPath(projectName) {
 }
 
 async function hasNotionAuthCookie(context) {
-  const cookies = await context.cookies(NOTION_BASE_URL);
+  const cookies = await context.cookies();
   return cookies.some((cookie) => cookie.name === NOTION_COOKIE_NAME && cookie.value);
 }
 
-async function waitForNotionLogin(context, timeoutMs = 300_000) {
-  const deadline = Date.now() + timeoutMs;
+function isClosedError(error) {
+  return /Target page, context or browser has been closed|browser has been closed/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
 
-  while (Date.now() < deadline) {
-    if (await hasNotionAuthCookie(context)) {
-      return true;
+function getLoginLockPath() {
+  return getNotionUiLoginLockPath();
+}
+
+function readLoginLockRecord() {
+  const lockPath = getLoginLockPath();
+  if (!existsSync(lockPath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(readFileSync(lockPath, "utf8"));
+  } catch {
+    return {
+      pid: null,
+      startedAt: null,
+    };
+  }
+}
+
+function releaseLoginLock() {
+  const lockPath = getLoginLockPath();
+  if (existsSync(lockPath)) {
+    unlinkSync(lockPath);
+  }
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getActiveLoginLock() {
+  const record = readLoginLockRecord();
+  if (!record) {
+    return null;
+  }
+
+  if (!isProcessAlive(record.pid)) {
+    releaseLoginLock();
+    return null;
+  }
+
+  return record;
+}
+
+function acquireLoginLock(command) {
+  const activeLock = getActiveLoginLock();
+  if (activeLock) {
+    throw new Error("A validation-bundle login is already in progress in another Chromium window. Finish or close that window before retrying.");
+  }
+
+  const lockPath = getLoginLockPath();
+  ensureDirectory(path.dirname(lockPath));
+  writeFileSync(lockPath, JSON.stringify({
+    command,
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+  }, null, 2));
+  return lockPath;
+}
+
+function buildLoginTargetUrl(config) {
+  const pageId = config?.workspace?.projectsPageId;
+  if (!pageId) {
+    throw new Error("Validation bundle login requires a workspace projects page id in the workspace config.");
+  }
+  return buildNotionPageUrl(pageId);
+}
+
+async function waitForNotionLogin(context, timeoutMs = null) {
+  const deadline = typeof timeoutMs === "number" ? Date.now() + timeoutMs : null;
+
+  while (!deadline || Date.now() < deadline) {
+    try {
+      if (await hasNotionAuthCookie(context)) {
+        return true;
+      }
+    } catch (error) {
+      if (isClosedError(error)) {
+        return false;
+      }
+      throw error;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  return false;
+}
+
+async function checkAuthenticatedTargetAccess(page, targetUrl, isNotionSignInPageImpl = isNotionSignInPage) {
+  try {
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+    return !(await isNotionSignInPageImpl(page));
+  } catch (error) {
+    if (isClosedError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function waitForAuthenticatedTargetAccess(page, targetUrl, {
+  context = null,
+  isNotionSignInPageImpl = isNotionSignInPage,
+  timeoutMs = null,
+} = {}) {
+  const deadline = typeof timeoutMs === "number" ? Date.now() + timeoutMs : null;
+
+  while (!deadline || Date.now() < deadline) {
+    if (page.isClosed?.()) {
+      return false;
+    }
+
+    let cookieObserved = true;
+    if (context) {
+      try {
+        cookieObserved = await hasNotionAuthCookie(context);
+      } catch (error) {
+        if (isClosedError(error)) {
+          return false;
+        }
+        throw error;
+      }
+    }
+
+    const signInPage = await isNotionSignInPageImpl(page);
+    if (cookieObserved && !signInPage) {
+      return checkAuthenticatedTargetAccess(page, targetUrl, isNotionSignInPageImpl);
+    }
+
+    await page.waitForTimeout(1000).catch(() => {});
+  }
+
+  return false;
+}
+
+async function isNotionSignInPage(page) {
+  const candidates = [
+    page.getByText(/sign in to see this page/i).first(),
+    page.getByText(/verification code|two-step|2-step|authenticator|enter code/i).first(),
+    page.getByText(/enter your email address/i).first(),
+    page.getByRole("button", { name: /google/i }).first(),
+    page.getByRole("button", { name: /microsoft/i }).first(),
+    page.getByRole("button", { name: /apple/i }).first(),
+    page.getByRole("button", { name: /passkey/i }).first(),
+    page.getByRole("button", { name: /sso/i }).first(),
+  ];
+
+  for (const candidate of candidates) {
+    if (await safeTextExists(candidate)) {
+      return true;
+    }
   }
 
   return false;
@@ -208,6 +372,15 @@ function buildNotLoggedInResult(command, context, uiAuth, failures = []) {
   };
 }
 
+function buildLoginInProgressResult(command, context) {
+  return buildNotLoggedInResult(command, context, buildUiAuthResult({
+    loggedIn: false,
+    profileDir: null,
+  }), [
+    "A validation-bundle login is already in progress in another Chromium window. Finish or close that window before retrying.",
+  ]);
+}
+
 async function findTemplateState(bundleContext) {
   const template = bundleContext.templates.find((entry) => entry.name === VALIDATION_BUNDLE_TEMPLATE_NAME) || null;
 
@@ -278,49 +451,173 @@ async function locateViewTab(page, name) {
   return null;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function openAddViewDialog(page) {
   const clicked = await clickFirstVisible([
     page.getByRole("button", { name: /add a view/i }),
     page.getByRole("button", { name: /new view/i }),
     page.getByRole("button", { name: /\+.*view/i }),
     page.locator('[aria-label*="Add a view" i]'),
+    page.getByText("+", { exact: true }),
+    page.locator('[role="button"]').filter({ hasText: /^\+$/ }),
+    page.locator("button").filter({ hasText: /^\+$/ }),
+    page.locator('xpath=//*[normalize-space(text())="Default view"]/following-sibling::*[1]'),
+    page.locator(`xpath=//*[normalize-space(text())="${VALIDATION_BUNDLE_PRIMARY_VIEW}"]/following-sibling::*[1]`),
+    page.locator('xpath=//*[normalize-space(text())="Form builder"]/following-sibling::*[1]'),
+    page.locator(`xpath=//*[normalize-space(text())="${VALIDATION_BUNDLE_QUICK_INTAKE_FORM}"]/following-sibling::*[1]`),
   ]);
 
-  if (!clicked) {
-    throw new Error("Could not find the Notion control for adding a database view.");
+  if (clicked) {
+    return;
   }
+
+  for (const currentViewName of [
+    VALIDATION_BUNDLE_PRIMARY_VIEW,
+    VALIDATION_BUNDLE_QUICK_INTAKE_FORM,
+    "Default view",
+    "Form builder",
+  ]) {
+    const currentView = await locateViewTab(page, currentViewName);
+    if (!currentView) {
+      continue;
+    }
+
+    const box = await currentView.boundingBox().catch(() => null);
+    if (!box) {
+      continue;
+    }
+
+    await page.mouse.click(box.x + box.width + 14, box.y + (box.height / 2));
+    await page.waitForTimeout(500);
+    return;
+  }
+
+  throw new Error("Could not find the Notion control for adding a database view.");
+}
+
+async function openCurrentViewSettings(page, fallbackNames = []) {
+  if (
+    await safeTextExists(page.getByText(/view settings/i))
+    || await safeTextExists(page.locator('input[placeholder*="View name" i]'))
+  ) {
+    return true;
+  }
+
+  for (const name of fallbackNames) {
+    if (!name) {
+      continue;
+    }
+
+    const viewTab = await locateViewTab(page, name);
+    if (!viewTab) {
+      continue;
+    }
+
+    await viewTab.click().catch(() => {});
+    const clicked = await clickFirstVisible([
+      page.getByRole("menuitem", { name: /edit view/i }),
+      page.getByRole("button", { name: /edit view/i }),
+      page.getByText(/^edit view$/i),
+    ]);
+    if (clicked) {
+      return true;
+    }
+  }
+
+  return await safeTextExists(page.getByText(/view settings/i));
+}
+
+async function renameCurrentView(page, name, fallbackNames = []) {
+  const namePattern = new RegExp(`^${escapeRegExp(name)}$`, "i");
+  const preferredField = page.locator('input[placeholder*="View name" i]').first();
+
+  const fillField = async (field) => {
+    if (!(await safeTextExists(field))) {
+      return false;
+    }
+
+    await field.first().click().catch(() => {});
+    await field.first().fill(name).catch(async () => {
+      await page.keyboard.press("Control+A").catch(() => {});
+      await page.keyboard.type(name);
+    });
+
+    const saved = await clickFirstVisible([
+      page.getByRole("button", { name: /done/i }),
+      page.getByText(/^done$/i),
+    ]);
+    if (!saved) {
+      await page.keyboard.press("Enter").catch(() => {});
+    }
+
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+    return true;
+  };
+
+  if (!(await fillField(preferredField))) {
+    const settingsOpened = await openCurrentViewSettings(page, fallbackNames);
+    if (!settingsOpened) {
+      return false;
+    }
+
+    const fallbackFields = [
+      preferredField,
+      page.locator('xpath=//*[contains(normalize-space(.), "View settings")]/following::input[1]'),
+      page.locator('input[value="Default view"]').first(),
+      page.locator('input[value="New view"]').first(),
+      page.locator('input[value="Form builder"]').first(),
+      page.locator("input").first(),
+    ];
+
+    let renamed = false;
+    for (const field of fallbackFields) {
+      if (await fillField(field)) {
+        renamed = true;
+        break;
+      }
+    }
+
+    if (!renamed) {
+      return false;
+    }
+  }
+
+  const renamedTab = await locateViewTab(page, name);
+  if (renamedTab) {
+    await renamedTab.click().catch(() => {});
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+    return true;
+  }
+
+  return await safeTextExists(page.getByText(namePattern));
 }
 
 async function createNamedView(page, { name, type }) {
   await openAddViewDialog(page);
 
-  const dialog = page.locator('[role="dialog"]').last();
-  await dialog.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
-
-  const typeButton = dialog.getByRole("button", { name: new RegExp(type, "i") });
-  if (await safeTextExists(typeButton)) {
-    await typeButton.first().click();
-  }
-
-  const nameInputCandidates = [
-    dialog.getByRole("textbox", { name: /name/i }),
-    dialog.getByRole("textbox"),
-    dialog.locator('input[placeholder*="name" i]'),
-  ];
-  for (const input of nameInputCandidates) {
-    if (await safeTextExists(input)) {
-      await input.first().fill(name);
-      break;
-    }
-  }
-
-  const submitted = await clickFirstVisible([
-    dialog.getByRole("button", { name: /create/i }),
-    dialog.getByRole("button", { name: /done/i }),
-    dialog.getByRole("button", { name: /add view/i }),
+  const typePattern = new RegExp(`^${escapeRegExp(type)}$`, "i");
+  const typeClicked = await clickFirstVisible([
+    page.getByRole("button", { name: typePattern }),
+    page.getByRole("menuitem", { name: typePattern }),
+    page.getByText(typePattern, { exact: true }),
   ]);
-  if (!submitted) {
-    await dialog.press("Enter").catch(() => {});
+
+  if (!typeClicked) {
+    throw new Error(`Could not find the Notion view type control for "${type}".`);
+  }
+
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+
+  const fallbackNames = type === "Form"
+    ? [name, "Form builder"]
+    : [name, "Default view"];
+
+  const renamed = await renameCurrentView(page, name, fallbackNames);
+  if (!renamed) {
+    throw new Error(`View "${name}" was created but could not be renamed through the current Notion view settings flow.`);
   }
 
   const createdTab = await locateViewTab(page, name);
@@ -334,7 +631,30 @@ async function createNamedView(page, { name, type }) {
 async function ensureView(page, { name, type }) {
   let tab = await locateViewTab(page, name);
   if (!tab) {
-    tab = await createNamedView(page, { name, type });
+    const recoveryNames = type === "Form"
+      ? ["New view", "Form builder", VALIDATION_BUNDLE_QUICK_INTAKE_FORM]
+      : ["New view", "Table", "Default view", VALIDATION_BUNDLE_PRIMARY_VIEW];
+
+    const recoverableView = await (async () => {
+      for (const recoveryName of recoveryNames) {
+        const candidate = await locateViewTab(page, recoveryName);
+        if (candidate) {
+          return recoveryName;
+        }
+      }
+      return null;
+    })();
+
+    if (recoverableView) {
+      const renamed = await renameCurrentView(page, name, [recoverableView]);
+      if (!renamed) {
+        tab = await createNamedView(page, { name, type });
+      } else {
+        tab = await locateViewTab(page, name);
+      }
+    } else {
+      tab = await createNamedView(page, { name, type });
+    }
   }
 
   await tab.click().catch(() => {});
@@ -680,35 +1000,55 @@ async function withBundleSession({
     throw error;
   } finally {
     await session.context.close().catch(() => {});
+    if (session.browser) {
+      await session.browser.close().catch(() => {});
+    }
   }
 }
 
 export async function loginValidationBundle({
+  config,
   timestamp = nowTimestamp(),
   launchChromiumSessionImpl = launchChromiumSession,
   hasNotionAuthCookieImpl = hasNotionAuthCookie,
   waitForNotionLoginImpl = waitForNotionLogin,
+  waitForAuthenticatedTargetAccessImpl = waitForAuthenticatedTargetAccess,
+  persistChromiumStorageStateImpl = persistChromiumStorageState,
+  acquireLoginLockImpl = acquireLoginLock,
+  releaseLoginLockImpl = releaseLoginLock,
+  buildLoginTargetUrlImpl = buildLoginTargetUrl,
 }) {
-  return withBundleSession({
-    command: "validation-bundle-login",
-    headed: true,
+  acquireLoginLockImpl("validation-bundle-login");
+
+  try {
+    return await withBundleSession({
+      command: "validation-bundle-login",
+      headed: true,
     timestamp,
     launchChromiumSessionImpl,
     body: async ({ context, page, profileDir }) => {
-      await page.goto(NOTION_BASE_URL, { waitUntil: "domcontentloaded" });
-      const loggedIn = await hasNotionAuthCookieImpl(context) || await waitForNotionLoginImpl(context);
+      const targetUrl = buildLoginTargetUrlImpl(config);
+      await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
 
-      if (!loggedIn) {
-        throw new Error("Timed out waiting for a persisted Notion login in Playwright Chromium.");
+      const authenticatedPageAccess = await waitForAuthenticatedTargetAccessImpl(page, targetUrl, {
+        context,
+      });
+      if (!authenticatedPageAccess) {
+        throw new Error("Chromium login window was closed before authenticated Notion page access was confirmed.");
       }
 
-      return {
-        ok: true,
-        command: "validation-bundle-login",
-        uiAuth: buildUiAuthResult({ loggedIn: true, profileDir }),
-      };
-    },
-  });
+        await persistChromiumStorageStateImpl(context);
+
+        return {
+          ok: true,
+          command: "validation-bundle-login",
+          uiAuth: buildUiAuthResult({ loggedIn: true, profileDir }),
+        };
+      },
+    });
+  } finally {
+    releaseLoginLockImpl();
+  }
 }
 
 async function runValidationBundle({
@@ -720,9 +1060,10 @@ async function runValidationBundle({
   timestamp = nowTimestamp(),
   loadValidationBundleContextImpl = loadValidationBundleContext,
   launchChromiumSessionImpl = launchChromiumSession,
-  hasNotionAuthCookieImpl = hasNotionAuthCookie,
+  getActiveLoginLockImpl = getActiveLoginLock,
   inspectUiBundleStateImpl = inspectUiBundleState,
   applyUiBundleImpl = applyUiBundle,
+  checkAuthenticatedTargetAccessImpl = checkAuthenticatedTargetAccess,
 }) {
   const bundleContext = await loadValidationBundleContextImpl({
     config,
@@ -749,16 +1090,23 @@ async function runValidationBundle({
     };
   }
 
+  if (await getActiveLoginLockImpl()) {
+    return buildLoginInProgressResult(command, bundleContext);
+  }
+
   return withBundleSession({
     command,
     headed: false,
     timestamp,
     launchChromiumSessionImpl,
     body: async ({ context, page, profileDir }) => {
-      const loggedIn = await hasNotionAuthCookieImpl(context);
-      const uiAuth = buildUiAuthResult({ loggedIn, profileDir });
-      if (!loggedIn) {
-        return buildNotLoggedInResult(command, bundleContext, uiAuth);
+      const targetUrl = buildNotionPageUrl(bundleContext.validationTarget.pageId);
+      const authenticated = await checkAuthenticatedTargetAccessImpl(page, targetUrl);
+      const uiAuth = buildUiAuthResult({ loggedIn: authenticated, profileDir });
+      if (!authenticated) {
+        return buildNotLoggedInResult(command, bundleContext, uiAuth, [
+          "No valid saved Chromium Notion session is available. Run \"validation-bundle login\" first.",
+        ]);
       }
 
       const initialUiBundle = await inspectUiBundleStateImpl(bundleContext, page);

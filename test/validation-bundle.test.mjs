@@ -9,12 +9,27 @@ import {
 } from "../src/notion-ui/validation-bundle.mjs";
 
 function fakeSession() {
+  const hiddenLocator = {
+    first() {
+      return this;
+    },
+    async isVisible() {
+      return false;
+    },
+  };
+
   const page = {
     async goto() {},
     url() {
       return "https://www.notion.so/3329f5f666d08157abcdabcdabcdabcd";
     },
     async waitForLoadState() {},
+    getByText() {
+      return hiddenLocator;
+    },
+    getByRole() {
+      return hiddenLocator;
+    },
   };
   const context = {
     async close() {},
@@ -51,9 +66,18 @@ function baseBundleContext() {
 
 test("loginValidationBundle succeeds when Chromium session captures a Notion auth cookie", async () => {
   const result = await loginValidationBundle({
+    config: {
+      workspace: {
+        projectsPageId: "workspace-projects",
+      },
+    },
     launchChromiumSessionImpl: async () => fakeSession(),
     hasNotionAuthCookieImpl: async () => true,
     waitForNotionLoginImpl: async () => false,
+    waitForAuthenticatedTargetAccessImpl: async () => true,
+    persistChromiumStorageStateImpl: async () => "C:\\Users\\Sean\\AppData\\Local\\SNPM\\playwright\\notion-storage-state.json",
+    acquireLoginLockImpl: () => {},
+    releaseLoginLockImpl: () => {},
   });
 
   assert.equal(result.ok, true);
@@ -68,7 +92,7 @@ test("previewValidationBundle returns a login failure when no Chromium session i
     projectName: "SNPM",
     loadValidationBundleContextImpl: async () => baseBundleContext(),
     launchChromiumSessionImpl: async () => fakeSession(),
-    hasNotionAuthCookieImpl: async () => false,
+    checkAuthenticatedTargetAccessImpl: async () => false,
   });
 
   assert.equal(result.ok, false);
@@ -98,6 +122,21 @@ test("previewValidationBundle reports the missing UI bundle actions without muta
     "create-validation-template",
     "create-validation-button",
   ]);
+});
+
+test("previewValidationBundle fails fast when a separate login is already in progress", async () => {
+  const result = await previewValidationBundle({
+    config: {},
+    projectName: "SNPM",
+    loadValidationBundleContextImpl: async () => baseBundleContext(),
+    getActiveLoginLockImpl: async () => ({
+      pid: 12345,
+      startedAt: "2026-03-29T12:00:00.000Z",
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.failures.join("\n"), /already in progress/i);
 });
 
 test("applyValidationBundle runs reconciliation and reports clean state after apply", async () => {
@@ -156,4 +195,18 @@ test("verifyValidationBundle fails fast when API-visible bundle verification is 
 
   assert.equal(result.ok, false);
   assert.match(result.failures.join("\n"), /API-visible bundle verification/i);
+});
+
+test("loginValidationBundle fails fast when a separate login is already active", async () => {
+  await assert.rejects(() => loginValidationBundle({
+    config: {
+      workspace: {
+        projectsPageId: "workspace-projects",
+      },
+    },
+    acquireLoginLockImpl: () => {
+      throw new Error("A validation-bundle login is already in progress in another Chromium window. Finish or close that window before retrying.");
+    },
+    releaseLoginLockImpl: () => {},
+  }), /already in progress/i);
 });

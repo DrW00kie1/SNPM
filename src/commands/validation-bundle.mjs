@@ -7,7 +7,8 @@ import {
 } from "../notion-ui/validation-bundle.mjs";
 
 export async function runValidationBundleLogin() {
-  return loginValidationBundle({});
+  const config = loadWorkspaceConfig("infrastructure-hq");
+  return loginValidationBundle({ config });
 }
 
 export async function runValidationBundlePreview({
