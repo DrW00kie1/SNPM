@@ -1,6 +1,23 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  runAccessDomainAdopt,
+  runAccessDomainCreate,
+  runAccessDomainDiff,
+  runAccessDomainPull,
+  runAccessDomainPush,
+  runAccessTokenAdopt,
+  runAccessTokenCreate,
+  runAccessTokenDiff,
+  runAccessTokenPull,
+  runAccessTokenPush,
+  runSecretRecordAdopt,
+  runSecretRecordCreate,
+  runSecretRecordDiff,
+  runSecretRecordPull,
+  runSecretRecordPush,
+} from "./commands/access.mjs";
+import {
   runBuildRecordCreate,
   runBuildRecordDiff,
   runBuildRecordPull,
@@ -39,6 +56,21 @@ export function usage() {
     '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-adopt -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-pull -- --project "Project Name" --title "App & Backend" --output access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-domain-diff -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-domain-push -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-create -- --project "Project Name" --title "Runbook Title" --file runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-adopt -- --project "Project Name" --title "Existing Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-pull -- --project "Project Name" --title "Runbook Title" --output runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
@@ -62,6 +94,7 @@ export function usage() {
     "Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
     "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
     "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
+    "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
@@ -257,6 +290,328 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       command: "page-push",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-domain create" || command === "access-domain-create") {
+    const result = await runAccessDomainCreate({
+      apply: options.apply === true,
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-domain-create",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-domain adopt" || command === "access-domain-adopt") {
+    const result = await runAccessDomainAdopt({
+      apply: options.apply === true,
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-domain-adopt",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-domain pull" || command === "access-domain-pull") {
+    const result = await runAccessDomainPull({
+      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-domain-pull",
+      ...result,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-domain diff" || command === "access-domain-diff") {
+    const result = await runAccessDomainDiff({
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-domain-diff",
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-domain push" || command === "access-domain-push") {
+    const result = await runAccessDomainPush({
+      apply: options.apply === true,
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-domain-push",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "secret-record create" || command === "secret-record-create") {
+    const result = await runSecretRecordCreate({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "secret-record-create",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "secret-record adopt" || command === "secret-record-adopt") {
+    const result = await runSecretRecordAdopt({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "secret-record-adopt",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "secret-record pull" || command === "secret-record-pull") {
+    const result = await runSecretRecordPull({
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      command: "secret-record-pull",
+      ...result,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "secret-record diff" || command === "secret-record-diff") {
+    const result = await runSecretRecordDiff({
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "secret-record-diff",
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "secret-record push" || command === "secret-record-push") {
+    const result = await runSecretRecordPush({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "secret-record-push",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-token create" || command === "access-token-create") {
+    const result = await runAccessTokenCreate({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-token-create",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-token adopt" || command === "access-token-adopt") {
+    const result = await runAccessTokenAdopt({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-token-adopt",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-token pull" || command === "access-token-pull") {
+    const result = await runAccessTokenPull({
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-token-pull",
+      ...result,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-token diff" || command === "access-token-diff") {
+    const result = await runAccessTokenDiff({
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-token-diff",
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "access-token push" || command === "access-token-push") {
+    const result = await runAccessTokenPush({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      filePath: requireOption(options, "file", "Provide --file <path>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "access-token-push",
       applied: result.applied,
       hasDiff: result.hasDiff,
       targetPath: result.targetPath,

@@ -5,6 +5,9 @@ export const BUILD_RECORD_ICON = { type: "emoji", emoji: "📦" };
 export const BUILDS_CONTAINER_ICON = { type: "emoji", emoji: "🏗️" };
 export const VALIDATION_SESSIONS_DATABASE_ICON = { type: "emoji", emoji: "🧪" };
 export const VALIDATION_SESSION_ICON = { type: "emoji", emoji: "🧾" };
+export const ACCESS_DOMAIN_ICON = { type: "emoji", emoji: "🗃️" };
+export const SECRET_RECORD_ICON = { type: "emoji", emoji: "🔑" };
+export const ACCESS_TOKEN_ICON = { type: "emoji", emoji: "🪪" };
 
 function ensureTrailingNewline(markdown) {
   const normalized = normalizeMarkdownNewlines(markdown || "");
@@ -118,6 +121,124 @@ export function buildDefaultValidationSessionBody(title) {
   ].join("\n"));
 }
 
+export function buildDefaultAccessDomainBody() {
+  return ensureTrailingNewline([
+    "> Use this page for one access domain. Summarize the systems in scope and point to child secret pages instead of making this the default raw-value paste target.",
+    "",
+    "## System",
+    "- <Service, vendor, or system group this domain covers>",
+    "",
+    "## Purpose",
+    "- <What this domain page is for and what kind of access it owns>",
+    "",
+    "## Auth Method",
+    "- <How access is generally obtained or used across this domain>",
+    "",
+    "## Where The Secret Lives",
+    "- Canonical raw values live on child Secret Record pages or other dedicated child records below this domain page.",
+    "- This page should summarize where to look next, not hold every value inline by default.",
+    "",
+    "## Owner",
+    "- <Primary owner>",
+    "",
+    "## Environments Used",
+    "- <Production | Test | Shared | Native | etc.>",
+    "",
+    "## Child Secret Records",
+    "Child Secret Naming Format",
+    "```plain text",
+    "<System> - <Credential>",
+    "```",
+    "- <Secret page 1 - what it covers>",
+    "- <Secret page 2 - what it covers>",
+    "",
+    "## Rotation / Reset",
+    "- <What triggers rotation or replacement across this domain>",
+    "",
+    "## Related Surfaces",
+    "- Related Access Root",
+    "- Related Vendor Pages",
+    "- Related Runbooks",
+    "",
+  ].join("\n"));
+}
+
+export function buildDefaultSecretRecordBody(title) {
+  return ensureTrailingNewline([
+    "> Use this page for one project-scoped secret. Store one canonical raw value here and describe its scope, owner, and rotation path.",
+    "",
+    "## Secret Record",
+    `- Secret Name: ${title}`,
+    "- System: <Provider or service>",
+    "- Purpose: <Why this secret exists>",
+    "- Auth Method: <API key / client secret / password / signing secret / etc.>",
+    "",
+    "## Usage & Scope",
+    "- Scope: <Project-scoped / environment-scoped / limited scope>",
+    "- Used By: <Service, app, workflow, or operator path>",
+    "",
+    "Environment Variable",
+    "```plain text",
+    "EXAMPLE_SECRET_NAME",
+    "```",
+    "",
+    "## Raw Value",
+    "Raw Value",
+    "```plain text",
+    "<paste secret here>",
+    "```",
+    "",
+    "## Rotation / Reset",
+    "- Rotation / Reset: <How to rotate or recreate this secret if exposed or invalid>",
+    "",
+    "## Related Surfaces",
+    "- Related Access Domain",
+    "- Related Vendor Page",
+    "- Related Runbook or Environment Page",
+    "",
+  ].join("\n"));
+}
+
+export function buildDefaultAccessTokenBody() {
+  return ensureTrailingNewline([
+    "> Use this template for scoped token pages where the record must explain what the token can access, where it is shared, and how it is stored.",
+    "",
+    "## Token Record",
+    "- Token Name: <Short token record name>",
+    "- System: <Provider or integration>",
+    "- Purpose: <Why this token exists>",
+    "- Auth Method: <Integration token / PAT / service token / etc.>",
+    "",
+    "## Usage & Scope",
+    "- Scope: <Project-scoped / workspace admin / limited scope>",
+    "- Shared Root Page: <Which page root the token is shared to>",
+    "",
+    "Environment Variable",
+    "```plain text",
+    "EXAMPLE_PROJECT_NOTION_TOKEN",
+    "```",
+    "",
+    "## Capabilities",
+    "- Capabilities: <read content | update content | insert content | etc.>",
+    "- Boundary Rule: <What this token must not be shared with>",
+    "",
+    "## Raw Value",
+    "Raw Value",
+    "```plain text",
+    "<paste scoped token here>",
+    "```",
+    "",
+    "## Rotation / Reset",
+    "- Rotation / Reset: <How to rotate or recreate this token if exposed or invalid>",
+    "",
+    "## Related Surfaces",
+    "- Related Access Domain",
+    "- Related Secret Record Pages if any",
+    "- Related Workspace or Project Page",
+    "",
+  ].join("\n"));
+}
+
 export function buildManagedRunbookMarkdown({ projectName, title, bodyMarkdown, timestamp }) {
   const canonicalPath = `Projects > ${projectName} > Runbooks > ${title}`;
   const headerMarkdown = buildManagedHeaderMarkdown({
@@ -167,5 +288,50 @@ export function buildManagedValidationSessionMarkdown({ projectName, title, body
 
   return headerMarkdown + ensureTrailingNewline(
     bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultValidationSessionBody(title),
+  );
+}
+
+export function buildManagedAccessDomainMarkdown({ projectName, title, bodyMarkdown, timestamp }) {
+  const canonicalPath = `Projects > ${projectName} > Access > ${title}`;
+  const headerMarkdown = buildManagedHeaderMarkdown({
+    purpose: `${title} is the SNPM-managed access domain page for this project.`,
+    canonicalPath,
+    readThisWhen: "You need the systems, owners, or child secret/token records for this access domain.",
+    sensitive: "yes",
+    timestamp,
+  });
+
+  return headerMarkdown + ensureTrailingNewline(
+    bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultAccessDomainBody(title),
+  );
+}
+
+export function buildManagedSecretRecordMarkdown({ projectName, domainTitle, title, bodyMarkdown, timestamp }) {
+  const canonicalPath = `Projects > ${projectName} > Access > ${domainTitle} > ${title}`;
+  const headerMarkdown = buildManagedHeaderMarkdown({
+    purpose: `${title} is the SNPM-managed secret record for this project access domain.`,
+    canonicalPath,
+    readThisWhen: "You need the canonical raw value, scope, owner, or rotation path for this secret.",
+    sensitive: "yes",
+    timestamp,
+  });
+
+  return headerMarkdown + ensureTrailingNewline(
+    bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultSecretRecordBody(title),
+  );
+}
+
+export function buildManagedAccessTokenMarkdown({ projectName, domainTitle, title, bodyMarkdown, timestamp }) {
+  const canonicalPath = `Projects > ${projectName} > Access > ${domainTitle} > ${title}`;
+  const headerMarkdown = buildManagedHeaderMarkdown({
+    purpose: `${title} is the SNPM-managed access token record for this project access domain.`,
+    canonicalPath,
+    readThisWhen: "You need the token scope, storage rule, or rotation path for this project token.",
+    sensitive: "yes",
+    timestamp,
+  });
+
+  return headerMarkdown + ensureTrailingNewline(
+    bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultAccessTokenBody(title),
   );
 }

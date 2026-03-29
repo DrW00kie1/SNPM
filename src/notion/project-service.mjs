@@ -111,7 +111,7 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
     ...childDatabases.map((child) => child.child_database.title),
   ];
   const lastPathTitle = pathTitles[pathTitles.length - 1] || "";
-  const allowAnyExtras = lastPathTitle === "Runbooks";
+  const allowAnyExtras = lastPathTitle === "Runbooks" || lastPathTitle === "Access";
   const allowedExtraTitles = new Set(
     lastPathTitle === "Ops"
       ? ["Builds"]
@@ -204,6 +204,11 @@ export async function verifyApprovedExtensions(projectPageId, projectName, clien
     await verifyManagedDescendants(runbooksPage.id, projectName, client, failures, [projectName, "Runbooks"]);
   }
 
+  const accessPage = await findChildPage(projectPageId, "Access", client);
+  if (accessPage) {
+    await verifyManagedDescendants(accessPage.id, projectName, client, failures, [projectName, "Access"]);
+  }
+
   const opsPage = await findChildPage(projectPageId, "Ops", client);
   if (!opsPage) {
     return;
@@ -255,6 +260,15 @@ export async function verifyScope(projectPageId, projectName, config, projectTok
       workspaceClient,
       [],
       [projectName, "Runbooks"],
+    )));
+  }
+  const accessPage = await findChildPage(projectPageId, "Access", workspaceClient);
+  if (accessPage) {
+    allowedChecks.push(...(await collectDescendantPageIds(
+      accessPage.id,
+      workspaceClient,
+      [],
+      [projectName, "Access"],
     )));
   }
   const opsPage = await findChildPage(projectPageId, "Ops", workspaceClient);

@@ -57,18 +57,24 @@ test("verifyExpectedTree reports icon, canonical, and child-page mismatches", as
   assert.ok(failures.some((failure) => failure.includes("Child page mismatch on SNPM")));
 });
 
-test("verifyExpectedTree allows dynamic runbooks and the optional Ops > Builds extension", async () => {
+test("verifyExpectedTree allows dynamic runbooks, dynamic access domains, and the optional Ops > Builds extension", async () => {
   const pageMap = new Map([
     ["root", { icon: { type: "emoji", emoji: "🗂️" } }],
     ["ops", { icon: { type: "emoji", emoji: "🛠️" } }],
+    ["access", { icon: { type: "emoji", emoji: "🔐" } }],
     ["runbooks", { icon: { type: "emoji", emoji: "📚" } }],
   ]);
 
   const childrenMap = new Map([
     ["root", [
+      { type: "child_page", id: "access", child_page: { title: "Access" } },
       { type: "child_page", id: "ops", child_page: { title: "Ops" } },
       { type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } },
       paragraph("Canonical Source: Projects > SNPM"),
+    ]],
+    ["access", [
+      { type: "child_page", id: "app-backend", child_page: { title: "App & Backend" } },
+      paragraph("Canonical Source: Projects > SNPM > Access"),
     ]],
     ["ops", [
       { type: "child_page", id: "environments", child_page: { title: "Environments" } },
@@ -104,6 +110,7 @@ test("verifyExpectedTree allows dynamic runbooks and the optional Ops > Builds e
     {
       title: "SNPM",
       children: [
+        { title: "Access", children: [] },
         {
           title: "Ops",
           children: [
@@ -187,6 +194,8 @@ test("verifyExpectedTree allows the optional Ops > Validation > Validation Sessi
 
 test("verifyApprovedExtensions checks managed extension pages while ignoring unmanaged descendants", async () => {
   const pageMap = new Map([
+    ["access-domain", { icon: { type: "emoji", emoji: "🗃️" } }],
+    ["managed-secret", { icon: { type: "emoji", emoji: "🔑" } }],
     ["builds", { icon: { type: "emoji", emoji: "🏗️" } }],
     ["managed-record", { icon: { type: "emoji", emoji: "📦" } }],
     ["unmanaged-runbook", { icon: null }],
@@ -194,12 +203,19 @@ test("verifyApprovedExtensions checks managed extension pages while ignoring unm
 
   const childrenMap = new Map([
     ["root", [
+      { type: "child_page", id: "access", child_page: { title: "Access" } },
       { type: "child_page", id: "ops", child_page: { title: "Ops" } },
       { type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } },
+    ]],
+    ["access", [{ type: "child_page", id: "access-domain", child_page: { title: "App & Backend" } }]],
+    ["access-domain", [
+      { type: "child_page", id: "managed-secret", child_page: { title: "GEMINI_API_KEY" } },
+      paragraph("Canonical Source: Projects > SNPM > Access > App & Backend"),
     ]],
     ["ops", [{ type: "child_page", id: "builds", child_page: { title: "Builds" } }]],
     ["runbooks", [{ type: "child_page", id: "unmanaged-runbook", child_page: { title: "Legacy Runbook" } }]],
     ["builds", [{ type: "child_page", id: "managed-record", child_page: { title: "Validation Build" } }]],
+    ["managed-secret", [paragraph("Canonical Source: Projects > SNPM > Access > App & Backend > GEMINI_API_KEY")]],
     ["managed-record", [paragraph("Canonical Source: Projects > SNPM > Ops > Builds > Validation Build")]],
     ["unmanaged-runbook", [paragraph("Legacy runbook body without managed header")]],
   ]);

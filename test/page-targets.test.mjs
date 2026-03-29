@@ -3,12 +3,17 @@ import assert from "node:assert/strict";
 
 import {
   APPROVED_PLANNING_PAGE_PATHS,
+  findAccessDomainTarget,
+  findAccessRecordTarget,
   findBuildRecordTarget,
   findBuildsContainerTarget,
   findProjectPathTarget,
   findRunbookTarget,
   findValidationSessionsDatabaseTarget,
   parseApprovedPlanningPagePath,
+  resolveAccessDomainTarget,
+  resolveAccessRecordTarget,
+  resolveAccessTarget,
   resolveApprovedPlanningPageTarget,
   resolveBuildRecordTarget,
   resolveProjectPathTarget,
@@ -153,6 +158,43 @@ test("findRunbookTarget and findBuildRecordTarget return null when the title is 
 
   assert.equal(runbookTarget, null);
   assert.equal(buildRecordTarget, null);
+});
+
+test("access target helpers resolve Access domains and nested records", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "access", child_page: { title: "Access" } }]],
+    ["access", [{ type: "child_page", id: "app-backend", child_page: { title: "App & Backend" } }]],
+    ["app-backend", [{ type: "child_page", id: "gemini-key", child_page: { title: "GEMINI_API_KEY" } }]],
+  ]);
+
+  const client = {
+    async getChildren(pageId) {
+      return childrenMap.get(pageId) || [];
+    },
+  };
+
+  const accessTarget = await resolveAccessTarget("SNPM", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const domainTarget = await resolveAccessDomainTarget("SNPM", "App & Backend", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const recordTarget = await resolveAccessRecordTarget("SNPM", "App & Backend", "GEMINI_API_KEY", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const foundDomainTarget = await findAccessDomainTarget("SNPM", "App & Backend", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const foundRecordTarget = await findAccessRecordTarget("SNPM", "App & Backend", "GEMINI_API_KEY", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(accessTarget.targetPath, "Projects > SNPM > Access");
+  assert.equal(domainTarget.targetPath, "Projects > SNPM > Access > App & Backend");
+  assert.equal(recordTarget.targetPath, "Projects > SNPM > Access > App & Backend > GEMINI_API_KEY");
+  assert.equal(foundDomainTarget?.targetPath, domainTarget.targetPath);
+  assert.equal(foundRecordTarget?.targetPath, recordTarget.targetPath);
 });
 
 test("validation target helpers resolve Ops > Validation and the optional Validation Sessions database", async () => {

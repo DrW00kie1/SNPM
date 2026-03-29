@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 
 import { parseArgs, usage } from "../src/cli.mjs";
 
-test("usage includes planning sync plus runbook, build-record, validation-session, and manifest sync commands", () => {
+test("usage includes planning sync plus access, runbook, build-record, validation-session, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
   assert.match(help, /npm run page-push/);
+  assert.match(help, /npm run access-domain-create/);
+  assert.match(help, /npm run secret-record-create/);
+  assert.match(help, /npm run access-token-create/);
   assert.match(help, /npm run runbook-create/);
   assert.match(help, /npm run runbook-adopt/);
   assert.match(help, /npm run build-record-create/);
@@ -56,6 +59,52 @@ test("parseArgs supports runbook subcommands", () => {
   assert.equal(parsed.options.project, "SNPM");
   assert.equal(parsed.options.title, "Legacy Runbook");
   assert.equal(parsed.options.apply, true);
+});
+
+test("parseArgs supports access-domain and nested record subcommands", () => {
+  const domainParsed = parseArgs([
+    "access-domain",
+    "create",
+    "--project",
+    "SNPM",
+    "--title",
+    "App & Backend",
+    "--file",
+    "access-domain.md",
+  ]);
+  const secretParsed = parseArgs([
+    "secret-record",
+    "push",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "GEMINI_API_KEY",
+    "--file",
+    "secret.md",
+    "--apply",
+  ]);
+  const tokenParsed = parseArgs([
+    "access-token",
+    "adopt",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "Project Token",
+    "--apply",
+  ]);
+
+  assert.equal(domainParsed.command, "access-domain create");
+  assert.equal(domainParsed.options.title, "App & Backend");
+  assert.equal(secretParsed.command, "secret-record push");
+  assert.equal(secretParsed.options.domain, "App & Backend");
+  assert.equal(secretParsed.options.apply, true);
+  assert.equal(tokenParsed.command, "access-token adopt");
+  assert.equal(tokenParsed.options.domain, "App & Backend");
+  assert.equal(tokenParsed.options.apply, true);
 });
 
 test("parseArgs supports build-record subcommands", () => {

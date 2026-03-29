@@ -130,6 +130,32 @@ export async function resolveRunbooksContainerTarget(projectName, config, client
   return resolveProjectPathTarget(projectName, ["Runbooks"], config, client);
 }
 
+export async function resolveAccessTarget(projectName, config, client) {
+  return resolveProjectPathTarget(projectName, ["Access"], config, client);
+}
+
+export async function findAccessDomainTarget(projectName, title, config, client) {
+  const normalizedTitle = requireSurfaceTitle(title, "<Access Domain Title>");
+  return findProjectPathTarget(projectName, ["Access", normalizedTitle], config, client);
+}
+
+export async function resolveAccessDomainTarget(projectName, title, config, client) {
+  const normalizedTitle = requireSurfaceTitle(title, "<Access Domain Title>");
+  return resolveProjectPathTarget(projectName, ["Access", normalizedTitle], config, client);
+}
+
+export async function findAccessRecordTarget(projectName, domainTitle, title, config, client) {
+  const normalizedDomainTitle = requireSurfaceTitle(domainTitle, "<Access Domain Title>");
+  const normalizedTitle = requireSurfaceTitle(title, "<Record Title>");
+  return findProjectPathTarget(projectName, ["Access", normalizedDomainTitle, normalizedTitle], config, client);
+}
+
+export async function resolveAccessRecordTarget(projectName, domainTitle, title, config, client) {
+  const normalizedDomainTitle = requireSurfaceTitle(domainTitle, "<Access Domain Title>");
+  const normalizedTitle = requireSurfaceTitle(title, "<Record Title>");
+  return resolveProjectPathTarget(projectName, ["Access", normalizedDomainTitle, normalizedTitle], config, client);
+}
+
 export async function findRunbookTarget(projectName, title, config, client) {
   const normalizedTitle = requireSurfaceTitle(title, "<Runbook Title>");
   return findProjectPathTarget(projectName, ["Runbooks", normalizedTitle], config, client);
