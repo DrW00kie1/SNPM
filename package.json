@@ -1,0 +1,15 @@
+{
+  "name": "snpm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspace-first Infrastructure HQ Notion automation and project bootstrap tooling.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "create-project": "node src/cli.mjs create-project",
+    "verify-project": "node src/cli.mjs verify-project"
+  }
+}
+

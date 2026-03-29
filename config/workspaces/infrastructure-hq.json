@@ -1,0 +1,44 @@
+{
+  "notionVersion": "2022-06-28",
+  "workspace": {
+    "projectsPageId": "3319f5f6-66d0-81ab-b6e8-c4fe3e2047be",
+    "projectTemplatesPageId": "3319f5f6-66d0-817a-8d71-d6c194ea4bb8",
+    "forbiddenScopePageIds": {
+      "home": "3319f5f6-66d0-805b-8ad5-f358f6a1b494",
+      "accessIndex": "3319f5f6-66d0-8160-b214-df4c8ad91c1e",
+      "runbooks": "3319f5f6-66d0-814c-827d-c665d9a03920",
+      "vendors": "3319f5f6-66d0-8106-930b-fa443a4e6038"
+    }
+  },
+  "projectStarter": {
+    "children": [
+      {
+        "title": "Ops",
+        "children": [
+          { "title": "Environments", "children": [] },
+          { "title": "Validation", "children": [] },
+          { "title": "Release Readiness", "children": [] }
+        ]
+      },
+      {
+        "title": "Planning",
+        "children": [
+          { "title": "Roadmap", "children": [] },
+          { "title": "Current Cycle", "children": [] },
+          { "title": "Backlog", "children": [] },
+          { "title": "Decision Log", "children": [] }
+        ]
+      },
+      { "title": "Access", "children": [] },
+      { "title": "Vendors", "children": [] },
+      { "title": "Runbooks", "children": [] },
+      {
+        "title": "Incidents",
+        "children": [
+          { "title": "Postmortems", "children": [] }
+        ]
+      }
+    ]
+  }
+}
+
