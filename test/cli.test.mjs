@@ -5,6 +5,8 @@ import { parseArgs, usage } from "../src/cli.mjs";
 
 test("usage includes planning sync plus access, runbook, build-record, validation-session, and manifest sync commands", () => {
   const help = usage();
+  assert.match(help, /npm run doctor/);
+  assert.match(help, /npm run recommend/);
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
   assert.match(help, /npm run page-push/);
@@ -22,6 +24,27 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /npm run sync-check/);
   assert.match(help, /npm run sync-pull/);
   assert.match(help, /npm run sync-push/);
+});
+
+test("parseArgs supports doctor and recommend aliases", () => {
+  const doctorParsed = parseArgs([
+    "doctor",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+  ]);
+  const recommendParsed = parseArgs([
+    "recommend",
+    "--project",
+    "Tall Man Training",
+  ]);
+
+  assert.equal(doctorParsed.command, "doctor");
+  assert.equal(doctorParsed.options.project, "SNPM");
+  assert.equal(doctorParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
+  assert.equal(recommendParsed.command, "recommend");
+  assert.equal(recommendParsed.options.project, "Tall Man Training");
 });
 
 test("parseArgs supports page subcommands and boolean apply flags", () => {

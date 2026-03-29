@@ -32,14 +32,16 @@ Published baseline on `main`:
 - project-token scope verification when a project token is provided
 - cross-repo use through the shared `C:\\SNPM` control checkout
 
-Committed development line beyond published `main`:
-- the triage-first validation-session findings/follow-up redesign on `codex/development`
-- first-class project Access surfaces (`access-domain`, `secret-record`, `access-token`) on `codex/development`
+Committed development branches beyond published `main`:
+- `codex/development` adds the triage-first validation-session findings/follow-up redesign
+- `codex/development` also adds first-class project Access surfaces (`access-domain`, `secret-record`, `access-token`)
+- `codex/doctor` adds the first read-only `doctor` / `recommend` slice on top of `codex/development`
 
 Important publication boundary:
 - the latest published testing tag `sprint-3-validation-sessions` is older than the current published `main` baseline
 - `main` includes manifest-backed validation-session sync and the checkbox-first validation-session workflow even though the latest tag does not
 - `codex/development` currently includes the triage-first validation-session redesign and the committed-but-unpublished Access slice
+- `codex/doctor` currently adds read-only project doctoring on top of that development line
 
 Current project-token-safe sync and mutation rules:
 - approved targets only: `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
@@ -55,6 +57,7 @@ Current project-token-safe sync and mutation rules:
 - buttons, database templates, mentions, and row properties remain richer UI-layer helpers rather than canonical synced body structure
 - manifest-backed sync is intentionally limited to existing managed validation-session rows listed in `snpm.sync.json`
 - `sync` does not implicitly initialize the surface, create rows, or adopt unmanaged rows
+- `doctor` is read-only and summarizes managed surfaces, hard issues, adoptable content, and next-step commands without mutating Notion
 
 ## Commands
 
@@ -68,6 +71,14 @@ Verify a created project subtree:
 
 ```bash
 npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Read the current project-owned surface state and next-step recommendations:
+
+```bash
+npm run doctor -- --project "Project Name"
+npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run recommend -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 ```
 
 Pull the editable body for an approved planning page:
@@ -195,8 +206,8 @@ The chosen next phase is to evolve SNPM into an internal, high-guardrail workflo
 
 The roadmap is now being reset around complete task workflows rather than raw surface expansion. The immediate priorities are:
 - align the published baseline, testing tags, and live roadmap language
-- build workflow bundles for validation, release/build evidence, access changes, and runbook standardization
-- add project doctoring and adoption planning before widening surface coverage further
+- finish and publish project doctoring/adoption planning cleanly
+- then build workflow bundles for validation, release/build evidence, access changes, and runbook standardization
 
 The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
 
@@ -225,7 +236,7 @@ Default tester flow:
 
 Trusted live testers may also run `verify-project`, `page-pull`, `page-diff`, preview-only `page-push`, and the project-token-safe `runbook` / `build-record` commands against the real Notion workspace when they already have the right token setup. Live mutation commands such as `create-project`, `page-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, or `build-record-create --apply` are not the default testing path.
 Trusted live testers may also use `validation-sessions-verify` and the validation-session commands against project-owned `Ops > Validation > Validation Sessions` surfaces when they already have the right token setup. `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, and `validation-session-push --apply` remain trusted live-mutation paths rather than default testing steps.
-Manifest-backed validation-session sync and the checkbox-first validation-session workflow are on published `main` but newer than the latest published testing tag. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development` and newer than published `main`. If you test any of those newer slices, report clearly whether you were on published `main`, `codex/development`, or an unpublished local checkout.
+Manifest-backed validation-session sync and the checkbox-first validation-session workflow are on published `main` but newer than the latest published testing tag. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The read-only `doctor` / `recommend` slice is committed on `codex/doctor`. If you test any of those newer slices, report clearly whether you were on published `main`, `codex/development`, `codex/doctor`, or an unpublished local checkout.
 
 ## Docs
 

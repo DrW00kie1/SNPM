@@ -306,9 +306,52 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 ## 2026-03-29 — Stabilize `codex/development`
 
 - [x] Preserve the passing Access slice as its own development-branch commit.
-- [ ] Commit the roadmap/publication-boundary reset separately so it reflects Access as committed on `codex/development` rather than local-only worktree state.
-- [ ] Update the live SNPM planning pages so they distinguish published `main`, the latest published testing tag, and committed `codex/development`.
-- [ ] Run `npm test` and `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` after the cleanup commits.
-- [ ] Confirm `git status --short` is clean.
-- [ ] Push the cleaned `codex/development` branch to `origin`.
-- [ ] Create `codex/doctor` from the cleaned development tip.
+- [x] Commit the roadmap/publication-boundary reset separately so it reflects Access as committed on `codex/development` rather than local-only worktree state.
+- [x] Update the live SNPM planning pages so they distinguish published `main`, the latest published testing tag, and committed `codex/development`.
+- [x] Run `npm test` and `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` after the cleanup commits.
+- [x] Confirm `git status --short` is clean.
+- [x] Push the cleaned `codex/development` branch to `origin`.
+- [x] Create `codex/doctor` from the cleaned development tip.
+
+## 2026-03-29 — `snpm doctor` / `snpm recommend`
+
+- [x] Record the `doctor` v1 design, scope, and surface-classification rules in `research.md`.
+- [x] Add the `doctor` implementation checklist to `plan.md` before code changes.
+- [x] Add a new read-only service module for `doctor` that reports:
+  - managed surface presence
+  - missing optional surfaces
+  - unmanaged-but-adoptable content
+  - actionable next-step recommendations
+- [x] Reuse the existing project verification and validation-session helpers instead of widening `verify-project`.
+- [x] Add CLI support for:
+  - `doctor --project "<Project>" [--project-token-env TOKEN_ENV]`
+  - `recommend --project "<Project>" [--project-token-env TOKEN_ENV]`
+- [x] Return structured JSON with:
+  - `ok`
+  - `command`
+  - `projectId`
+  - `targetPath`
+  - `authMode`
+  - `projectTokenChecked`
+  - `surfaces`
+  - `issues`
+  - `adoptable`
+  - `recommendations`
+- [x] Cover these surfaces in v1:
+  - `Runbooks`
+  - `Ops > Builds`
+  - `Ops > Validation > Validation Sessions`
+  - `Access`
+- [x] Keep missing optional surfaces as recommendations, not hard failures.
+- [x] Keep unmanaged adoptable content out of hard failures and place it in `adoptable` plus `recommendations`.
+- [x] Run automated tests for:
+  - CLI parsing and help text
+  - empty/missing optional surfaces
+  - unmanaged runbook/access descendants
+  - validation-session surface health passthrough
+  - project-token scope reporting only when requested
+- [x] Live-validate:
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `doctor --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN`
+  - cross-repo invocation from `C:\\tall-man-training`
+- [x] Update local docs and live SNPM planning pages so `doctor` is the active next command family and workflow bundles remain the follow-on layer.

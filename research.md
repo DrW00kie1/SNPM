@@ -967,3 +967,130 @@ High-value product ideas surfaced by this reset:
   - runbook standardization and maintenance
 - project capability profiles so Codex threads can discover optional project-owned surfaces without tree spelunking
 - workflow-linked evidence models that connect builds, validation sessions, release readiness, and project-scoped access changes
+
+## 2026-03-29 — `snpm doctor` v1 Design
+
+Goal:
+- add one read-only, project-scoped command that answers:
+  - what approved managed surfaces already exist
+  - what optional surfaces are missing
+  - what existing pages are unmanaged but adoptable
+  - what command the operator should run next
+
+Chosen command shape:
+- `doctor --project "<Project>" [--project-token-env TOKEN_ENV]`
+- `recommend --project "<Project>" [--project-token-env TOKEN_ENV]` as an alias to the same implementation
+
+Chosen output contract:
+- top-level fields:
+  - `ok`
+  - `command`
+  - `projectId`
+  - `targetPath`
+  - `authMode`
+  - `projectTokenChecked`
+  - `surfaces`
+  - `issues`
+  - `adoptable`
+  - `recommendations`
+- `ok` should reflect hard issues only:
+  - unmanaged-but-adoptable content should not make the command fail by itself
+  - missing optional surfaces should not make the command fail by itself
+
+Chosen auth/read model:
+- use the workspace token as the discovery source of truth for the doctor scan itself
+- if `--project-token-env` is provided:
+  - run the existing project-token scope checks
+  - expose the result as a dedicated scope section inside `surfaces`
+  - keep `projectTokenChecked: true`
+- if `--project-token-env` is omitted:
+  - keep `projectTokenChecked: false`
+  - do not synthesize fake scope failures
+  - recommend rerunning with a project token only when that extra readiness signal is relevant
+
+Chosen v1 surfaces:
+- `Runbooks`
+- `Ops > Builds`
+- `Ops > Validation > Validation Sessions`
+- `Access`
+
+Chosen surface rules:
+- Runbooks:
+  - inspect direct child pages under `Runbooks`
+  - classify each child page as managed, unmanaged, or managed-with-issues
+  - unmanaged direct children are adoptable via `runbook adopt`
+- Builds:
+  - `Ops > Builds` remains optional
+  - if missing, recommend `build-record create` for first use
+  - if present, inspect direct child pages under `Builds`
+  - existing unmanaged build pages are issues rather than adoptable content because there is no `build-record adopt` command today
+- Validation Sessions:
+  - reuse the current `validation-sessions verify` logic for structural/schema health
+  - if initialized, inspect row pages and classify unmanaged rows as adoptable via `validation-session adopt`
+  - if missing, recommend `validation-sessions init`
+- Access:
+  - inspect direct child pages under `Access` as domain pages
+  - inspect direct child pages under each domain as secret/token records
+  - unmanaged domains are adoptable via `access-domain adopt`
+  - unmanaged records should be classified heuristically:
+    - `🪪` icon or token-shaped body -> `access-token adopt`
+    - otherwise -> `secret-record adopt`
+  - any direct record-like child under `Access` root is a structural issue because only domain pages belong there
+
+Chosen implementation boundary:
+- add a new service module instead of widening `verify-project`
+- reuse:
+  - `findChildPage` and `verifyScope` from `project-service.mjs`
+  - target/path helpers from `page-targets.mjs`
+  - canonical-source helpers from `template-blocks.mjs` and `project-model.mjs`
+  - validation-surface verification from `validation-sessions.mjs`
+- keep the command read-only:
+  - no page creation
+  - no adoption
+  - no template mutation
+  - no Notion workspace restructuring
+
+## 2026-03-29 — `snpm doctor` v1 Result
+
+Implementation result:
+- added a read-only `doctor` command plus `recommend` alias
+- added structured JSON output for:
+  - managed surface summaries
+  - hard issues
+  - unmanaged-but-adoptable content
+  - actionable next-step recommendations
+- kept the command workspace-token-driven for discovery while making project-token scope checks optional and explicit
+- reused the existing validation-session verifier and project-token scope helper instead of widening `verify-project`
+
+Surface result:
+- `Runbooks`
+  - direct child runbooks are classified as managed or unmanaged
+  - unmanaged direct children produce `runbook adopt` recommendations
+- `Ops > Builds`
+  - missing optional `Builds` produces a `build-record create` recommendation
+  - existing unmanaged build pages are surfaced as issues because no `build-record adopt` path exists yet
+- `Validation Sessions`
+  - missing optional initialization produces `validation-sessions init` recommendation
+  - unmanaged row pages produce `validation-session adopt` recommendations when the row has a usable title
+  - rows missing a `Name` title are hard issues because SNPM cannot target them safely yet
+- `Access`
+  - empty Access roots are summarized cleanly
+  - unmanaged domains produce `access-domain adopt` recommendations
+  - unmanaged nested records produce `secret-record adopt` or `access-token adopt` recommendations using icon/body heuristics
+
+Live validation result:
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed cleanly and correctly reported:
+  - `Runbooks` present
+  - `Ops > Builds` present
+  - `Validation Sessions` present
+  - `Access` present and currently empty after fixture cleanup
+- `doctor --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN` intentionally surfaced real health and adoption work without mutating the project:
+  - one unmanaged runbook remains adoptable
+  - one validation-session row is missing a `Name` title and must be titled manually before adoption
+  - multiple legacy pages still use older canonical-source strings and custom icons, which the new doctor surface now exposes explicitly as health issues
+- cross-repo invocation from `C:\\tall-man-training` against the shared `C:\\SNPM` checkout succeeded and returned the same Tall Man assessment
+
+Product lesson from the live Tall Man scan:
+- the command already delivers value because it can surface adoption work and drift safely
+- legacy custom icons/canonical strings are now a clear migration problem category
+- the next high-value layer after doctor is still workflow bundles, but the strongest immediate follow-on inside doctoring is better migration guidance for known legacy patterns

@@ -18,9 +18,10 @@ Published baseline on `main`:
 - manifest-backed `sync check`, `sync pull`, and `sync push` for repo-backed validation-session artifacts
 - checkbox-first validation-session body contract
 
-Committed development line on `codex/development`:
+Committed development work beyond published `main`:
 - triage-first validation-session `Findings` / `Follow-Up` redesign
 - first-class project Access surfaces under `Projects > <Project> > Access`
+- read-only `snpm doctor` / `snpm recommend` on `codex/doctor`
 
 Important publication boundary:
 - the latest published testing tag is still `sprint-3-validation-sessions`
@@ -78,6 +79,7 @@ Boundary signal:
   - which are missing
   - which are unmanaged but adoptable
   - what command to run next
+- the first read-only slice is now implemented on `codex/doctor`
 - add surface-specific adoption planners before widening broad verification further
 - keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
 
@@ -94,9 +96,10 @@ Boundary signal:
 
 ## What SNPM Should Probably Build Next
 
-`snpm doctor` / `snpm recommend`:
+Current active command-family work:
+- `snpm doctor` / `snpm recommend`
 - tell a thread what exists, what is broken, what is adoptable, and the exact next command to run
-- this is the clearest next product step after repeated demand for narrow verifiers and adoption guidance
+- the follow-on layer after that is workflow bundles, not more raw primitive expansion
 
 Workflow bundles:
 - `start validation run`
