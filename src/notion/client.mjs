@@ -1,6 +1,19 @@
-export function makeNotionClient(token, notionVersion) {
+import { parseNotionError } from "./errors.mjs";
+
+async function readJsonResponse(response) {
+  if (response.status === 204) return null;
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+export function makeNotionClient(token, notionVersion, { fetchImpl = globalThis.fetch } = {}) {
+  if (typeof fetchImpl !== "function") {
+    throw new Error("A fetch implementation is required to create the Notion client.");
+  }
+
   async function request(method, apiPath, body) {
-    const response = await fetch(`https://api.notion.com/v1/${apiPath}`, {
+    const response = await fetchImpl(`https://api.notion.com/v1/${apiPath}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -11,15 +24,14 @@ export function makeNotionClient(token, notionVersion) {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`${method} ${apiPath} failed: ${response.status} ${text}`);
+      throw await parseNotionError(method, apiPath, response);
     }
 
-    return response.json();
+    return readJsonResponse(response);
   }
 
   async function requestMaybe(method, apiPath, body) {
-    const response = await fetch(`https://api.notion.com/v1/${apiPath}`, {
+    const response = await fetchImpl(`https://api.notion.com/v1/${apiPath}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -30,13 +42,15 @@ export function makeNotionClient(token, notionVersion) {
     });
 
     if (response.ok) {
-      return { ok: true, json: await response.json() };
+      return { ok: true, json: await readJsonResponse(response) };
     }
 
+    const error = await parseNotionError(method, apiPath, response);
     return {
       ok: false,
-      status: response.status,
-      body: await response.text(),
+      status: error.status,
+      body: error.body,
+      error,
     };
   }
 
@@ -62,4 +76,3 @@ export function makeNotionClient(token, notionVersion) {
     getChildren,
   };
 }
-

@@ -8,6 +8,9 @@ function usage() {
       '  npm run create-project -- --name "Project Name"',
       '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
       "",
+      "Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
+      "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
+      "",
       "Optional flags:",
       "  --workspace infrastructure-hq",
       "",
@@ -44,7 +47,8 @@ async function main() {
   const { command, options } = parseArgs(process.argv.slice(2));
   if (!command || command === "--help" || command === "help") {
     usage();
-    process.exit(command ? 1 : 0);
+    process.exitCode = command ? 1 : 0;
+    return;
   }
 
   const workspaceName = options.workspace || "infrastructure-hq";
@@ -77,7 +81,8 @@ async function main() {
       failures: result.failures,
     }, null, 2));
     if (result.failures.length > 0) {
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     return;
   }
@@ -87,6 +92,5 @@ async function main() {
 
 main().catch((error) => {
   console.error(error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
-

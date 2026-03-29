@@ -9,7 +9,7 @@
   },
   "scripts": {
     "create-project": "node src/cli.mjs create-project",
-    "verify-project": "node src/cli.mjs verify-project"
+    "verify-project": "node src/cli.mjs verify-project",
+    "test": "node --test"
   }
 }
-

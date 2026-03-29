@@ -2,6 +2,8 @@
 
 SNPM is the canonical way to create a new Infrastructure HQ project subtree.
 
+This page documents the current shipped bootstrap and verification flow. For the broader planned operator direction, see [operator roadmap](./operator-roadmap.md).
+
 ## Create a project
 
 ```bash
@@ -15,6 +17,17 @@ This command:
 - rewrites `Canonical Source`
 - refreshes `Last Updated`
 
+## From another repo or Codex thread
+
+If the active work is happening in a different repo, use the same command from the SNPM checkout:
+
+```powershell
+Set-Location C:\SNPM
+npm run create-project -- --name "Project Name"
+```
+
+Use SNPM as the control repo for this step. Do not copy the bootstrap script, workspace ids, or starter-tree config into the new repo.
+
 ## Verify a project
 
 ```bash
@@ -27,3 +40,4 @@ This verifies:
 - canonical-source rewrites
 - optional project-token scope boundaries when the project token env var is provided
 
+Project-token verification is intentionally deferred until the new repo actually needs repo-local Notion automation.
