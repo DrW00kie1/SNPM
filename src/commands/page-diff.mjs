@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import { diffApprovedPageBody } from "../notion/page-markdown.mjs";
+import { readCommandInput } from "./io.mjs";
 
 export async function runPageDiff({
   filePath,
@@ -11,7 +10,7 @@ export async function runPageDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffApprovedPageBody({
     config,

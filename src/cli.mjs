@@ -56,29 +56,29 @@ export function usage() {
     '  npm run doctor -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run recommend -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-domain-adopt -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-domain-pull -- --project "Project Name" --title "App & Backend" --output access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-domain-diff -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-domain-push -- --project "Project Name" --title "App & Backend" --file access-domain.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-pull -- --project "Project Name" --title "App & Backend" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-domain-diff -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-domain-push -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run runbook-create -- --project "Project Name" --title "Runbook Title" --file runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run runbook-create -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-adopt -- --project "Project Name" --title "Existing Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run runbook-pull -- --project "Project Name" --title "Runbook Title" --output runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run runbook-diff -- --project "Project Name" --title "Runbook Title" --file runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run runbook-push -- --project "Project Name" --title "Runbook Title" --file runbook.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run runbook-pull -- --project "Project Name" --title "Runbook Title" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run runbook-diff -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run runbook-push -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run build-record-create -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run build-record-pull -- --project "Project Name" --title "Build Record Title" --output build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run build-record-diff -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
@@ -101,8 +101,10 @@ export function usage() {
     "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
-    "Validation-session bundle verification is docs-and-verify only; it checks API-visible rules and returns explicit manual UI checks for views/forms/templates/buttons.",
+    "Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
     "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+    "For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
+    "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
     "",
     "Optional flags:",
     "  --workspace infrastructure-hq",
@@ -120,6 +122,11 @@ function printUsage() {
       usage(),
     ].join("\n"),
   );
+}
+
+function writeStructuredOutput(payload, { stderr = false } = {}) {
+  const stream = stderr ? process.stderr : process.stdout;
+  stream.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
 export function parseArgs(argv) {
@@ -266,23 +273,23 @@ async function main() {
 
   if (command === "page pull" || command === "page-pull") {
     const result = await runPagePull({
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "page-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "page diff" || command === "page-diff") {
     const result = await runPageDiff({
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
@@ -303,7 +310,7 @@ async function main() {
   if (command === "page push" || command === "page-push") {
     const result = await runPagePush({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
@@ -326,7 +333,7 @@ async function main() {
   if (command === "access-domain create" || command === "access-domain-create") {
     const result = await runAccessDomainCreate({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
@@ -370,23 +377,23 @@ async function main() {
 
   if (command === "access-domain pull" || command === "access-domain-pull") {
     const result = await runAccessDomainPull({
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "access-domain-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "access-domain diff" || command === "access-domain-diff") {
     const result = await runAccessDomainDiff({
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
@@ -407,7 +414,7 @@ async function main() {
   if (command === "access-domain push" || command === "access-domain-push") {
     const result = await runAccessDomainPush({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
@@ -431,7 +438,7 @@ async function main() {
     const result = await runSecretRecordCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -477,24 +484,24 @@ async function main() {
   if (command === "secret-record pull" || command === "secret-record-pull") {
     const result = await runSecretRecordPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "secret-record-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "secret-record diff" || command === "secret-record-diff") {
     const result = await runSecretRecordDiff({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -516,7 +523,7 @@ async function main() {
     const result = await runSecretRecordPush({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -540,7 +547,7 @@ async function main() {
     const result = await runAccessTokenCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -586,24 +593,24 @@ async function main() {
   if (command === "access-token pull" || command === "access-token-pull") {
     const result = await runAccessTokenPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "access-token-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "access-token diff" || command === "access-token-diff") {
     const result = await runAccessTokenDiff({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -625,7 +632,7 @@ async function main() {
     const result = await runAccessTokenPush({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -648,7 +655,7 @@ async function main() {
   if (command === "runbook create" || command === "runbook-create") {
     const result = await runRunbookCreate({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
@@ -692,23 +699,23 @@ async function main() {
 
   if (command === "runbook pull" || command === "runbook-pull") {
     const result = await runRunbookPull({
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "runbook-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "runbook diff" || command === "runbook-diff") {
     const result = await runRunbookDiff({
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
@@ -729,7 +736,7 @@ async function main() {
   if (command === "runbook push" || command === "runbook-push") {
     const result = await runRunbookPush({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),

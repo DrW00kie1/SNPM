@@ -1,7 +1,6 @@
-import { writeFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import { pullApprovedPageBody } from "../notion/page-markdown.mjs";
+import { writeCommandOutput } from "./io.mjs";
 
 export async function runPagePull({
   outputPath,
@@ -18,12 +17,12 @@ export async function runPagePull({
     projectTokenEnv,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
 
   return {
     pageId: result.pageId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    ...outputResult,
   };
 }

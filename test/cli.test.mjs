@@ -25,6 +25,10 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /npm run sync-check/);
   assert.match(help, /npm run sync-pull/);
   assert.match(help, /npm run sync-push/);
+  assert.match(help, /--output <file\|->/);
+  assert.match(help, /--file <file\|->/);
+  assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
+  assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
 });
 
 test("parseArgs supports doctor and recommend aliases", () => {

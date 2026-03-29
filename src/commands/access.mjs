@@ -1,5 +1,3 @@
-import { readFileSync, writeFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   adoptAccessDomain,
@@ -18,6 +16,7 @@ import {
   pushAccessTokenBody,
   pushSecretRecordBody,
 } from "../notion/project-pages.mjs";
+import { readCommandInput, writeCommandOutput } from "./io.mjs";
 
 export async function runAccessDomainCreate({
   apply = false,
@@ -28,7 +27,7 @@ export async function runAccessDomainCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return createAccessDomain({
     apply,
@@ -72,13 +71,13 @@ export async function runAccessDomainPull({
     title,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
 
   return {
     pageId: result.pageId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    ...outputResult,
   };
 }
 
@@ -90,7 +89,7 @@ export async function runAccessDomainDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffAccessDomainBody({
     config,
@@ -110,7 +109,7 @@ export async function runAccessDomainPush({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return pushAccessDomainBody({
     apply,
@@ -132,7 +131,7 @@ export async function runSecretRecordCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return createSecretRecord({
     apply,
@@ -181,13 +180,13 @@ export async function runSecretRecordPull({
     title,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
 
   return {
     pageId: result.pageId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    ...outputResult,
   };
 }
 
@@ -200,7 +199,7 @@ export async function runSecretRecordDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffSecretRecordBody({
     config,
@@ -222,7 +221,7 @@ export async function runSecretRecordPush({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return pushSecretRecordBody({
     apply,
@@ -245,7 +244,7 @@ export async function runAccessTokenCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return createAccessToken({
     apply,
@@ -294,13 +293,13 @@ export async function runAccessTokenPull({
     title,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
 
   return {
     pageId: result.pageId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    ...outputResult,
   };
 }
 
@@ -313,7 +312,7 @@ export async function runAccessTokenDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffAccessTokenBody({
     config,
@@ -335,7 +334,7 @@ export async function runAccessTokenPush({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return pushAccessTokenBody({
     apply,

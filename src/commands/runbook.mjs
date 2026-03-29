@@ -1,5 +1,3 @@
-import { readFileSync, writeFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   adoptRunbook,
@@ -8,6 +6,7 @@ import {
   pullRunbookBody,
   pushRunbookBody,
 } from "../notion/project-pages.mjs";
+import { readCommandInput, writeCommandOutput } from "./io.mjs";
 
 export async function runRunbookCreate({
   apply = false,
@@ -18,7 +17,7 @@ export async function runRunbookCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return createRunbook({
     apply,
@@ -62,13 +61,13 @@ export async function runRunbookPull({
     title,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
 
   return {
     pageId: result.pageId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    ...outputResult,
   };
 }
 
@@ -80,7 +79,7 @@ export async function runRunbookDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffRunbookBody({
     config,
@@ -100,7 +99,7 @@ export async function runRunbookPush({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return pushRunbookBody({
     apply,
