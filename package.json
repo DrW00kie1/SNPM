@@ -9,6 +9,9 @@
   },
   "scripts": {
     "create-project": "node src/cli.mjs create-project",
+    "page-diff": "node src/cli.mjs page diff",
+    "page-pull": "node src/cli.mjs page pull",
+    "page-push": "node src/cli.mjs page push",
     "verify-project": "node src/cli.mjs verify-project",
     "test": "node --test"
   }

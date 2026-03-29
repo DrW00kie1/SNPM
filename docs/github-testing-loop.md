@@ -9,7 +9,9 @@ Default tester path:
 - file findings in GitHub issues, not only in chat threads
 
 Current testing snapshot:
-- `sprint-1-foundation`
+- `sprint-2-planning-sync`
+
+`main` remains the integration branch for follow-on work after the Sprint 2 snapshot.
 
 ## Tester Workflow
 
@@ -18,7 +20,7 @@ Clone and check out the current snapshot:
 ```powershell
 git clone https://github.com/DrW00kie1/SNPM.git
 Set-Location SNPM
-git checkout sprint-1-foundation
+git checkout sprint-2-planning-sync
 ```
 
 Default repo-level validation:
@@ -30,14 +32,20 @@ node src/cli.mjs help
 
 Trusted live-tester validation:
 - `verify-project` is the default live command because it is read-heavy and validates the real workspace without creating a new project
-- `create-project` or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
+- `page-pull` and `page-diff` are also allowed for trusted testers on the approved planning pages
+- preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
+- `create-project`, `page-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
 - use workspace and project tokens only if you already have approved access
+- use the file produced by `page-pull` as the editing base for `page-push`; Notion may re-escape markdown-sensitive characters such as `>` on read-back
 
 Example trusted live check:
 
 ```powershell
 npm run verify-project -- --name "SNPM"
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output roadmap.md --project-token-env SNPM_NOTION_TOKEN
+npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
+npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
 ```
 
 Testing from another repo context is allowed, but direct-clone testing is the default path for this phase.
@@ -70,4 +78,5 @@ When a finding lands:
 
 - `main` remains the integration branch.
 - Tags are the reproducible testing contract.
+- `page push --apply` should always include the affected project and page path in the issue if it was part of testing.
 - Live Notion validation stays limited to a smaller trusted tester group because SNPM touches a real workspace.

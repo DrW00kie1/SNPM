@@ -9,12 +9,13 @@ The chosen next phase is broader: turn SNPM into an internal, high-guardrail Not
 Today SNPM is implemented and validated for:
 - project bootstrap from `Templates > Project Templates`
 - structural verification of the created project subtree
+- markdown-backed `page pull`, `page diff`, and `page push` for approved project planning pages
 - optional project-token scope verification
 - cross-repo usage through a known local control repo
 
 Today SNPM does **not** yet ship:
-- page markdown sync
-- general page pull/push commands
+- manifest-backed multi-page sync
+- broad page pull/push across non-approved targets
 - scaffold commands for non-project surfaces
 - broad workspace verification beyond the current project bootstrap contract
 - package-installable consumption for other repos
@@ -78,24 +79,30 @@ Recommended architecture:
 
 One explicit future platform step should be upgrading off the current pinned Notion API version in [`config/workspaces/infrastructure-hq.json`](../config/workspaces/infrastructure-hq.json) so SNPM can rely on newer markdown and data-source capabilities without deeper legacy lock-in.
 
-## First command family after bootstrap and verify
+## Planning-page sync slice
 
-The first new command family should be markdown-backed page sync for selected pages.
+The first post-bootstrap command family is now implemented as a narrow planning-page sync slice.
 
-Why this comes first:
+Why this came first:
 - it fits the current page-tree-heavy workspace model
-- it works well for runbooks and durable operator docs
-- it gives other repos a clean way to keep selected pages in sync without vendoring workspace logic
-- it creates a strong safety boundary by limiting sync to named, approved targets
+- it works well for living planning pages with a stable header pattern
+- it gives other repos and Codex threads a safe way to inspect and update selected project docs without vendoring workspace logic
+- it creates a strong safety boundary by limiting sync to named, approved targets and body-only ownership
 
-Planned command family:
+Current Sprint 2 command family:
 - `snpm page pull`
-- `snpm page push`
 - `snpm page diff`
+- `snpm page push`
+
+Current constraints:
+- approved targets only: `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
+- only the body below the standard header divider belongs to the synced file
+- project token is preferred when a project-local token exists, otherwise the workspace token is used
+- unsupported markdown shapes fail loudly instead of silently flattening content
+
+Still planned after this slice:
 - `snpm sync check`
 - `snpm sync push`
-
-These commands are **planned, not implemented yet**.
 
 ## Planned command families after that
 

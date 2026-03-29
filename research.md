@@ -312,3 +312,86 @@ Verification result:
 - remote tag lookup confirms `refs/tags/sprint-1-foundation` exists on `origin`
 - GitHub API confirms the issue-template files are present on `main`
 - GitHub label listing confirms the new intake labels exist alongside the default GitHub labels
+
+## Sprint 2 Planning-Page Sync Prep
+
+Live capability check completed on `2026-03-28`:
+- `GET /pages/{page_id}/markdown` works against `Projects > SNPM > Planning > Roadmap` on the current pinned API version
+- the returned markdown for `Roadmap` is not truncated and contains no `unknown_block_ids`
+- the live `SNPM_NOTION_TOKEN` can also read the same markdown endpoint for the project planning page, so project-scoped planning-page sync is feasible
+
+Current live shape of the first sync family:
+- `Roadmap`, `Current Cycle`, and `Backlog` are all paragraph/callout/divider/heading/bulleted-list pages in Notion markdown terms
+- `Decision Log` is the same plus a single `code` block for the decision-entry format
+- all four pages therefore fit the first sync slice cleanly without requiring unsupported block handling right away
+
+Chosen Sprint 2 contract:
+- use Notion's native markdown endpoints rather than inventing a custom body format
+- sync only approved planning pages under `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
+- use body-only ownership: keep the standard header metadata above the divider under SNPM control and sync the callout plus all content below that divider through files
+- prefer the project token when `--project-token-env` is provided, otherwise fall back to the workspace token
+- reject truncated markdown, `unknown_block_ids`, and unapproved targets with hard failures rather than risking partial sync
+
+Implementation direction for Sprint 2:
+- add a planning-page target resolver from `--project` plus `--page` to a real page id under the validated starter tree
+- add markdown pull, diff, and push service functions
+- generate diffs using a unified text diff from temporary files through `git diff --no-index --no-color`
+- use `replace_content` through `PATCH /pages/{page_id}/markdown` for mutating push while reconstructing the full page from the preserved header plus the file-owned body
+
+## Sprint 2 Planning-Page Sync Rollout Result
+
+Sprint 2 was implemented and validated on `2026-03-28`.
+
+Implemented command surface:
+- `page pull --project "<Project Name>" --page "Planning > <Page Name>" --output <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN]`
+- `page diff --project "<Project Name>" --page "Planning > <Page Name>" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN]`
+- `page push --project "<Project Name>" --page "Planning > <Page Name>" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]`
+
+Internal changes now present:
+- approved-target resolution is limited to `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
+- markdown sync is body-only and preserves the standard header metadata above the divider
+- project-token auth is preferred when `--project-token-env` is provided; otherwise the workspace token is used
+- truncated markdown and `unknown_block_ids` now fail hard instead of being synced partially
+- unified diffs are generated through `git diff --no-index --no-color`
+
+Validation result:
+- `npm test` passed with `29` tests after the Sprint 2 implementation
+- `node src/cli.mjs help` now documents `page pull`, `page diff`, and `page push`
+- `page pull` succeeded for all four approved planning pages on `Projects > SNPM > Planning`
+- `page diff` reported `No body changes.` for unmodified pulled files
+- preview-only `page push` showed a clear unified diff and did not mutate the page without `--apply`
+- trusted live `page push --apply` succeeded against `Projects > SNPM > Planning > Backlog`, and an immediate restore returned the page to its original body
+- `npm run verify-project -- --name "SNPM"` passed after the apply-and-revert flow
+- cross-repo dogfood passed from `C:\\tall-man-training` via `npm --prefix C:\\SNPM run page-diff -- ...`
+
+Live doc alignment now completed through the new sync path:
+- `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` were all updated with the new page-sync commands themselves
+- read-back confirmed the live pages now describe Sprint 2 as shipped and validated rather than merely planned
+
+Observed edge case worth preserving:
+- Notion re-escapes markdown-sensitive characters such as `>` on read-back, so exact-text diff stability is cleanest when operators edit the file produced by `page pull`
+- a hand-authored body line containing a raw `>` pushed successfully, but the next `page diff` showed the normalized `\\>` form coming back from Notion
+- that normalization is a content-formatting nuance rather than a structural failure, but testers should treat the pulled file format as canonical for follow-on edits
+
+## Post-Sprint-2 GitHub Testing Snapshot
+
+Publishing goal for the next tester-facing baseline:
+- move the implemented and validated Sprint 2 planning-page sync slice onto `main`
+- create a new reproducible Git tag so testers do not need to target `main` directly
+- update the tester-facing docs so the current published snapshot and checkout examples point at the new tag
+
+Chosen snapshot name:
+- `sprint-2-planning-sync`
+
+Expected publication checks:
+- rerun `npm test`
+- rerun `npm run verify-project -- --name "SNPM"`
+- rerun a planning-page sync smoke check before tagging so the published snapshot reflects the current live-safe path
+
+Publication result on `2026-03-28`:
+- `npm test` passed with `29` tests
+- `npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output ... --project-token-env SNPM_NOTION_TOKEN` passed
+- `npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file ... --project-token-env SNPM_NOTION_TOKEN` reported `No body changes.`
+- `npm run verify-project -- --name "SNPM"` passed
+- cross-repo smoke validation from `C:\\tall-man-training` using `npm --prefix C:\\SNPM run page-diff -- ...` also reported `No body changes.`
+- the repo docs now point testers at the new published snapshot tag `sprint-2-planning-sync`

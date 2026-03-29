@@ -55,7 +55,7 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Rewrite `Projects > SNPM > Planning > Roadmap` with the adapted operator roadmap content while preserving its header structure
 - [x] Rewrite `Projects > SNPM > Planning > Current Cycle`, `Backlog`, and `Decision Log` with summarized planning content from the repo docs
 - [x] Read back the four planning pages after the update and confirm the content is adapted, summary-first, and clearly separates shipped behavior from planned capability
-- [ ] Resolve the unexpected extra `Projects > SNPM > Templates` child page now surfaced by project verification, because it falls outside the starter-tree contract
+- [x] Reconfirm the live project-root child-page contract after the later Tall Man Training mirror work and keep verification green
 
 ## Project Root Landing Page Normalization
 
@@ -101,3 +101,20 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Create the first tagged testing snapshot for the public test round
 - [x] Seed the lightweight GitHub label set for bug intake and triage
 - [x] Confirm the tag, labels, and issue templates are visible on GitHub
+
+## Sprint 2 Planning-Page Sync Slice
+
+- [x] Record the live markdown-endpoint viability, body-only ownership model, project-token-preferred auth model, and approved target scope in `research.md`
+- [x] Update `Projects > SNPM > Planning > Roadmap` so Sprint 2 is the active next build step
+- [x] Update `Projects > SNPM > Planning > Current Cycle` with Sprint 2 objective, success gates, and validation path
+- [x] Update `Projects > SNPM > Planning > Backlog` to move later sync and manifest work out of the active sprint
+- [x] Update `Projects > SNPM > Planning > Decision Log` with the Sprint 2 sync decisions
+- [x] Add page-target resolution for approved planning pages only
+- [x] Add markdown page pull, diff, and push services with body-only ownership and project-token-preferred auth
+- [x] Add CLI support and npm script wrappers for `page pull`, `page diff`, and `page push`
+- [x] Add automated tests for target resolution, header/body splitting, markdown rejection paths, token selection, and CLI parsing
+- [x] Update README, roadmap, and GitHub testing docs for the new command surface
+- [x] Run unit tests plus live dogfood on `Projects > SNPM > Planning`
+- [x] Run cross-repo validation from `C:\\tall-man-training`
+- [x] Update the live SNPM planning pages again through the new page-sync commands so they describe Sprint 2 as shipped and validated
+- [x] Publish the `sprint-2-planning-sync` GitHub testing snapshot so external testers can target page sync by tag instead of `main`
