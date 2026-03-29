@@ -138,6 +138,8 @@ Current project-token day-to-day constraints:
 - `validation-sessions verify` is intentionally narrower than `verify-project` so existing projects can prove the health of the managed validation surface without hiding unrelated legacy drift elsewhere
 - validation-session files use YAML front matter for row properties plus the managed page body below the divider
 - managed validation-session bodies are checkbox-first and standardized as `Session Summary`, `Checklist`, `Findings`, and `Follow-Up`
+- the canonical synced triage subset is `Callouts`, `Toggle blocks`, and `To-do blocks`
+- buttons, database templates, mentions, and row properties remain UI-layer accelerators rather than part of the canonical synced body contract
 - `validation-session adopt` is the supported path for bringing legacy headerless session pages under SNPM management
 - pull / diff / push operate on SNPM-managed pages only
 - mutating commands stay preview-first and require `--apply`
@@ -149,6 +151,7 @@ Still planned after these slices:
 - broader manifest-backed sync beyond validation-session artifacts
 - broader workspace verification
 - additional approved project-owned operational surfaces
+- any future template/button automation should happen only after the manual UI-layer guidance proves to be recurring drag
 
 ## Planned command families after that
 

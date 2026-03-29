@@ -729,3 +729,72 @@ Bounded manual step that remains:
 - The only remote branch visible before publication was `origin/main`.
 - In this repo, "merge with main" means publishing the validated local `main` baseline first, then creating `codex/development` from that published tip.
 - If `origin/main` moved before publication, the safe fallback is to merge `origin/main` into local `main`, rerun the relevant SNPM validation, and only then push and cut `codex/development`.
+
+## 2026-03-29 — Validation-Session Triage Workflow Re-scope
+
+Issue `#6` is not another request for more validation-session commands. The current CRUD, verifier, and manifest-sync surface are adequate. The remaining friction is the triage UX after the checklist.
+
+What the issue and current repo state show:
+- the checkbox-first checklist from issue `#5` improved session execution materially
+- the current managed body still defaults `Findings` and `Follow-Up` to plain bullet lists
+- that leaves the tester in a prose-edit workflow exactly where the most important post-checklist triage should be faster and more structured
+- the right next slice is a body-contract redesign plus explicit documentation of which Notion primitives are canonical versus UI-only
+
+Relevant current Notion support from the official markdown docs:
+- Notion markdown explicitly supports:
+  - to-do blocks
+  - toggle blocks via `<details>` / `<summary>`
+  - callouts via `<callout>`
+  - simple tables via `<table>`
+- Notion markdown explicitly does not render template blocks; unsupported blocks are returned as `<unknown .../>`
+- comments are a separate API surface; the public API can add page comments and reply to existing discussions, but it cannot start a new inline discussion thread on a block
+
+Chosen canonical-vs-UI split for this milestone:
+- Safe canonical synced body:
+  - `To-do blocks`
+  - `Toggle blocks`
+  - `Callouts`
+- Useful only in a richer UI layer for this workflow:
+  - `Buttons`
+  - `Database templates`
+  - `Mentions`
+  - `Status / select / checkbox properties`
+- Explicitly unsupported or too risky for the current canonical sync model:
+  - `Comments / discussions` as canonical report content
+  - `Linked databases / relation properties` for v1 validation-session triage
+  - `Simple tables / layout primitives` as the default triage shape even though basic table blocks exist, because they add structure cost and worse diff ergonomics without solving the main tester interaction problem
+
+Chosen v1 triage direction:
+- keep the row schema and command surface unchanged
+- redesign the managed body contract so `Findings` becomes callout-first with optional collapsible detail blocks
+- redesign `Follow-Up` so the default interaction model is to-do items, not prose bullets
+- keep button/template setup as a documented UI-only accelerator rather than trying to automate it in this milestone
+- validate the new body contract on SNPM-managed fixtures and keep Tall Man Training repo state untouched during this pass
+
+## 2026-03-29 — Validation-Session Triage Workflow Result
+
+The triage-workflow milestone was implemented and live-validated on `codex/development`.
+
+Implementation result:
+- the managed validation-session default body still uses `Session Summary`, `Checklist`, `Findings`, and `Follow-Up`
+- `Findings` is now callout-first with an optional `<details>` / `<summary>` block for deeper evidence
+- `Follow-Up` now defaults to to-do items instead of plain bullet lists
+- the command surface and row schema remain unchanged
+- repo docs now classify the key Notion primitives into canonical synced body, richer UI layer, and unsupported/risky behavior for the current sync model
+
+Normalization result:
+- the first live proof exposed a real formatting gap: Notion returned callout and toggle content with tab indentation and tighter spacing that made `pull -> diff` non-clean
+- that was fixed by normalizing validation-session body markdown around callout/toggle blocks before rendering local files and before diff/push comparisons
+- after that fix, the pulled local file became the stable canonical editable shape again
+
+Validation result:
+- `npm test` passed with `75` tests after adding triage-body and normalization coverage
+- the live `SNPM Validation Session Fixture` was migrated from bullet-style triage to the new callout/toggle/to-do model
+- `validation-session-pull` on that fixture now produces a normalized local file with clean `pull -> diff`
+- `validation-sessions-verify --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` continued to pass after the migration
+
+Scope intentionally preserved:
+- no Tall Man Training repo files were changed in this pass
+- no new validation-session commands were added
+- no row schema changes were introduced
+- Notion buttons/templates remain a documented UI-layer accelerator rather than a new SNPM automation surface

@@ -65,7 +65,7 @@ const VALIDATION_SESSION_SELECT_OPTIONS = {
 };
 
 function ensureBodyMarkdown(fileBodyMarkdown) {
-  return normalizeMarkdownNewlines(fileBodyMarkdown || "");
+  return normalizeValidationSessionBodyMarkdown(fileBodyMarkdown || "");
 }
 
 function managedPageError(title, hint) {
@@ -96,6 +96,41 @@ function buildValidationSessionSchema() {
     "Started On": { date: {} },
     "Completed On": { date: {} },
   };
+}
+
+export function normalizeValidationSessionBodyMarkdown(bodyMarkdown) {
+  const normalized = normalizeMarkdownNewlines(bodyMarkdown || "");
+  const lines = normalized.split("\n");
+  const output = [];
+  let inCallout = false;
+  let inDetails = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    let line = lines[index];
+
+    if (line === "<callout>") {
+      inCallout = true;
+    } else if (line === "</callout>") {
+      inCallout = false;
+    } else if (line === "<details>") {
+      inDetails = true;
+    } else if (line === "</details>") {
+      inDetails = false;
+    } else if ((inCallout || inDetails) && /^\t+/.test(line)) {
+      line = line.replace(/^\t+/, "");
+    }
+
+    output.push(line);
+  }
+
+  return output
+    .join("\n")
+    .replace(/\n(## )/g, "\n\n$1")
+    .replace(/\n(<callout>|<details>)/g, "\n\n$1")
+    .replace(/(<\/callout>|<\/details>)\n(?!\n|## )/g, "$1\n\n")
+    .replace(/(<summary>.*<\/summary>)\n(?!\n)/g, "$1\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+/, "");
 }
 
 function buildRichTextValue(text) {
@@ -168,7 +203,11 @@ function extractValidationSessionFields(page) {
 }
 
 function renderValidationSessionFile({ fields, bodyMarkdown }) {
-  return renderFrontMatterFile(normalizeSessionFields(fields), VALIDATION_SESSION_FIELD_ORDER, bodyMarkdown);
+  return renderFrontMatterFile(
+    normalizeSessionFields(fields),
+    VALIDATION_SESSION_FIELD_ORDER,
+    normalizeValidationSessionBodyMarkdown(bodyMarkdown),
+  );
 }
 
 function parseValidationSessionFile(markdown) {

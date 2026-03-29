@@ -206,10 +206,25 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 
 - [x] Record the current SNPM branch state and publication assumptions in `research.md`.
 - [x] Add the branch publication and cut sequence to `plan.md`.
-- [ ] Commit the `research.md` and `plan.md` branch-state updates on local `main`.
-- [ ] Run `git fetch --prune origin` and confirm whether `origin/main` is still at `4d47b4a`.
-- [ ] If `origin/main` has not moved, push local `main` directly to `origin/main`.
+- [x] Commit the `research.md` and `plan.md` branch-state updates on local `main`.
+- [x] Run `git fetch --prune origin` and confirm whether `origin/main` is still at `4d47b4a`.
+- [x] If `origin/main` has not moved, push local `main` directly to `origin/main`.
 - [ ] If `origin/main` has moved and diverged, merge `origin/main` into local `main`, rerun the relevant SNPM validation, and then push the merged `main`.
-- [ ] Create `codex/development` from the final published `main` tip.
-- [ ] Push `codex/development` to `origin` and set upstream tracking.
-- [ ] Confirm `git branch -vv` and `git branch -r` show the expected local and remote branch state after publication.
+- [x] Create `codex/development` from the final published `main` tip.
+- [x] Push `codex/development` to `origin` and set upstream tracking.
+- [x] Confirm `git branch -vv` and `git branch -r` show the expected local and remote branch state after publication.
+
+## 2026-03-29 — Validation-Session Triage Workflow
+
+- [x] Record the issue `#6` analysis, primitive inventory, and canonical-vs-UI split in `research.md`.
+- [x] Add the triage-workflow milestone checklist to `plan.md`.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects validation-session triage as the next milestone.
+- [x] Comment on GitHub issue `#6` with the accepted scope: improve `Findings` and `Follow-Up`, classify Notion primitives, and keep commands/schema unchanged.
+- [x] Change the managed validation-session default body so triage uses markdown-safe Notion primitives instead of plain bullet lists.
+- [x] Document and test the canonical triage model:
+  - `Findings` uses callout-first entries with optional toggle detail blocks
+  - `Follow-Up` uses to-do items
+  - buttons/templates/mentions stay UI-layer guidance, not canonical synced structure
+- [x] Update validation-session docs, sync docs, roadmap docs, and tester docs with the primitive ranking plus canonical-vs-UI rules.
+- [x] Run automated tests covering the new body contract and round-tripping of callout/toggle/to-do markdown.
+- [x] Live-validate the new triage body on SNPM-managed validation-session fixtures with pull / diff / push / verify.

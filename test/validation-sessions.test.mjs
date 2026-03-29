@@ -6,6 +6,7 @@ import {
   createValidationSession,
   diffValidationSessionFile,
   initializeValidationSessions,
+  normalizeValidationSessionBodyMarkdown,
   pullValidationSessionFile,
   pushValidationSessionFile,
   verifyValidationSessionsSurface,
@@ -174,6 +175,40 @@ function makeBaseChildren() {
   ]);
 }
 
+test("normalizeValidationSessionBodyMarkdown stabilizes callout and toggle formatting", () => {
+  const normalized = normalizeValidationSessionBodyMarkdown([
+    "## Findings",
+    "<callout>",
+    "\tIssue: Example",
+    "</callout>",
+    "<details>",
+    "<summary>Detail</summary>",
+    "\tArea:",
+    "\tAuth",
+    "</details>",
+    "## Follow-Up",
+    "- [ ] Re-test",
+  ].join("\n"));
+
+  assert.equal(normalized, [
+    "## Findings",
+    "",
+    "<callout>",
+    "Issue: Example",
+    "</callout>",
+    "",
+    "<details>",
+    "<summary>Detail</summary>",
+    "",
+    "Area:",
+    "Auth",
+    "</details>",
+    "",
+    "## Follow-Up",
+    "- [ ] Re-test",
+  ].join("\n"));
+});
+
 test("initializeValidationSessions previews and creates the managed database", async () => {
   const fixture = makeValidationFixture({ childrenMap: makeBaseChildren() });
 
@@ -283,6 +318,9 @@ test("createValidationSession falls back to the checkbox-first default body when
   assert.match(fixture.markdownByPageId[result.pageId], /## Checklist/);
   assert.match(fixture.markdownByPageId[result.pageId], /- \[ \] Confirm the exact validation target, environment, and account for this run\./);
   assert.match(fixture.markdownByPageId[result.pageId], /## Findings/);
+  assert.match(fixture.markdownByPageId[result.pageId], /<callout>/);
+  assert.match(fixture.markdownByPageId[result.pageId], /<details>/);
+  assert.match(fixture.markdownByPageId[result.pageId], /## Follow-Up\n- \[ \] Capture the concrete next action, owner, and retest trigger\./);
 });
 
 test("pull, diff, and push operate on managed validation-session rows", async () => {
@@ -344,10 +382,25 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
         "- [ ] Complete smoke flow",
         "",
         "## Findings",
-        "- Existing",
+        "<callout>",
+        "Issue: Existing finding",
+        "</callout>",
+        "",
+        "<details>",
+        "<summary>Existing detail</summary>",
+        "",
+        "Area:",
+        "Auth",
+        "Expected:",
+        "Login works",
+        "Actual:",
+        "Spinner hangs",
+        "Evidence:",
+        "Video pending",
+        "</details>",
         "",
         "## Follow-Up",
-        "- None yet",
+        "- [ ] Retest after auth fix.",
         "",
       ].join("\n"),
     },
@@ -391,7 +444,9 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
   assert.equal(pushed.applied, true);
   assert.match(fixture.markdownByPageId["session-row"], /Last Updated: 03-29-2026 11:30:00/);
   assert.match(fixture.markdownByPageId["session-row"], /- \[x\] Launch app/);
-  assert.match(fixture.markdownByPageId["session-row"], /## Findings\n- Existing/);
+  assert.match(fixture.markdownByPageId["session-row"], /## Findings\n\n<callout>\nIssue: Existing finding/);
+  assert.match(fixture.markdownByPageId["session-row"], /<details>\n<summary>Existing detail<\/summary>/);
+  assert.match(fixture.markdownByPageId["session-row"], /## Follow-Up\n- \[ \] Retest after auth fix\./);
   const row = fixture.rowsByDataSource["validation-ds"][0];
   assert.equal(row.properties["Session State"].select.name, "Failed");
 });

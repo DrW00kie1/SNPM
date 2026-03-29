@@ -85,7 +85,7 @@ export function buildDefaultBuildsContainerBody(projectName) {
 
 export function buildDefaultValidationSessionBody(title) {
   return ensureTrailingNewline([
-    "> Use this validation-session report to execute one human validation run with a checkbox-first checklist and a short findings log.",
+    "> Use this validation-session report to execute one human validation run with a checkbox-first checklist and a structured triage log.",
     "",
     "## Session Summary",
     `- Goal: Describe what "${title}" is validating and why this run exists.`,
@@ -98,10 +98,22 @@ export function buildDefaultValidationSessionBody(title) {
     "- [ ] Re-check any recent fixes, high-risk areas, or release blockers tied to this run.",
     "",
     "## Findings",
-    "- Record failures, blockers, and notable observations here.",
+    "<callout>",
+    "Blocker / Issue / Note: Summarize the finding in one line.",
+    "</callout>",
+    "",
+    "<details>",
+    "<summary>Optional finding detail</summary>",
+    "",
+    "Area:",
+    "Expected:",
+    "Actual:",
+    "Evidence:",
+    "</details>",
     "",
     "## Follow-Up",
-    "- Capture fixes, owners, blockers, or the next validation step.",
+    "- [ ] Capture the concrete next action, owner, and retest trigger.",
+    "- [ ] Link the follow-up issue, PR, or runbook update if one exists.",
     "",
   ].join("\n"));
 }

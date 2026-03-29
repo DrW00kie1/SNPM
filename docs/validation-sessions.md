@@ -50,13 +50,54 @@ Validation sessions now use a checkbox-first managed body contract:
 Checklist semantics:
 - checked to-do = passed
 - unchecked to-do = not yet run, failed, or blocked
-- failures and blockers belong in `Findings` as short notes, not in separate database properties
+- failures and blockers belong in `Findings`, not in separate per-check database properties
+
+Triage semantics:
+- `Findings` is callout-first, with one finding per callout
+- `<details>` / `<summary>` blocks are the canonical way to keep deeper evidence collapsible
+- `Follow-Up` uses to-do items so next actions stay easy to scan and check off
+- plain bullet lists are no longer the default interaction model for triage
 
 Primary human workflow:
 1. Create a new session from a Notion database template or button when the tester is working live in Notion.
 2. Execute the checklist directly in the session page by checking items as they pass.
-3. Record failures, blockers, and notable observations in `Findings`.
+3. Record failures, blockers, and notable observations in `Findings` using one callout per finding, with an optional toggle for detail.
 4. Pull or sync the managed markdown file back into the repo only when a repo artifact is needed.
+
+## Triage Primitive Ranking
+
+Use this ranking for `Findings` and `Follow-Up` decisions:
+
+1. `Database templates`
+2. `To-do blocks`
+3. `Toggle blocks`
+4. `Callouts`
+5. `Buttons`
+6. `Status / select / checkbox properties`
+7. `Mentions`
+8. `Simple tables / layout primitives`
+9. `Linked databases / relation properties`
+10. `Comments / discussions`
+
+Chosen classification for the current SNPM contract:
+- safe for the canonical synced page body:
+  - `To-do blocks`
+  - `Toggle blocks`
+  - `Callouts`
+- useful only in the richer Notion UI layer:
+  - `Buttons`
+  - `Database templates`
+  - `Mentions`
+  - `Status / select / checkbox properties`
+- unsupported or too risky for the current canonical sync model:
+  - `Comments / discussions` as canonical report content
+  - `Linked databases / relation properties`
+  - `Simple tables / layout primitives` as the default triage shape
+
+Why SNPM draws the line there:
+- the canonical body must stay obvious in pulled markdown and safe to round-trip through `create`, `pull`, `diff`, `push`, and manifest sync
+- buttons/templates are valuable accelerators, but they belong to the live Notion UI layer rather than the synced markdown contract
+- comments and relation-heavy triage add collaboration value, but they are not stable canonical report content for the current SNPM workflow
 
 ## Existing Project Adoption
 
@@ -133,10 +174,22 @@ Completed On:
 - [ ] Re-check any recent fixes or high-risk areas tied to this run.
 
 ## Findings
-- Record failures, blockers, and notable observations here.
+<callout>
+Blocker / Issue / Note: Summarize the finding in one line.
+</callout>
+
+<details>
+<summary>Optional finding detail</summary>
+
+Area:
+Expected:
+Actual:
+Evidence:
+</details>
 
 ## Follow-Up
-- Capture fixes, owners, blockers, or the next validation step.
+- [ ] Capture the concrete next action, owner, and retest trigger.
+- [ ] Link the follow-up issue, PR, or runbook update if one exists.
 ```
 
 Front matter fields:
@@ -151,6 +204,7 @@ Front matter fields:
 `--title` remains the record lookup key inside `Validation Sessions` and must be unique.
 
 Use the file produced by `validation-session-pull` as the editing base for later pushes.
+That pulled file is the canonical editable shape for callouts, toggles, and follow-up to-dos.
 For batch repo-backed artifact sync, use the manifest workflow in [validation-session sync](./validation-session-sync.md).
 
 ## Managed Surface Rules

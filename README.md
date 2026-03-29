@@ -42,6 +42,8 @@ Current project-token-safe sync is intentionally narrow:
 - `validation-sessions verify` is the narrow success signal for that managed surface when `verify-project` would also include unrelated project drift
 - validation-session files use YAML front matter for row properties plus a checkbox-first managed markdown body below the divider
 - validation-session bodies are standardized as `Session Summary`, `Checklist`, `Findings`, and `Follow-Up`
+- the canonical triage subset inside that body is `Callouts`, `Toggle blocks`, and `To-do blocks`
+- buttons, database templates, mentions, and row properties remain richer UI-layer helpers rather than canonical synced body structure
 - manifest-backed sync is intentionally limited to existing managed validation-session rows listed in `snpm.sync.json`
 - `sync` does not implicitly initialize the surface, create rows, or adopt unmanaged rows
 
@@ -141,6 +143,7 @@ npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PR
 Use the file produced by `page-pull` as your editing base. Notion can normalize markdown-sensitive characters such as `>` on read-back, so the pulled file format is the safest source for follow-on edits.
 The same guidance applies to managed runbook, build-record, and validation-session files after `runbook-pull`, `build-record-pull`, or `validation-session-pull`.
 For checkbox-first validation sessions, checked task-list items are the passed-state record. Leave blocked or failed items unchecked and record the reason in `Findings`.
+For triage-first validation sessions, use one `<callout>` per finding, optional `<details>` blocks for deeper evidence, and to-do items for `Follow-Up`.
 For repo-backed validation-session artifacts, `sync-pull --apply` is the normalization step when `sync-check` reports only stored-shape drift such as end-of-file handling on `<empty-block/>`.
 For existing projects, use `validation-sessions-verify` as the clean success signal for the managed validation surface; `verify-project` remains broader and may still report unrelated historical drift elsewhere in the project subtree.
 
@@ -179,7 +182,7 @@ Default tester flow:
 
 Trusted live testers may also run `verify-project`, `page-pull`, `page-diff`, preview-only `page-push`, and the project-token-safe `runbook` / `build-record` commands against the real Notion workspace when they already have the right token setup. Live mutation commands such as `create-project`, `page-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, or `build-record-create --apply` are not the default testing path.
 Trusted live testers may also use `validation-sessions-verify` and the validation-session commands against project-owned `Ops > Validation > Validation Sessions` surfaces when they already have the right token setup. `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, and `validation-session-push --apply` remain trusted live-mutation paths rather than default testing steps.
-Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag. If you test `sync-check`, `sync-pull`, `sync-push`, or the checkbox-first validation-session body contract, report that you tested an unpublished local checkout unless a newer tag exists.
+Manifest-backed validation-session sync, the checkbox-first validation-session workflow, and the triage-first findings / follow-up redesign are newer than the latest published testing tag. If you test `sync-check`, `sync-pull`, `sync-push`, or the richer validation-session body contract, report that you tested an unpublished local checkout unless a newer tag exists.
 
 ## Docs
 

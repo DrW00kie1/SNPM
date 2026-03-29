@@ -75,6 +75,11 @@ Use real markdown task-list items in `Checklist`:
 - checked to-do = passed
 - unchecked to-do = not yet run, failed, or blocked
 
+Use the triage-first canonical subset for post-checklist work:
+- `Findings` uses one `<callout>` per blocker, issue, or note
+- optional deeper evidence lives inside `<details>` / `<summary>` blocks
+- `Follow-Up` uses to-do items instead of plain bullet lists
+
 When a tester works live in Notion, `sync-pull --apply` is the safe way to refresh the repo copy so the local file reflects Notion's stored checkbox state and normalized markdown shape.
 
 ## Behavior
@@ -114,5 +119,6 @@ Use the latest pulled file as the editing base.
 Important normalization note:
 - Notion may preserve a trailing `<empty-block/>` without a final newline
 - repo-side `sync-check` can therefore report end-of-file drift until you run `sync-pull --apply`
+- use the pulled file as the editing base for callout, toggle, and follow-up to-do content too
 
 That normalization is expected and should be treated as the stored Notion shape for the repo artifact copy.
