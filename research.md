@@ -655,3 +655,66 @@ Live dogfood result on `C:\\tall-man-training`:
 Important live-workflow nuance:
 - repo-backed validation-session artifacts can show drift that is only end-of-file normalization on `<empty-block/>`
 - the safe resolution is `sync-pull --apply`, not manual cleanup of the stored artifact shape
+
+## Checkbox-First Validation-Session Workflow Re-scope
+
+Issue `#5` is not asking for more generic validation-session CRUD. It is pointing out that the current managed execution surface is the wrong UX for a human tester running a real device checklist.
+
+What the issue and current state show:
+- the database row schema is adequate as a session container and metadata record
+- the current managed body contract is still prose-edit-heavy even after validation-session CRUD and manifest sync landed
+- the active Tall Man session currently uses plain markdown bullets under `## Checklist`, not real task-list items
+- there is already a repo-local Tall Man `_template.md` file for validation sessions, but it follows the same prose-bullet checklist shape
+- the downstream team wants SNPM to own the human-facing validation-session template and workflow, not just the underlying storage path
+
+Key product signal from the issue:
+- the friction is step-by-step execution inside the session page, not session creation
+- form views are optional and secondary
+- the right v1 improvement is a checkbox-first page-body contract with a short central `Findings` section
+- this remains a narrow workflow/template redesign for validation sessions, not a request for generic Notion checklist tooling
+
+Chosen milestone direction:
+- keep the current validation-session command surface and row schema
+- redesign the managed validation-session body contract around:
+  - `Session Summary`
+  - `Checklist`
+  - `Findings`
+  - `Follow-Up`
+- use real markdown task-list syntax so the existing pull / diff / push / sync path continues to own the content
+- keep verifier behavior structural and schema-focused; do not start auditing exact checklist content
+
+Chosen rollout shape:
+- make the global managed default body checkbox-first but generic
+- use the current Tall Man iPhone/TestFlight checklist as the first concrete live seed and migration target
+- migrate the active Tall Man validation-session row plus its repo-backed artifact in this milestone
+- document a bounded manual UI step for the Tall Man `Validation Sessions` database template and button; SNPM owns the contract and workflow, not full Notion template/button automation in v1
+
+## Checkbox-First Validation-Session Workflow Result
+
+The checkbox-first validation-session workflow milestone was implemented and live-validated on `2026-03-29`.
+
+Implementation result:
+- the managed default validation-session body is now checkbox-first and standardized as:
+  - `Session Summary`
+  - `Checklist`
+  - `Findings`
+  - `Follow-Up`
+- the managed default uses real markdown task-list items under `Checklist`, while keeping the existing validation-session row schema unchanged
+- validation-session docs, sync docs, README, GitHub testing docs, and Tall Man Training workflow docs now describe the checkbox-first execution model
+- the Tall Man repo-local validation-session `_template.md` and active iPhone/TestFlight artifact were migrated to real task-list syntax
+
+Automated validation result:
+- `npm test` passed with `74` tests after updating the managed-body defaults and adding checkbox round-trip coverage
+- the test suite now proves checkbox-first defaults, validation-session round-tripping, and manifest-sync handling of task-list markdown without changing schema-verification behavior
+
+Live validation result:
+- `validation-session-pull`, `validation-session-diff`, `validation-session-push --apply`, follow-on `validation-session-pull`, and final `validation-session-diff` all succeeded on `Projects > SNPM > Ops > Validation > Validation Sessions > SNPM Validation Session Fixture`
+- the SNPM fixture was migrated from the earlier prose body to the checkbox-first body and ended with `No body changes.` after normalization
+- `validation-sessions-verify --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` continued to pass after the fixture migration
+- the active Tall Man session `iPhone TestFlight 0.5.1 (2) - Sean - 2026-03-28` was migrated through the existing manifest-sync path with `sync-push --apply`, `sync-pull --apply`, and final clean `sync-check`
+- `validation-sessions-verify --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN` passed before and after the migration
+- the live Tall Man runbook `iOS TestFlight Internal Distribution` was updated in place to point operators at the checkbox-first session flow and the manual database-template / button path
+
+Bounded manual step that remains:
+- SNPM does not automate Notion database-template creation or the `Submit Validation Session` button
+- the correct v1 contract is to document that manual UI step clearly and keep the session body, migration flow, and repo sync path under SNPM control

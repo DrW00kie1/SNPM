@@ -85,16 +85,23 @@ export function buildDefaultBuildsContainerBody(projectName) {
 
 export function buildDefaultValidationSessionBody(title) {
   return ensureTrailingNewline([
-    "> Use this validation-session report to capture one human validation run and its outcome.",
+    "> Use this validation-session report to execute one human validation run with a checkbox-first checklist and a short findings log.",
     "",
     "## Session Summary",
-    `- Describe what "${title}" covered and why this validation run happened.`,
+    `- Goal: Describe what "${title}" is validating and why this run exists.`,
+    "- Scope: Record the environment, account, or delivery lane in scope for this run.",
+    "- Tester context: Capture any device, build, or setup detail that changes how the checklist should be interpreted.",
+    "",
+    "## Checklist",
+    "- [ ] Confirm the exact validation target, environment, and account for this run.",
+    "- [ ] Execute the primary happy-path flow for this session.",
+    "- [ ] Re-check any recent fixes, high-risk areas, or release blockers tied to this run.",
     "",
     "## Findings",
-    "- Record the observed behavior, defects, or notable checks.",
+    "- Record failures, blockers, and notable observations here.",
     "",
     "## Follow-Up",
-    "- Capture fixes, owners, or next validation steps.",
+    "- Capture fixes, owners, blockers, or the next validation step.",
     "",
   ].join("\n"));
 }

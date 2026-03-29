@@ -39,6 +39,25 @@ npm run validation-session-push -- --project "Project Name" --title "Session Tit
 
 All mutating commands are preview-first and require `--apply`.
 
+## Checkbox-First Workflow
+
+Validation sessions now use a checkbox-first managed body contract:
+- `Session Summary`
+- `Checklist`
+- `Findings`
+- `Follow-Up`
+
+Checklist semantics:
+- checked to-do = passed
+- unchecked to-do = not yet run, failed, or blocked
+- failures and blockers belong in `Findings` as short notes, not in separate database properties
+
+Primary human workflow:
+1. Create a new session from a Notion database template or button when the tester is working live in Notion.
+2. Execute the checklist directly in the session page by checking items as they pass.
+3. Record failures, blockers, and notable observations in `Findings`.
+4. Pull or sync the managed markdown file back into the repo only when a repo artifact is needed.
+
 ## Existing Project Adoption
 
 For an existing project, use this sequence and report the exact published tag or commit you tested.
@@ -104,13 +123,20 @@ Started On: 2026-03-28
 Completed On:
 ---
 ## Session Summary
-- Describe the purpose and scope of this validation run.
+- Goal: Describe the purpose and scope of this validation run.
+- Scope: Record the environment, account, or lane being validated.
+- Tester context: Capture device, build, or setup notes that affect interpretation.
+
+## Checklist
+- [ ] Confirm the validation target and account for this run.
+- [ ] Execute the primary happy-path flow for this session.
+- [ ] Re-check any recent fixes or high-risk areas tied to this run.
 
 ## Findings
-- Record what the tester observed.
+- Record failures, blockers, and notable observations here.
 
 ## Follow-Up
-- Capture the next actions.
+- Capture fixes, owners, blockers, or the next validation step.
 ```
 
 Front matter fields:
@@ -125,6 +151,7 @@ Front matter fields:
 `--title` remains the record lookup key inside `Validation Sessions` and must be unique.
 
 Use the file produced by `validation-session-pull` as the editing base for later pushes.
+For batch repo-backed artifact sync, use the manifest workflow in [validation-session sync](./validation-session-sync.md).
 
 ## Managed Surface Rules
 
@@ -141,4 +168,4 @@ SNPM enforces these v1 constraints:
 
 The API-managed surface stops at the database, schema, row properties, and row page content.
 
-If you want a form-style tester intake view, create or tune that view manually in the Notion UI. That bounded view-configuration step is expected in v1 and is not automated by SNPM yet.
+If you want a tester-friendly live intake path, create or tune the database template and any related Notion button manually in the Notion UI so new rows start with the checkbox-first body contract. That bounded template/button setup remains outside SNPM v1 automation.

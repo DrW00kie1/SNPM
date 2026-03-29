@@ -246,6 +246,45 @@ test("createValidationSession creates a managed row from front matter plus markd
   assert.equal(row.properties["Runbook URL"].url, "https://example.com/runbook");
 });
 
+test("createValidationSession falls back to the checkbox-first default body when no body is supplied", async () => {
+  const childrenMap = makeBaseChildren();
+  const fixture = makeValidationFixture({ childrenMap });
+  await initializeValidationSessions({
+    apply: true,
+    config: baseConfig(),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  const result = await createValidationSession({
+    apply: true,
+    config: baseConfig(),
+    projectName: "SNPM",
+    title: "Default Body Session",
+    fileMarkdown: [
+      "---",
+      "Platform: Web",
+      "Session State: Planned",
+      "Tester: Sean",
+      "Build Label: validation-default",
+      "Runbook URL:",
+      "Started On: 2026-03-29",
+      "Completed On:",
+      "---",
+      "",
+    ].join("\n"),
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+    timestamp: "03-29-2026 11:10:00",
+  });
+
+  assert.equal(result.applied, true);
+  assert.match(fixture.markdownByPageId[result.pageId], /## Checklist/);
+  assert.match(fixture.markdownByPageId[result.pageId], /- \[ \] Confirm the exact validation target, environment, and account for this run\./);
+  assert.match(fixture.markdownByPageId[result.pageId], /## Findings/);
+});
+
 test("pull, diff, and push operate on managed validation-session rows", async () => {
   const childrenMap = makeBaseChildren();
   childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
@@ -297,8 +336,18 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
         "Last Updated: 03-28-2026 20:00:00",
         "Sensitive: no",
         "---",
+        "## Session Summary",
+        "- Goal: Confirm the validation-session round-trip.",
+        "",
+        "## Checklist",
+        "- [ ] Launch app",
+        "- [ ] Complete smoke flow",
+        "",
         "## Findings",
         "- Existing",
+        "",
+        "## Follow-Up",
+        "- None yet",
         "",
       ].join("\n"),
     },
@@ -332,13 +381,17 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
     config: baseConfig(),
     projectName: "SNPM",
     title: "Regression Pass 2",
-    fileMarkdown: pulled.fileMarkdown.replace("Session State: Passed", "Session State: Failed").replace("- Existing", "- Updated"),
+    fileMarkdown: pulled.fileMarkdown
+      .replace("Session State: Passed", "Session State: Failed")
+      .replace("- [ ] Launch app", "- [x] Launch app"),
     resolveClient: fixture.resolveClient,
     syncClient: fixture.syncClient,
     timestamp: "03-29-2026 11:30:00",
   });
   assert.equal(pushed.applied, true);
   assert.match(fixture.markdownByPageId["session-row"], /Last Updated: 03-29-2026 11:30:00/);
+  assert.match(fixture.markdownByPageId["session-row"], /- \[x\] Launch app/);
+  assert.match(fixture.markdownByPageId["session-row"], /## Findings\n- Existing/);
   const row = fixture.rowsByDataSource["validation-ds"][0];
   assert.equal(row.properties["Session State"].select.name, "Failed");
 });

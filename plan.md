@@ -187,3 +187,17 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Add a focused sync doc for the manifest workflow and update README, roadmap, and GitHub testing docs after implementation
 - [x] Dogfood the manifest workflow in `C:\\tall-man-training` by adding `snpm.sync.json` and updating the Tall Man Training validation-session docs to use it
 - [x] Run live sync validation on `Tall Man Training` plus cross-repo execution from `C:\\tall-man-training`
+
+## Checkbox-First Validation-Session Workflow
+
+- [x] Record the issue `#5` analysis and the checkbox-first workflow re-scope in `research.md`
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects the checkbox-first validation-session milestone
+- [x] Comment on GitHub issue `#5` with the accepted scope: checkbox-first validation-session workflow, live Tall Man migration, and manual template/button setup only
+- [x] Change the managed validation-session default body to the checkbox-first contract while keeping the current row schema unchanged
+- [x] Update validation-session docs and workflow docs so the primary human flow is checklist execution in Notion plus optional repo sync afterward
+- [x] Update the Tall Man validation-session artifact template and related workflow docs to match the checkbox-first contract
+- [x] Migrate a controlled SNPM validation-session fixture to the checkbox-first body and prove `create`, `pull`, `diff`, and `push` round-trip cleanly
+- [x] Migrate the active `Tall Man Training` iPhone/TestFlight validation-session artifact and live row to the checkbox-first body through the existing sync path
+- [x] Document the bounded manual Notion UI step for the Tall Man `Validation Sessions` database template and button
+- [x] Add automated tests for checkbox-first default bodies and checkbox markdown round-tripping without weakening the current schema/verification tests
+- [x] Finish with clean live validation on `Tall Man Training` using `sync-check` and `validation-sessions-verify`

@@ -63,6 +63,20 @@ npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PR
 
 Project token is the documented normal path. Workspace-token fallback still exists, but sync stays constrained to the same project-owned validation-session surface.
 
+## Checkbox-First Artifact Model
+
+Validation-session sync artifacts keep the same checkbox-first body used in Notion:
+- `Session Summary`
+- `Checklist`
+- `Findings`
+- `Follow-Up`
+
+Use real markdown task-list items in `Checklist`:
+- checked to-do = passed
+- unchecked to-do = not yet run, failed, or blocked
+
+When a tester works live in Notion, `sync-pull --apply` is the safe way to refresh the repo copy so the local file reflects Notion's stored checkbox state and normalized markdown shape.
+
 ## Behavior
 
 `sync check`

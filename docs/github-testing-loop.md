@@ -12,7 +12,7 @@ Current testing snapshot:
 - `sprint-3-validation-sessions`
 
 `main` remains the integration branch for follow-on work after the current snapshot.
-Manifest-backed validation-session sync landed after that published tag. If you test `sync-check`, `sync-pull`, or `sync-push`, say explicitly that you were on an unpublished local checkout unless a newer published tag exists.
+Manifest-backed validation-session sync and the checkbox-first validation-session workflow landed after that published tag. If you test `sync-check`, `sync-pull`, `sync-push`, or the checkbox-first validation-session body contract, say explicitly that you were on an unpublished local checkout unless a newer published tag exists.
 
 ## Tester Workflow
 
@@ -44,6 +44,7 @@ Trusted live-tester validation:
 - use the file produced by `page-pull` as the editing base for `page-push`; Notion may re-escape markdown-sensitive characters such as `>` on read-back
 - use the file produced by `runbook-pull` or `build-record-pull` as the editing base for follow-on push commands for the same reason
 - use the file produced by `validation-session-pull` as the editing base for follow-on validation-session pushes; the local file is the canonical editable shape because it includes normalized YAML front matter plus the managed body
+- when testing validation-session workflow changes, report whether you changed checkbox task-list state, findings text, or both; that makes markdown round-trip regressions much easier to classify
 
 Example trusted live check:
 

@@ -31,7 +31,7 @@ function baseConfig() {
 
 test("sync check reports in-sync validation-session artifacts", async () => {
   const manifest = baseManifest();
-  const localFile = "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- Passed\n";
+  const localFile = "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: Confirm the session is in sync.\n\n## Checklist\n- [x] Install build\n- [x] Complete smoke flow\n\n## Findings\n- No blocker.\n\n## Follow-Up\n- None.\n";
   const result = await checkValidationSessionSyncManifest({
     config: baseConfig(),
     manifest,
@@ -65,7 +65,7 @@ test("sync check reports local drift and missing files", async () => {
     ],
   };
   const localFiles = new Map([
-    [manifest.entries[0].absoluteFilePath, "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- Local drift\n"],
+    [manifest.entries[0].absoluteFilePath, "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: Local drift.\n\n## Checklist\n- [ ] Install build\n\n## Findings\n- Waiting.\n\n## Follow-Up\n- None.\n"],
   ]);
 
   const result = await checkValidationSessionSyncManifest({
@@ -86,7 +86,7 @@ test("sync check reports local drift and missing files", async () => {
     }),
     pullValidationSessionFileImpl: async ({ title }) => ({
       targetPath: `Projects > Tall Man Training > Ops > Validation > Validation Sessions > ${title}`,
-      fileMarkdown: "---\nPlatform: Android\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- Passed\n",
+      fileMarkdown: "---\nPlatform: Android\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: Confirm Android smoke flow.\n\n## Checklist\n- [x] Launch build\n\n## Findings\n- None.\n\n## Follow-Up\n- None.\n",
     }),
   });
 
@@ -120,7 +120,7 @@ test("sync check reports missing rows, unmanaged rows, and missing surfaces as f
   const result = await checkValidationSessionSyncManifest({
     config: baseConfig(),
     manifest,
-    readFileSyncImpl: () => "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- Passed\n",
+    readFileSyncImpl: () => "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: Passed.\n\n## Checklist\n- [x] Launch build\n\n## Findings\n- None.\n\n## Follow-Up\n- None.\n",
     diffValidationSessionFileImpl: async ({ title }) => {
       calls += 1;
       if (title === manifest.entries[0].title) {
@@ -153,10 +153,10 @@ test("sync pull previews and applies local file refreshes", async () => {
   const preview = await pullValidationSessionSyncManifest({
     config: baseConfig(),
     manifest,
-    readFileSyncImpl: () => "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.0 (1)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-20\nCompleted On: 2026-03-20\n---\n## Summary\n- Old\n",
+    readFileSyncImpl: () => "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.0 (1)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-20\nCompleted On: 2026-03-20\n---\n## Session Summary\n- Goal: Old.\n\n## Checklist\n- [ ] Launch build\n\n## Findings\n- Old.\n\n## Follow-Up\n- Old.\n",
     pullValidationSessionFileImpl: async ({ title }) => ({
       targetPath: `Projects > Tall Man Training > Ops > Validation > Validation Sessions > ${title}`,
-      fileMarkdown: "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- New\n",
+      fileMarkdown: "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: New.\n\n## Checklist\n- [x] Launch build\n\n## Findings\n- New.\n\n## Follow-Up\n- None.\n",
     }),
     writeFileSyncImpl: (...args) => writes.push(args),
     mkdirSyncImpl: (...args) => mkdirs.push(args),
@@ -177,7 +177,7 @@ test("sync pull previews and applies local file refreshes", async () => {
     },
     pullValidationSessionFileImpl: async ({ title }) => ({
       targetPath: `Projects > Tall Man Training > Ops > Validation > Validation Sessions > ${title}`,
-      fileMarkdown: "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- New\n",
+      fileMarkdown: "---\nPlatform: iPhone\nSession State: Passed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: New.\n\n## Checklist\n- [x] Launch build\n\n## Findings\n- New.\n\n## Follow-Up\n- None.\n",
     }),
     writeFileSyncImpl: (...args) => writes.push(args),
     mkdirSyncImpl: (...args) => mkdirs.push(args),
@@ -191,7 +191,7 @@ test("sync pull previews and applies local file refreshes", async () => {
 
 test("sync push previews and applies Notion updates from local files", async () => {
   const manifest = baseManifest();
-  const localFile = "---\nPlatform: iPhone\nSession State: Failed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Summary\n- Failing\n";
+  const localFile = "---\nPlatform: iPhone\nSession State: Failed\nTester: Sean\nBuild Label: 0.5.1 (2)\nRunbook URL: https://example.com/runbook\nStarted On: 2026-03-28\nCompleted On: 2026-03-28\n---\n## Session Summary\n- Goal: Failing.\n\n## Checklist\n- [x] Install build\n- [ ] Complete smoke flow\n\n## Findings\n- Smoke flow blocked by login issue.\n\n## Follow-Up\n- Re-test after auth fix.\n";
 
   const preview = await pushValidationSessionSyncManifest({
     config: baseConfig(),
