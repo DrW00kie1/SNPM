@@ -2,6 +2,9 @@
 
 You own the `SNPM` repo, which is the canonical home for Infrastructure HQ Notion automation.
 
+Remote:
+- `https://github.com/DrW00kie1/SNPM`
+
 ## Ground rules
 
 - Your first job is migration, not redesign.
@@ -33,4 +36,3 @@ You own the `SNPM` repo, which is the canonical home for Infrastructure HQ Notio
 - update live Notion workflow pages to point to SNPM
 - reduce `tall-man-training` docs to a short pointer
 - only then plan any cleanup or redesign work
-
