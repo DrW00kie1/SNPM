@@ -3,8 +3,17 @@ import assert from "node:assert/strict";
 
 import {
   APPROVED_PLANNING_PAGE_PATHS,
+  findBuildRecordTarget,
+  findBuildsContainerTarget,
+  findProjectPathTarget,
+  findRunbookTarget,
+  findValidationSessionsDatabaseTarget,
   parseApprovedPlanningPagePath,
   resolveApprovedPlanningPageTarget,
+  resolveBuildRecordTarget,
+  resolveProjectPathTarget,
+  resolveRunbookTarget,
+  resolveValidationTarget,
 } from "../src/notion/page-targets.mjs";
 
 test("approved planning targets stay limited to the four planning pages", () => {
@@ -49,4 +58,124 @@ test("resolveApprovedPlanningPageTarget walks the project subtree", async () => 
 
   assert.equal(target.pageId, "roadmap");
   assert.equal(target.targetPath, "Projects > SNPM > Planning > Roadmap");
+});
+
+test("findProjectPathTarget returns null when the target page is missing", async () => {
+  const client = {
+    async getChildren(pageId) {
+      if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+      if (pageId === "project-root") return [{ type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } }];
+      return [];
+    },
+  };
+
+  const target = await findProjectPathTarget("SNPM", ["Runbooks", "Missing"], {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(target, null);
+});
+
+test("resolveProjectPathTarget returns the resolved project path", async () => {
+  const client = {
+    async getChildren(pageId) {
+      if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+      if (pageId === "project-root") return [{ type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } }];
+      if (pageId === "runbooks") return [{ type: "child_page", id: "runbook", child_page: { title: "Release Smoke Test" } }];
+      return [];
+    },
+  };
+
+  const target = await resolveProjectPathTarget("SNPM", ["Runbooks", "Release Smoke Test"], {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(target.pageId, "runbook");
+  assert.equal(target.targetPath, "Projects > SNPM > Runbooks > Release Smoke Test");
+});
+
+test("runbook and build-record helpers resolve approved project-owned surfaces", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [
+      { type: "child_page", id: "ops", child_page: { title: "Ops" } },
+      { type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } },
+    ]],
+    ["runbooks", [{ type: "child_page", id: "runbook", child_page: { title: "Release Smoke Test" } }]],
+    ["ops", [{ type: "child_page", id: "builds", child_page: { title: "Builds" } }]],
+    ["builds", [{ type: "child_page", id: "build-record", child_page: { title: "v0.2.0 Build" } }]],
+  ]);
+
+  const client = {
+    async getChildren(pageId) {
+      return childrenMap.get(pageId) || [];
+    },
+  };
+
+  const runbookTarget = await resolveRunbookTarget("SNPM", "Release Smoke Test", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const buildsTarget = await findBuildsContainerTarget("SNPM", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const buildRecordTarget = await resolveBuildRecordTarget("SNPM", "v0.2.0 Build", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(runbookTarget.targetPath, "Projects > SNPM > Runbooks > Release Smoke Test");
+  assert.equal(buildsTarget?.targetPath, "Projects > SNPM > Ops > Builds");
+  assert.equal(buildRecordTarget.targetPath, "Projects > SNPM > Ops > Builds > v0.2.0 Build");
+});
+
+test("findRunbookTarget and findBuildRecordTarget return null when the title is absent", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [
+      { type: "child_page", id: "ops", child_page: { title: "Ops" } },
+      { type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } },
+    ]],
+    ["runbooks", []],
+    ["ops", []],
+  ]);
+
+  const client = {
+    async getChildren(pageId) {
+      return childrenMap.get(pageId) || [];
+    },
+  };
+
+  const runbookTarget = await findRunbookTarget("SNPM", "Missing Runbook", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const buildRecordTarget = await findBuildRecordTarget("SNPM", "Missing Build", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(runbookTarget, null);
+  assert.equal(buildRecordTarget, null);
+});
+
+test("validation target helpers resolve Ops > Validation and the optional Validation Sessions database", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "ops", child_page: { title: "Ops" } }]],
+    ["ops", [{ type: "child_page", id: "validation", child_page: { title: "Validation" } }]],
+    ["validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]],
+  ]);
+
+  const client = {
+    async getChildren(pageId) {
+      return childrenMap.get(pageId) || [];
+    },
+  };
+
+  const validationTarget = await resolveValidationTarget("SNPM", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+  const databaseTarget = await findValidationSessionsDatabaseTarget("SNPM", {
+    workspace: { projectsPageId: "projects" },
+  }, client);
+
+  assert.equal(validationTarget.targetPath, "Projects > SNPM > Ops > Validation");
+  assert.equal(databaseTarget?.targetPath, "Projects > SNPM > Ops > Validation > Validation Sessions");
 });

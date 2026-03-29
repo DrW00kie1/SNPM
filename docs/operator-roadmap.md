@@ -10,12 +10,16 @@ Today SNPM is implemented and validated for:
 - project bootstrap from `Templates > Project Templates`
 - structural verification of the created project subtree
 - markdown-backed `page pull`, `page diff`, and `page push` for approved project planning pages
+- first-class `runbook` create/adopt/pull/diff/push commands for project-owned runbooks
+- first-class `build-record` create/pull/diff/push commands for project-owned build records under `Ops > Builds`
+- first-class `validation-sessions init` plus `validation-session` create/adopt/pull/diff/push commands for human validation-session records under `Ops > Validation > Validation Sessions`
+- `validation-sessions verify` as a narrow read-only verifier for existing-project adoption of the managed validation-session surface
 - optional project-token scope verification
 - cross-repo usage through a known local control repo
 
 Today SNPM does **not** yet ship:
 - manifest-backed multi-page sync
-- broad page pull/push across non-approved targets
+- broad page pull/push across arbitrary non-approved targets
 - scaffold commands for non-project surfaces
 - broad workspace verification beyond the current project bootstrap contract
 - package-installable consumption for other repos
@@ -79,30 +83,64 @@ Recommended architecture:
 
 One explicit future platform step should be upgrading off the current pinned Notion API version in [`config/workspaces/infrastructure-hq.json`](../config/workspaces/infrastructure-hq.json) so SNPM can rely on newer markdown and data-source capabilities without deeper legacy lock-in.
 
-## Planning-page sync slice
+## Shipped project-token slices
 
-The first post-bootstrap command family is now implemented as a narrow planning-page sync slice.
+SNPM now has three shipped post-bootstrap slices:
+- planning-page body sync for the four approved `Planning` pages
+- first-class project-token-safe day-to-day operations for `Runbooks` and `Ops > Builds`
+- first-class project-token-safe human validation-session reporting under `Ops > Validation > Validation Sessions`
 
-Why this came first:
+Why these came first:
 - it fits the current page-tree-heavy workspace model
-- it works well for living planning pages with a stable header pattern
-- it gives other repos and Codex threads a safe way to inspect and update selected project docs without vendoring workspace logic
-- it creates a strong safety boundary by limiting sync to named, approved targets and body-only ownership
+- it gives other repos and Codex threads safe, explicit commands for real project work without vendoring workspace logic
+- it creates a strong safety boundary by limiting mutations to named, approved targets and managed page shapes
+- it matches the real downstream signal from project work, where planning pages, runbooks, and build records are all active operational memory surfaces
 
-Current Sprint 2 command family:
+Current planning-page commands:
 - `snpm page pull`
 - `snpm page diff`
 - `snpm page push`
 
-Current constraints:
+Current planning-page constraints:
 - approved targets only: `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
 - only the body below the standard header divider belongs to the synced file
 - project token is preferred when a project-local token exists, otherwise the workspace token is used
 - unsupported markdown shapes fail loudly instead of silently flattening content
 
-Still planned after this slice:
+Current project-token day-to-day commands:
+- `snpm runbook create`
+- `snpm runbook adopt`
+- `snpm runbook pull`
+- `snpm runbook diff`
+- `snpm runbook push`
+- `snpm build-record create`
+- `snpm build-record pull`
+- `snpm build-record diff`
+- `snpm build-record push`
+- `snpm validation-sessions init`
+- `snpm validation-sessions verify`
+- `snpm validation-session create`
+- `snpm validation-session adopt`
+- `snpm validation-session pull`
+- `snpm validation-session diff`
+- `snpm validation-session push`
+
+Current project-token day-to-day constraints:
+- project-owned surfaces only: `Runbooks`, `Ops > Builds`, and `Ops > Validation > Validation Sessions`
+- `runbook adopt` is the supported path for bringing legacy headerless runbooks under SNPM management
+- `build-record create` may create `Ops > Builds` on demand, but it does not change the required starter-tree baseline for all projects
+- `validation-sessions init` may create the optional `Validation Sessions` database under `Ops > Validation`, but it does not change the required starter-tree baseline for all projects
+- `validation-sessions verify` is intentionally narrower than `verify-project` so existing projects can prove the health of the managed validation surface without hiding unrelated legacy drift elsewhere
+- validation-session files use YAML front matter for row properties plus the managed page body below the divider
+- `validation-session adopt` is the supported path for bringing legacy headerless session pages under SNPM management
+- pull / diff / push operate on SNPM-managed pages only
+- mutating commands stay preview-first and require `--apply`
+
+Still planned after these slices:
 - `snpm sync check`
 - `snpm sync push`
+- broader workspace verification
+- additional approved project-owned operational surfaces
 
 ## Planned command families after that
 

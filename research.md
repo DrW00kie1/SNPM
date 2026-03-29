@@ -395,3 +395,199 @@ Publication result on `2026-03-28`:
 - `npm run verify-project -- --name "SNPM"` passed
 - cross-repo smoke validation from `C:\\tall-man-training` using `npm --prefix C:\\SNPM run page-diff -- ...` also reported `No body changes.`
 - the repo docs now point testers at the new published snapshot tag `sprint-2-planning-sync`
+
+## Issue-Driven Re-scope For Project-Token Operations
+
+Open GitHub issue review on `2026-03-28`:
+- issue `#1` (`[testing] Need first-class project-token operations for existing project subtrees`) is a real feature-gap report from `ec53bb4`, not a regression
+- issue `#2` (`[testing] Need a supported command for project-scoped page creation and update inside an existing project subtree`) is the concrete next feature request rather than a low-level API bug
+- both issues were filed from another repo context while using `C:\\SNPM` as the control repo, which matches the intended cross-repo usage model
+
+What Sprint 2 changed relative to the issues:
+- Sprint 2 partially addressed issue `#1` by shipping first-class project-token-safe planning-page pull, diff, and push
+- neither issue is actually solved for routine project work because SNPM still lacks first-class project-token-safe operations for `Runbooks` and `Ops > Builds`
+
+Concrete downstream usage signal from `Tall Man Training`:
+- `Tall Man Training > Runbooks` already holds real operational pages such as `iOS TestFlight Internal Distribution`
+- `Tall Man Training > Ops` already includes an extra `Builds` child page beyond the starter-tree baseline
+- `Tall Man Training > Ops > Builds` already contains meaningful build records such as `Android Local Preview + Test PWA Refresh - v0.5.1` and `iOS TestFlight Audit + First Internal Build - v0.5.1`
+- `tall-man-training/plan.md` and `research.md` explicitly call out missing Notion mutation support as the blocker for keeping build history and operational results in Notion
+
+Live markdown/read-shape observations that affect the next milestone:
+- the sampled build-record page is already a managed-header page with `Purpose`, `Canonical Source`, `Read This When`, `Last Updated`, `Sensitive`, and a divider
+- the sampled runbook page `iOS TestFlight Internal Distribution` is headerless and begins directly with body content
+- that means the next milestone cannot assume all project-owned pages already follow the managed page contract
+
+Chosen product re-scope:
+- the next milestone should optimize for least-privilege, project-token-first day-to-day operations inside an existing project subtree
+- SNPM should remain opinionated and task-based rather than becoming a generic Notion shell
+- the first-wave approved surfaces should be `Runbooks` and `Ops > Builds`
+- `Ops > Builds` should be treated as an approved extension surface, not promoted into the starter-tree template for every project
+
+Implementation implications:
+- add first-class `runbook` and `build-record` command families rather than widening `page` into a generic project shell
+- support `runbook adopt` because real projects already contain headerless runbooks that need to be brought under SNPM management safely
+- keep `page pull` / `page diff` / `page push` unchanged for Planning
+- rework verification so the starter tree stays the required baseline, but legitimate descendants under `Runbooks` and the optional `Ops > Builds` extension do not fail verification as drift
+
+GitHub issue handling constraints in the current tool environment:
+- GitHub comments can be added from this session
+- issue-title editing is not exposed by the available GitHub connector tools, so the practical response path here is to comment with the re-scope, partial-resolution note, and milestone mapping
+
+## Project-Token Day-To-Day Operations Rollout Result
+
+The re-scoped milestone was implemented and validated on `2026-03-28`.
+
+GitHub issue handling result:
+- issue `#1` now has a comment marking Sprint 2 as a partial resolution and re-framing the remaining gap as project-token-safe operations beyond Planning
+- issue `#2` now has a comment marking it as the active implementation slice for approved project-owned surfaces
+- issue titles themselves were not edited because the available GitHub connector tools in this session do not expose issue-title mutation
+
+Implemented command surface:
+- `runbook create --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+- `runbook adopt --project "<Project>" --title "<Existing Title>" [--project-token-env TOKEN_ENV] [--apply]`
+- `runbook pull --project "<Project>" --title "<Title>" --output <file> [--project-token-env TOKEN_ENV]`
+- `runbook diff --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV]`
+- `runbook push --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+- `build-record create --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+- `build-record pull --project "<Project>" --title "<Title>" --output <file> [--project-token-env TOKEN_ENV]`
+- `build-record diff --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV]`
+- `build-record push --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+
+Implementation result:
+- approved project-owned target resolution now includes `Runbooks` and `Ops > Builds`
+- `runbook adopt` converts a headerless runbook into the SNPM-managed page shape while preserving the body content
+- `build-record create` can create the optional `Ops > Builds` container on demand without changing the required starter-tree baseline for every project
+- verification now keeps the starter tree as the required baseline while allowing dynamic descendants under `Runbooks` and the optional `Ops > Builds` extension
+- project-token scope verification now includes approved dynamic descendants under `Runbooks` and `Ops > Builds` when they exist
+
+Live validation result on `Projects > SNPM`:
+- created persistent fixture `Runbooks > SNPM Operator Validation Runbook`
+- created persistent fixture `Runbooks > SNPM Operator Validation Legacy Runbook` and adopted it into the managed format
+- created persistent fixture `Ops > Builds > SNPM Operator Validation Build Record`
+- `build-record create` also created the managed `Ops > Builds` container because it did not exist yet under `Projects > SNPM`
+- `runbook pull`, `runbook diff`, preview `runbook push`, apply `runbook push`, and revert `runbook push` all succeeded with `SNPM_NOTION_TOKEN`
+- `build-record pull`, `build-record diff`, preview `build-record push`, apply `build-record push`, and revert `build-record push` all succeeded with `SNPM_NOTION_TOKEN`
+- `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed after the structural changes
+
+Cross-repo validation result:
+- from `C:\\tall-man-training`, `npm --prefix C:\\SNPM run runbook-pull -- ...` against the SNPM validation runbook succeeded
+- from `C:\\tall-man-training`, `npm --prefix C:\\SNPM run build-record-diff -- ...` against the SNPM validation build record reported `No body changes.`
+
+Automated validation result:
+- `npm test` passed with `48` tests after the new command families and verification changes landed
+
+## Validation Session Reporting Re-scope
+
+Issue `#3` on `2026-03-28` is a credible next-milestone signal rather than a generic feature wishlist.
+
+What the new issue adds:
+- the current shipped surface is now strong enough for planning, runbooks, and build records, but it still does not provide a canonical place to record one human validation session per test run
+- `Projects > Tall Man Training > Ops > Validation` is currently a summary/status page, not an intake/reporting surface
+- `Runbooks` describe what to test and `Builds` describe what was built, but neither one is the right canonical home for tester session reports
+
+Live workspace observations:
+- `Projects > Tall Man Training > Ops > Validation` currently has no child surfaces under it
+- `Infrastructure HQ Home` remains a short workspace landing page with top-level pointers only
+- that means the correct v1 shape is not “put validation reports in Home”; it is “add a project-owned validation-session surface, then update Home to point to it”
+
+Current Notion API implications:
+- the current Notion API version in use supports database/data-source style workflows strongly enough to make a database-backed surface feasible
+- pages can be created under a data source via the normal page APIs
+- page markdown endpoints still work for row pages, which keeps the managed-page body contract viable
+- form/view creation and configuration remain the likely UI-only gap in v1, so the boundary should stay explicit and documented rather than hidden
+
+Chosen milestone direction:
+- make issue `#3` the next active milestone
+- add a managed `Validation Sessions` surface under `Projects > <Project> > Ops > Validation`
+- keep it project-token-safe, bounded, and opinionated
+- bundle a lightweight `Infrastructure HQ Home` workflow pointer in the same milestone, but only after the new surface is validated live
+
+Chosen v1 contract:
+- `Validation Sessions` is an optional database-backed extension surface, not a new required starter-tree child
+- the managed container lives only at `Ops > Validation > Validation Sessions`
+- session records are treated as first-class managed objects, not arbitrary database rows
+- a bounded manual Notion UI step for a form-style view is acceptable in v1
+- arbitrary database/view tooling remains out of scope
+
+## Validation Session Reporting Rollout Result
+
+The validation-session milestone was implemented and live-validated on `2026-03-28`.
+
+Implemented command surface:
+- `validation-sessions init --project "<Project>" [--project-token-env TOKEN_ENV] [--apply]`
+- `validation-session create --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+- `validation-session adopt --project "<Project>" --title "<Existing Title>" [--project-token-env TOKEN_ENV] [--apply]`
+- `validation-session pull --project "<Project>" --title "<Title>" --output <file> [--project-token-env TOKEN_ENV]`
+- `validation-session diff --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV]`
+- `validation-session push --project "<Project>" --title "<Title>" --file <file> [--project-token-env TOKEN_ENV] [--apply]`
+
+Implementation result:
+- target resolution now includes the optional `Ops > Validation > Validation Sessions` database-backed extension surface
+- the managed schema is enforced for `Name`, `Platform`, `Session State`, `Tester`, `Build Label`, `Runbook URL`, `Started On`, and `Completed On`
+- validation-session files use YAML front matter for row properties plus the managed markdown body below the divider
+- verification now allows `Validation Sessions` only under `Ops > Validation`, verifies the database title/icon/schema, and includes session descendants in project-token scope checks
+
+Live validation result on `Projects > SNPM`:
+- `validation-sessions init` preview and apply succeeded with `SNPM_NOTION_TOKEN`
+- created persistent fixture `Ops > Validation > Validation Sessions > SNPM Validation Session Fixture`
+- `validation-session pull`, `validation-session diff`, preview `validation-session push`, apply `validation-session push`, and revert `validation-session push` all succeeded with `SNPM_NOTION_TOKEN`
+- created persistent legacy fixture `Ops > Validation > Validation Sessions > SNPM Validation Session Legacy Fixture` and adopted it into the managed format
+- `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed after the new optional surface was created
+
+Cross-repo validation result:
+- from `C:\\tall-man-training`, `npm --prefix C:\\SNPM run validation-session-diff -- ...` against the SNPM validation-session fixture reported `No body changes.`
+
+Workspace guidance result:
+- `Infrastructure HQ Home` should now point testers at project-owned `Ops > Validation` surfaces rather than acting as the reporting surface itself
+- `Templates > Project Templates > Ops > Validation` should now describe the optional `Validation Sessions` extension and the one-session-per-run workflow
+- a bounded manual Notion UI step for form-style views remains documented rather than automated
+
+## Existing-Project Validation-Session Adoption Re-scope
+
+Issue `#4` on `2026-03-28` is not asking for a new validation-session data model. It is pointing out an adoption and publication gap in the current rollout.
+
+What the issue surfaced:
+- the validation-session slice is implemented locally but is not yet published on `origin/main` or on a dedicated tester-facing tag
+- existing projects need a cleaner success signal than `verify-project`, because broad project verification can still fail on unrelated historical drift
+- the validation-session docs do not yet make the existing-project path explicit enough, especially the immediate `pull` then `diff` normalization step after `create --apply` or `adopt --apply`
+- testers also need a clear distinction between a published baseline and an unpublished local checkout when reporting results
+
+Current repo and publication state before this milestone:
+- local `main` contains the uncommitted validation-session implementation
+- `origin/main` and the latest published tag still point to `sprint-2-planning-sync`
+- this makes the README and tester workflow misleading for anyone trying to evaluate validation sessions from GitHub alone
+
+Chosen scope for issue `#4`:
+- keep validation-session CRUD behavior as-is
+- publish the validated local validation-session slice to `origin/main`
+- add a new tester-facing tag named `sprint-3-validation-sessions`
+- add a narrow read-only `validation-sessions verify` command that checks only `Ops > Validation > Validation Sessions`
+- leave `verify-project` intentionally broad so it still catches unrelated legacy drift elsewhere in a project subtree
+- document the existing-project adoption flow explicitly, including the post-create normalization step and the bounded manual form/view UI step
+
+Why the narrow verify command is worth adding:
+- existing projects need a clean pass/fail signal for the managed validation-session surface itself
+- broad `verify-project` output is still useful, but it is the wrong signal for “is validation-session adoption healthy?”
+- a surface-only verifier keeps the distinction sharp without weakening the broader project verifier
+
+## Existing-Project Validation-Session Adoption Result
+
+Issue `#4` was implemented on `2026-03-28` as a docs + publication + narrow-verifier slice.
+
+Implementation result:
+- `validation-sessions verify --project "<Project>" [--project-token-env TOKEN_ENV]` now verifies only `Ops > Validation > Validation Sessions`
+- the new verifier reports `ok`, `command`, `targetPath`, `authMode`, `initialized`, `failures`, and `rowCount`
+- `validation-sessions init --apply`, `validation-session create --apply`, and `validation-session adopt --apply` now return explicit `nextStep` guidance for UI-only form/view setup or immediate local-file normalization
+- `verify-project` remains unchanged and still reports unrelated legacy drift elsewhere in the project subtree
+- the validation-session docs, README, and GitHub testing docs now explain the existing-project adoption path explicitly, including the immediate `pull` then `diff` normalization step
+
+Live validation result:
+- `npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed with `rowCount: 2` before the new adoption fixture was created and later passed cross-repo with `rowCount: 3`
+- `npm run validation-sessions-verify -- --project "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN` passed with `rowCount: 1`
+- `npm run verify-project -- --name "Tall Man Training" --project-token-env TALLMAN_NOTION_TOKEN` still failed on broad legacy canonical-source and tree-shape drift, which proves the distinction between the narrow surface verifier and the broad project verifier
+- the normalization flow was confirmed live by creating `SNPM Validation Session Adoption Fixture`, then immediately running `validation-session-pull` and `validation-session-diff`, which returned `No body changes.`
+
+Publication result:
+- the current validation-session slice is now the baseline to publish to `origin/main`
+- the tester-facing snapshot name for this milestone is `sprint-3-validation-sessions`

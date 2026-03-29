@@ -9,9 +9,9 @@ Default tester path:
 - file findings in GitHub issues, not only in chat threads
 
 Current testing snapshot:
-- `sprint-2-planning-sync`
+- `sprint-3-validation-sessions`
 
-`main` remains the integration branch for follow-on work after the Sprint 2 snapshot.
+`main` remains the integration branch for follow-on work after the current snapshot.
 
 ## Tester Workflow
 
@@ -20,7 +20,7 @@ Clone and check out the current snapshot:
 ```powershell
 git clone https://github.com/DrW00kie1/SNPM.git
 Set-Location SNPM
-git checkout sprint-2-planning-sync
+git checkout sprint-3-validation-sessions
 ```
 
 Default repo-level validation:
@@ -32,20 +32,30 @@ node src/cli.mjs help
 
 Trusted live-tester validation:
 - `verify-project` is the default live command because it is read-heavy and validates the real workspace without creating a new project
+- `validation-sessions-verify` is also allowed for trusted testers because it verifies only the managed validation-session surface on an existing project
 - `page-pull` and `page-diff` are also allowed for trusted testers on the approved planning pages
 - preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
-- `create-project`, `page-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
+- `runbook-pull`, `runbook-diff`, `build-record-pull`, `build-record-diff`, `validation-session-pull`, and `validation-session-diff` are also allowed for trusted testers on SNPM-managed project pages
+- preview-only `runbook-create`, `runbook-adopt`, `runbook-push`, `build-record-create`, `build-record-push`, `validation-sessions-init`, `validation-session-create`, `validation-session-adopt`, and `validation-session-push` are allowed for trusted testers because they show the exact change without mutating the workspace
+- `create-project`, `page-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, `runbook-push --apply`, `build-record-create --apply`, `build-record-push --apply`, `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, `validation-session-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
 - use workspace and project tokens only if you already have approved access
 - use the file produced by `page-pull` as the editing base for `page-push`; Notion may re-escape markdown-sensitive characters such as `>` on read-back
+- use the file produced by `runbook-pull` or `build-record-pull` as the editing base for follow-on push commands for the same reason
+- use the file produced by `validation-session-pull` as the editing base for follow-on validation-session pushes; the local file is the canonical editable shape because it includes normalized YAML front matter plus the managed body
 
 Example trusted live check:
 
 ```powershell
 npm run verify-project -- --name "SNPM"
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output roadmap.md --project-token-env SNPM_NOTION_TOKEN
 npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
 npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
+npm run runbook-pull -- --project "SNPM" --title "SNPM Operator Validation Runbook" --output runbook.md --project-token-env SNPM_NOTION_TOKEN
+npm run build-record-diff -- --project "SNPM" --title "SNPM Operator Validation Build Record" --file build-record.md --project-token-env SNPM_NOTION_TOKEN
+npm run validation-session-pull -- --project "SNPM" --title "SNPM Validation Session Fixture" --output validation-session.md --project-token-env SNPM_NOTION_TOKEN
+npm run validation-session-diff -- --project "SNPM" --title "SNPM Validation Session Fixture" --file validation-session.md --project-token-env SNPM_NOTION_TOKEN
 ```
 
 Testing from another repo context is allowed, but direct-clone testing is the default path for this phase.
@@ -54,6 +64,7 @@ Testing from another repo context is allowed, but direct-clone testing is the de
 
 Include:
 - tested tag or commit
+- whether you were on a published tag or an unpublished local checkout
 - whether you tested from a direct SNPM clone or another repo context
 - commands run
 - expected result
@@ -79,4 +90,7 @@ When a finding lands:
 - `main` remains the integration branch.
 - Tags are the reproducible testing contract.
 - `page push --apply` should always include the affected project and page path in the issue if it was part of testing.
+- `runbook` and `build-record` mutations should always include the affected project and target title in the issue if they were part of testing.
+- `validation-session` mutations should always include the affected project and target title in the issue if they were part of testing.
+- if you tested an unpublished local checkout instead of a published tag, say so explicitly in the issue.
 - Live Notion validation stays limited to a smaller trusted tester group because SNPM touches a real workspace.

@@ -8,10 +8,26 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "build-record-create": "node src/cli.mjs build-record create",
+    "build-record-diff": "node src/cli.mjs build-record diff",
+    "build-record-pull": "node src/cli.mjs build-record pull",
+    "build-record-push": "node src/cli.mjs build-record push",
     "create-project": "node src/cli.mjs create-project",
     "page-diff": "node src/cli.mjs page diff",
     "page-pull": "node src/cli.mjs page pull",
     "page-push": "node src/cli.mjs page push",
+    "runbook-adopt": "node src/cli.mjs runbook adopt",
+    "runbook-create": "node src/cli.mjs runbook create",
+    "runbook-diff": "node src/cli.mjs runbook diff",
+    "runbook-pull": "node src/cli.mjs runbook pull",
+    "runbook-push": "node src/cli.mjs runbook push",
+    "validation-session-adopt": "node src/cli.mjs validation-session adopt",
+    "validation-session-create": "node src/cli.mjs validation-session create",
+    "validation-session-diff": "node src/cli.mjs validation-session diff",
+    "validation-session-pull": "node src/cli.mjs validation-session pull",
+    "validation-session-push": "node src/cli.mjs validation-session push",
+    "validation-sessions-init": "node src/cli.mjs validation-sessions init",
+    "validation-sessions-verify": "node src/cli.mjs validation-sessions verify",
     "verify-project": "node src/cli.mjs verify-project",
     "test": "node --test"
   }

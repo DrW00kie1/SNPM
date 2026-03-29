@@ -29,7 +29,7 @@ export function getWorkspaceToken() {
 export function getProjectToken(envName) {
   const token = getEnvToken([envName]);
   if (!token) {
-    throw new Error(`Set ${envName} before running project-token scope verification.`);
+    throw new Error(`Set ${envName} before using project-token operations.`);
   }
   return token;
 }
@@ -53,4 +53,3 @@ export function nowTimestamp() {
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.month}-${values.day}-${values.year} ${values.hour}:${values.minute}:${values.second}`;
 }
-

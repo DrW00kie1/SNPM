@@ -1,0 +1,144 @@
+# Validation Sessions
+
+SNPM ships a project-token-safe validation-session workflow for human tester runs.
+
+The managed surface is:
+- `Projects > <Project> > Ops > Validation > Validation Sessions`
+
+This surface is optional:
+- it is not part of the required starter-tree baseline
+- initialize it only when the project needs per-run human validation reports
+
+## Commands
+
+Initialize or standardize the managed database:
+
+```powershell
+npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Create or adopt a managed validation-session record:
+
+```powershell
+npm run validation-session-create -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-create -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run validation-session-adopt -- --project "Project Name" --title "Legacy Session Title" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-adopt -- --project "Project Name" --title "Legacy Session Title" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+Pull, diff, or push a managed validation-session record:
+
+```powershell
+npm run validation-session-pull -- --project "Project Name" --title "Session Title" --output validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-diff -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-push -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-push -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+All mutating commands are preview-first and require `--apply`.
+
+## Existing Project Adoption
+
+For an existing project, use this sequence and report the exact published tag or commit you tested.
+
+1. Confirm the feature exists in the published tag or exact commit you are using.
+2. Preview the surface:
+
+```powershell
+npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+3. Apply the surface:
+
+```powershell
+npm run validation-sessions-init -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+4. Create or adopt the first managed session row:
+
+```powershell
+npm run validation-session-create -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+or
+
+```powershell
+npm run validation-session-adopt -- --project "Project Name" --title "Legacy Session Title" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+5. Immediately normalize the local file against Notion's stored markdown shape:
+
+```powershell
+npm run validation-session-pull -- --project "Project Name" --title "Session Title" --output validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-session-diff -- --project "Project Name" --title "Session Title" --file validation-session.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+6. Optionally confirm the managed surface itself:
+
+```powershell
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+7. Optionally run the broader project verifier:
+
+```powershell
+npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+`validation-sessions-verify` is the clean success signal for this surface. `verify-project` is still broader and may report unrelated legacy drift elsewhere in an older project subtree.
+
+## File Format
+
+Validation-session files use YAML front matter plus the managed page body:
+
+```md
+---
+Platform: Web
+Session State: Planned
+Tester: Sean Wilkie
+Build Label: validation-fixture-001
+Runbook URL: https://example.com/validation-runbook
+Started On: 2026-03-28
+Completed On:
+---
+## Session Summary
+- Describe the purpose and scope of this validation run.
+
+## Findings
+- Record what the tester observed.
+
+## Follow-Up
+- Capture the next actions.
+```
+
+Front matter fields:
+- `Platform`
+- `Session State`
+- `Tester`
+- `Build Label`
+- `Runbook URL`
+- `Started On`
+- `Completed On`
+
+`--title` remains the record lookup key inside `Validation Sessions` and must be unique.
+
+Use the file produced by `validation-session-pull` as the editing base for later pushes.
+
+## Managed Surface Rules
+
+SNPM enforces these v1 constraints:
+- the database name must be exactly `Validation Sessions`
+- it must live directly under `Ops > Validation`
+- `validation-sessions init` creates or standardizes only that database
+- `validation-sessions verify` checks only that managed surface and does not report unrelated drift elsewhere in the project
+- conflicting child databases under `Ops > Validation` fail loudly instead of being adopted automatically
+- `pull`, `diff`, and `push` operate only on SNPM-managed session pages
+- `adopt` is the explicit path for standardizing an existing headerless session page
+
+## Manual Notion UI Step
+
+The API-managed surface stops at the database, schema, row properties, and row page content.
+
+If you want a form-style tester intake view, create or tune that view manually in the Notion UI. That bounded view-configuration step is expected in v1 and is not automated by SNPM yet.

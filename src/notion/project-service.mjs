@@ -2,6 +2,7 @@ import { getProjectToken, getWorkspaceToken, nowTimestamp, deriveProjectTokenEnv
 import { makeNotionClient } from "./client.mjs";
 import { buildProjectRootNode, expectedCanonicalSource, pathFromSegments, projectPath } from "./project-model.mjs";
 import { cloneTemplateBlock, getCanonicalSource, sanitizeCover, sanitizeIcon } from "./template-blocks.mjs";
+import { collectValidationSessionScopeChecks, verifyValidationSessionsExtension } from "./validation-sessions.mjs";
 
 export async function findChildPage(parentPageId, title, client) {
   const children = await client.getChildren(parentPageId);
@@ -101,11 +102,45 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
     failures.push(`Canonical Source mismatch on ${path}: expected "${expected}", got "${canonical || "missing"}"`);
   }
 
-  const childPages = (await client.getChildren(pageId)).filter((block) => block.type === "child_page");
+  const children = await client.getChildren(pageId);
+  const childPages = children.filter((block) => block.type === "child_page");
+  const childDatabases = children.filter((block) => block.type === "child_database");
   const expectedTitles = node.children.map((child) => child.title);
-  const actualTitles = childPages.map((child) => child.child_page.title);
+  const actualTitles = [
+    ...childPages.map((child) => child.child_page.title),
+    ...childDatabases.map((child) => child.child_database.title),
+  ];
+  const lastPathTitle = pathTitles[pathTitles.length - 1] || "";
+  const allowAnyExtras = lastPathTitle === "Runbooks";
+  const allowedExtraTitles = new Set(
+    lastPathTitle === "Ops"
+      ? ["Builds"]
+      : lastPathTitle === "Validation"
+        ? ["Validation Sessions"]
+        : [],
+  );
+  const missingTitles = expectedTitles.filter((title) => !actualTitles.includes(title));
 
-  if (expectedTitles.join("|") !== actualTitles.join("|")) {
+  let lastMatchedIndex = -1;
+  let ordered = true;
+  for (const title of expectedTitles) {
+    const nextIndex = actualTitles.indexOf(title);
+    if (nextIndex === -1) {
+      ordered = false;
+      break;
+    }
+    if (nextIndex < lastMatchedIndex) {
+      ordered = false;
+      break;
+    }
+    lastMatchedIndex = nextIndex;
+  }
+
+  const disallowedExtras = allowAnyExtras
+    ? []
+    : actualTitles.filter((title) => !expectedTitles.includes(title) && !allowedExtraTitles.has(title));
+
+  if (missingTitles.length > 0 || !ordered || disallowedExtras.length > 0) {
     failures.push(`Child page mismatch on ${path}: expected [${expectedTitles.join(", ")}], got [${actualTitles.join(", ")}]`);
   }
 
@@ -121,6 +156,78 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
       [...pathTitles, expectedChild.title],
     );
   }
+}
+
+async function collectDescendantPageIds(pageId, client, collected = [], pathTitles = []) {
+  const childPages = (await client.getChildren(pageId)).filter((block) => block.type === "child_page");
+
+  for (const childPage of childPages) {
+    const childPathTitles = [...pathTitles, childPage.child_page.title];
+    collected.push({
+      title: childPage.child_page.title,
+      id: childPage.id,
+      path: childPathTitles.join(" > "),
+    });
+    await collectDescendantPageIds(childPage.id, client, collected, childPathTitles);
+  }
+
+  return collected;
+}
+
+async function verifyManagedDescendants(pageId, projectName, client, failures, pathTitles = []) {
+  const childPages = (await client.getChildren(pageId)).filter((block) => block.type === "child_page");
+
+  for (const childPage of childPages) {
+    const childPathTitles = [...pathTitles, childPage.child_page.title];
+    const childPath = childPathTitles.join(" > ");
+    const page = await client.request("GET", `pages/${childPage.id}`);
+    const canonical = await getCanonicalSource(childPage.id, client);
+
+    if (canonical) {
+      if (!page.icon) {
+        failures.push(`Missing icon on ${childPath}`);
+      }
+
+      const expected = expectedCanonicalSource(projectName, childPathTitles);
+      if (canonical !== expected) {
+        failures.push(`Canonical Source mismatch on ${childPath}: expected "${expected}", got "${canonical || "missing"}"`);
+      }
+    }
+
+    await verifyManagedDescendants(childPage.id, projectName, client, failures, childPathTitles);
+  }
+}
+
+export async function verifyApprovedExtensions(projectPageId, projectName, client, failures) {
+  const runbooksPage = await findChildPage(projectPageId, "Runbooks", client);
+  if (runbooksPage) {
+    await verifyManagedDescendants(runbooksPage.id, projectName, client, failures, [projectName, "Runbooks"]);
+  }
+
+  const opsPage = await findChildPage(projectPageId, "Ops", client);
+  if (!opsPage) {
+    return;
+  }
+
+  const buildsPage = await findChildPage(opsPage.id, "Builds", client);
+  if (buildsPage) {
+    const buildsPathTitles = [projectName, "Ops", "Builds"];
+    const buildsPath = buildsPathTitles.join(" > ");
+    const page = await client.request("GET", `pages/${buildsPage.id}`);
+    if (!page.icon) {
+      failures.push(`Missing icon on ${buildsPath}`);
+    }
+
+    const canonical = await getCanonicalSource(buildsPage.id, client);
+    const expected = expectedCanonicalSource(projectName, buildsPathTitles);
+    if (canonical !== expected) {
+      failures.push(`Canonical Source mismatch on ${buildsPath}: expected "${expected}", got "${canonical || "missing"}"`);
+    }
+
+    await verifyManagedDescendants(buildsPage.id, projectName, client, failures, buildsPathTitles);
+  }
+
+  await verifyValidationSessionsExtension(projectPageId, projectName, client, failures);
 }
 
 export async function collectExpectedPageIds(pageId, node, client, collected = [], pathTitles = []) {
@@ -141,11 +248,47 @@ export async function verifyScope(projectPageId, projectName, config, projectTok
   const workspaceClient = makeNotionClient(getWorkspaceToken(), config.notionVersion);
   const rootNode = buildProjectRootNode(projectName, config);
   const allowedChecks = await collectExpectedPageIds(projectPageId, rootNode, workspaceClient, [], [projectName]);
+  const runbooksPage = await findChildPage(projectPageId, "Runbooks", workspaceClient);
+  if (runbooksPage) {
+    allowedChecks.push(...(await collectDescendantPageIds(
+      runbooksPage.id,
+      workspaceClient,
+      [],
+      [projectName, "Runbooks"],
+    )));
+  }
+  const opsPage = await findChildPage(projectPageId, "Ops", workspaceClient);
+  if (opsPage) {
+    const buildsPage = await findChildPage(opsPage.id, "Builds", workspaceClient);
+    if (buildsPage) {
+      allowedChecks.push({
+        title: "Builds",
+        id: buildsPage.id,
+        path: [projectName, "Ops", "Builds"].join(" > "),
+      });
+      allowedChecks.push(...(await collectDescendantPageIds(
+        buildsPage.id,
+        workspaceClient,
+        [],
+        [projectName, "Ops", "Builds"],
+      )));
+    }
+  }
+  allowedChecks.push(...(await collectValidationSessionScopeChecks(projectPageId, projectName, workspaceClient)));
 
-  for (const check of allowedChecks) {
-    const response = await client.requestMaybe("GET", `blocks/${check.id}/children?page_size=1`);
+  const dedupedChecks = [...new Map(allowedChecks.map((check) => [`${check.type || "page"}:${check.id}`, check])).values()];
+
+  for (const check of dedupedChecks) {
+    let response;
+    if (check.type === "database") {
+      response = await client.requestMaybe("GET", `databases/${check.id}`);
+    } else if (check.type === "data_source") {
+      response = await client.requestMaybe("POST", `data_sources/${check.id}/query`, { page_size: 1 });
+    } else {
+      response = await client.requestMaybe("GET", `blocks/${check.id}/children?page_size=1`);
+    }
     if (!response.ok) {
-      failures.push(`Project token could not read allowed page ${check.path}.`);
+      failures.push(`Project token could not read allowed ${check.type || "page"} ${check.path}.`);
     }
   }
 
@@ -196,6 +339,7 @@ export async function verifyProject(projectName, config, projectTokenEnv) {
 
   const failures = [];
   await verifyExpectedTree(projectRoot.id, buildProjectRootNode(projectName, config), projectName, client, failures, [projectName]);
+  await verifyApprovedExtensions(projectRoot.id, projectName, client, failures);
 
   if (projectTokenEnv) {
     failures.push(...(await verifyScope(projectRoot.id, projectName, config, projectTokenEnv)));

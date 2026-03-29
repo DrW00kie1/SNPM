@@ -46,8 +46,11 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 ## Planned Command Sequencing
 
 - [ ] Keep `create-project` and `verify-project` as the trusted current command surface
-- [ ] Add markdown-backed page sync first: `page pull`, `page push`, `page diff`, `sync check`, `sync push`
-- [ ] Add scaffold and broader verification commands second: `workspace verify`, `scaffold runbook`, `scaffold vendor`, `scaffold access-domain`, `scaffold incident`
+- [x] Add markdown-backed page sync first: `page pull`, `page push`, `page diff`
+- [x] Add first-class project-token day-to-day commands next: `runbook create`, `runbook adopt`, `runbook pull`, `runbook diff`, `runbook push`, `build-record create`, `build-record pull`, `build-record diff`, `build-record push`
+- [x] Add validation-session reporting next: `validation-sessions init`, `validation-session create`, `validation-session adopt`, `validation-session pull`, `validation-session diff`, `validation-session push`
+- [ ] Add manifest-backed sync after that: `sync check`, `sync push`
+- [ ] Add scaffold and broader verification commands later: `workspace verify`, `scaffold vendor`, `scaffold access-domain`, `scaffold incident`
 
 ## Notion Strategy Doc Migration
 
@@ -118,3 +121,54 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Run cross-repo validation from `C:\\tall-man-training`
 - [x] Update the live SNPM planning pages again through the new page-sync commands so they describe Sprint 2 as shipped and validated
 - [x] Publish the `sprint-2-planning-sync` GitHub testing snapshot so external testers can target page sync by tag instead of `main`
+
+## Project-Token Day-To-Day Operations
+
+- [x] Record the issue analysis, downstream usage signal, and re-scope decision in `research.md`
+- [x] Comment on GitHub issue `#1` that Sprint 2 partially addressed Planning, and map the remaining gap to project-token-safe operations beyond Planning
+- [x] Comment on GitHub issue `#2` that it is now the active implementation slice for approved project-owned surfaces
+- [x] Update SNPM Notion planning pages so the next milestone is first-class project-token day-to-day operations rather than manifest sync
+- [x] Add approved target resolution for `Runbooks` and `Ops > Builds`
+- [x] Add managed templates for runbooks, build records, and the optional `Ops > Builds` container
+- [x] Add `runbook create`, `runbook adopt`, `runbook pull`, `runbook diff`, and `runbook push`
+- [x] Add `build-record create`, `build-record pull`, `build-record diff`, and `build-record push`
+- [x] Keep project-token auth as the documented normal path, with workspace-token fallback still constrained to project-owned approved surfaces
+- [x] Rework verification so required starter-tree pages remain mandatory while approved dynamic descendants and the optional `Ops > Builds` extension are verified instead of rejected
+- [x] Add unit and CLI tests for adoption, managed create flows, approved-surface validation, and relaxed-but-safe verification
+- [x] Create persistent SNPM validation fixtures for one managed runbook and one managed build record, then round-trip them with `SNPM_NOTION_TOKEN`
+- [x] Run cross-repo validation from `C:\\tall-man-training` for at least one runbook command and one build-record command
+- [x] Update README, roadmap, testing docs, and the live SNPM planning pages to reflect the new next milestone and command surface
+
+## Validation Session Reporting
+
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects validation-session reporting as the next milestone
+- [x] Record the issue `#3` analysis, live workspace findings, and v1 database/form boundary in `research.md`
+- [x] Comment on GitHub issue `#3` that it is now the active implementation slice for the next milestone
+- [x] Add approved target resolution for `Ops > Validation > Validation Sessions`
+- [x] Add managed data-surface helpers for creating, retrieving, and verifying the `Validation Sessions` database-backed surface
+- [x] Add first-class `validation-sessions init`
+- [x] Add `validation-session create`, `validation-session adopt`, `validation-session pull`, `validation-session diff`, and `validation-session push`
+- [x] Use YAML front matter plus managed markdown body content for validation-session files
+- [x] Rework verification so `Validation Sessions` is allowed only as an optional extension under `Ops > Validation`
+- [x] Include validation-session descendants in project-token scope verification without weakening unrelated drift checks
+- [x] Add unit and CLI tests for initialization, schema checks, title lookup, front-matter handling, preview/apply behavior, and verification
+- [x] Create persistent SNPM validation-session fixtures under `Projects > SNPM > Ops > Validation`
+- [x] Run cross-repo validation from `C:\\tall-man-training` for at least one validation-session command
+- [x] Update `Infrastructure HQ Home` only after the feature path is validated
+- [x] Update `Templates > Project Templates > Ops > Validation` so new projects point to the Validation Sessions extension workflow
+- [x] Add repo docs for the validation-session workflow and the bounded manual form-view step
+- [x] Update README and roadmap docs to reflect the shipped validation-session surface after implementation
+
+## Existing-Project Validation-Session Adoption
+
+- [x] Record the issue `#4` analysis and adoption-clarity scope in `research.md`
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the living plan reflects the adoption-clarity milestone
+- [x] Comment on GitHub issue `#4` with the accepted scope: publish the current validation-session slice, add explicit adoption docs, and add `validation-sessions verify`
+- [x] Publish the validated local validation-session slice to `origin/main`
+- [x] Create the `sprint-3-validation-sessions` testing snapshot tag
+- [x] Add `validation-sessions verify --project "<Project>" [--project-token-env TOKEN_ENV]` as a narrow surface-only verifier
+- [x] Add `nextStep` guidance to `validation-sessions init --apply`, `validation-session create --apply`, and `validation-session adopt --apply`
+- [x] Update validation-session docs, tester workflow docs, and README so published-vs-local availability and the existing-project adoption path are explicit
+- [x] Add automated tests for the new verifier and the new `nextStep` fields
+- [x] Run live validation on `Projects > SNPM` and `Projects > Tall Man Training` to prove the narrow verifier distinguishes healthy validation-session adoption from unrelated broad project drift
+- [x] Confirm the new tag exists remotely and the tester docs point to it

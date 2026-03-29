@@ -62,7 +62,18 @@ export function splitManagedPageMarkdown(markdown) {
   };
 }
 
-function escapeManagedHeaderText(text) {
+export function splitManagedPageMarkdownIfPresent(markdown) {
+  try {
+    return splitManagedPageMarkdown(markdown);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("standard header divider")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function escapeManagedHeaderText(text) {
   return text.replaceAll("\\", "\\\\").replaceAll(">", "\\>");
 }
 
@@ -85,14 +96,14 @@ export function buildManagedPageMarkdown({ headerMarkdown, bodyMarkdown, canonic
     + normalizeMarkdownNewlines(bodyMarkdown);
 }
 
-export function diffMarkdownBodies(currentBodyMarkdown, fileBodyMarkdown, { spawnSyncImpl = spawnSync } = {}) {
+export function diffMarkdownText(currentMarkdown, nextMarkdown, { spawnSyncImpl = spawnSync } = {}) {
   const tempDir = mkdtempSync(path.join(tmpdir(), "snpm-page-diff-"));
   const currentPath = path.join(tempDir, "current.md");
   const nextPath = path.join(tempDir, "next.md");
 
   try {
-    writeFileSync(currentPath, normalizeMarkdownNewlines(currentBodyMarkdown), "utf8");
-    writeFileSync(nextPath, normalizeMarkdownNewlines(fileBodyMarkdown), "utf8");
+    writeFileSync(currentPath, normalizeMarkdownNewlines(currentMarkdown), "utf8");
+    writeFileSync(nextPath, normalizeMarkdownNewlines(nextMarkdown), "utf8");
 
     const result = spawnSyncImpl(
       "git",
@@ -117,21 +128,36 @@ export function diffMarkdownBodies(currentBodyMarkdown, fileBodyMarkdown, { spaw
   }
 }
 
-async function loadApprovedPlanningPageContext({
-  projectName,
-  pagePath,
+export function diffMarkdownBodies(currentBodyMarkdown, fileBodyMarkdown, options) {
+  return diffMarkdownText(currentBodyMarkdown, fileBodyMarkdown, options);
+}
+
+export async function fetchPageMarkdown(pageId, targetPath, client) {
+  const response = await client.request("GET", `pages/${pageId}/markdown`);
+  validatePageMarkdownResponse(response, targetPath);
+  return response.markdown;
+}
+
+export async function replacePageMarkdown(pageId, targetPath, markdown, client) {
+  const response = await client.request("PATCH", `pages/${pageId}/markdown`, {
+    type: "replace_content",
+    replace_content: {
+      new_str: normalizeMarkdownNewlines(markdown),
+    },
+  });
+  validatePageMarkdownResponse(response, targetPath);
+  return response;
+}
+
+export async function loadResolvedPageContext({
+  target,
   config,
   projectTokenEnv,
-  resolveClient,
   syncClient,
   makeNotionClientImpl = makeNotionClient,
   getWorkspaceTokenImpl = getWorkspaceToken,
   getProjectTokenImpl = getProjectToken,
 }) {
-  const workspaceClient = resolveClient
-    || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
-  const target = await resolveApprovedPlanningPageTarget(projectName, pagePath, config, workspaceClient);
-
   const auth = syncClient
     ? { authMode: projectTokenEnv ? "project-token" : "workspace-token", client: syncClient }
     : (() => {
@@ -145,18 +171,40 @@ async function loadApprovedPlanningPageContext({
       };
     })();
 
-  const response = await auth.client.request("GET", `pages/${target.pageId}/markdown`);
-  validatePageMarkdownResponse(response, target.targetPath);
-
-  const { headerMarkdown, bodyMarkdown } = splitManagedPageMarkdown(response.markdown);
+  const markdown = await fetchPageMarkdown(target.pageId, target.targetPath, auth.client);
+  const managedParts = splitManagedPageMarkdown(markdown);
 
   return {
     ...target,
     authMode: auth.authMode,
     client: auth.client,
-    headerMarkdown,
-    bodyMarkdown,
+    markdown,
+    managedParts,
+    headerMarkdown: managedParts.headerMarkdown,
+    bodyMarkdown: managedParts.bodyMarkdown,
   };
+}
+
+async function loadApprovedPlanningPageContext({
+  projectName,
+  pagePath,
+  config,
+  resolveClient,
+  makeNotionClientImpl = makeNotionClient,
+  ...options
+}) {
+  const workspaceClient = resolveClient
+    || makeNotionClientImpl(
+      options.getWorkspaceTokenImpl ? options.getWorkspaceTokenImpl() : getWorkspaceToken(),
+      config.notionVersion,
+    );
+  const target = await resolveApprovedPlanningPageTarget(projectName, pagePath, config, workspaceClient);
+  return loadResolvedPageContext({
+    target,
+    config,
+    makeNotionClientImpl,
+    ...options,
+  });
 }
 
 export async function pullApprovedPageBody(options) {
@@ -218,14 +266,7 @@ export async function pushApprovedPageBody({
     timestamp,
   });
 
-  const response = await context.client.request("PATCH", `pages/${context.pageId}/markdown`, {
-    type: "replace_content",
-    replace_content: {
-      new_str: replacementMarkdown,
-    },
-  });
-
-  validatePageMarkdownResponse(response, context.targetPath);
+  await replacePageMarkdown(context.pageId, context.targetPath, replacementMarkdown, context.client);
 
   return {
     pageId: context.pageId,
