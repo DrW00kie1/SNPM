@@ -389,13 +389,80 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `docs/github-testing-loop.md`
   - `docs/validation-sessions.md`
 - [x] Live-validate the bundle verifier on `Projects > SNPM > Ops > Validation > Validation Sessions` first.
-- [ ] Roll the blessed bundle into `Projects > Tall Man Training > Ops > Validation > Validation Sessions` with bounded manual UI work:
+- [x] Pause further cross-project bundle rollout work after the Contour narrow-band reset; keep `validation-sessions verify --bundle` as the supported API-visible check and leave Tall Man-specific follow-on work out of the active SNPM milestone queue.
+- [x] After Tall Man validation, promote the blessed bundle into shared workspace guidance via `Templates > Project Templates > Ops > Validation`.
+
+## 2026-03-29 — Hybrid UI Automation Lane for the Validation-Session Bundle
+
+- [x] Record the hybrid control-plane decision, Chromium-only constraint, and default-browser avoidance requirement in `research.md`.
+- [x] Add this implementation checklist to `plan.md` before code changes.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the live plan reflects the hybrid UI-automation milestone.
+- [x] Add Playwright with Chromium-only usage and no Edge/default-browser fallback.
+- [x] Add a new `validation-bundle` command family:
+  - `validation-bundle login`
+  - `validation-bundle preview`
+  - `validation-bundle apply`
+  - `validation-bundle verify`
+- [x] Keep `validation-sessions verify --bundle` unchanged as the API-visible verifier.
+- [x] Add a separate `src/notion-ui/` subsystem for:
+  - local Chromium profile/session handling
+  - bundle spec
+  - UI action planning
+  - UI apply flows
+  - UI verification flows
+- [x] Ensure all browser launches happen inside Playwright Chromium and never via shell-open/default-browser handoff.
+- [x] Store browser profile state, traces, and screenshots outside the repo.
+- [x] Automate one exact v1 bundle only:
   - `Active Sessions` view
   - `Quick Intake` form
-  - `Validation Session` template
-  - button wiring
-- [ ] Create one new Tall Man session from the template/button flow, then confirm clean round-tripping with:
-  - `validation-session-pull`
-  - `validation-session-diff`
-  - `sync-pull --apply` or `sync-check`
-- [x] After Tall Man validation, promote the blessed bundle into shared workspace guidance via `Templates > Project Templates > Ops > Validation`.
+  - `Validation Session` database template
+  - button wiring on `Projects > <Project> > Ops > Validation`
+- [x] Keep button wiring out of runbooks in v1.
+- [x] Treat `Quick Intake` as valid only if submitted rows immediately inherit the managed `Validation Session` body.
+- [x] Return structured JSON for `preview`, `apply`, and `verify` with:
+  - `ok`
+  - `command`
+  - `projectId`
+  - `targetPath`
+  - `authMode`
+  - `uiAuth`
+  - `apiBundle`
+  - `uiBundle`
+  - `actions`
+  - `failures`
+  - `manualChecks`
+- [x] Add automated coverage for:
+  - CLI parsing/help for `validation-bundle`
+  - bundle-spec/action-planner logic
+  - mocked Playwright flows
+  - missing-login and selector-drift failures
+  - proof that no default-browser or Edge path is used
+  - regression coverage for `validation-sessions verify --bundle`
+- [x] Pause the interactive `validation-bundle` rollout as experimental work after the Contour narrow-band reset; preserve the branch and command family, but remove it from the active milestone path and near-term publication target.
+- [x] After implementation, update repo docs so the hybrid UI lane replaces the old "manual bundle setup" boundary.
+
+## 2026-03-29 — Contour-Driven Narrow-Band Reset
+
+- [x] Record Contour's narrow-band feedback and the product reset in `research.md`.
+- [x] Add this reset and the new core-band ergonomics milestone to `plan.md` before code changes.
+- [x] Update `README.md`, `docs/operator-roadmap.md`, `docs/github-testing-loop.md`, `docs/validation-sessions.md`, and `docs/validation-session-ui-bundle.md` so they all:
+  - treat bootstrap, planning sync, runbooks, and Access as the primary supported product line
+  - mark build records, validation sessions, manifest sync, and browser/UI automation as secondary or conditional
+  - mark `codex/validation-bundle` as a paused experimental branch rather than the active next publication target
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` so the live plan matches the repo reset:
+  - mostly Notion-first
+  - no new major surfaces until the core band is easier to use
+  - browser/UI automation paused as non-core work
+  - `doctor` truth-routing is the follow-on differentiator after ergonomics
+- [x] Implement temp-file-free core-band updates by allowing:
+  - `--output -` on `page-pull`, `runbook-pull`, `access-domain-pull`, `secret-record-pull`, and `access-token-pull`
+  - `--file -` on `page-diff`, `page-push`, `runbook-create`, `runbook-diff`, `runbook-push`, `access-domain-create`, `access-domain-diff`, `access-domain-push`, `secret-record-create`, `secret-record-diff`, `secret-record-push`, `access-token-create`, `access-token-diff`, and `access-token-push`
+- [x] Keep preview-first behavior unchanged; `--apply` remains required for mutation.
+- [x] Keep streamed pull bodies on stdout and route structured success metadata to stderr when `--output -` is used, so pipelines stay clean.
+- [x] Add automated coverage for the shared stdin/stdout helper and the new CLI usage contract.
+- [x] Live-validate the ergonomics on `Projects > SNPM` only:
+  - update one planning page through stdin/stdout with no temp file
+  - update `Runbooks > SNPM Operator Validation Runbook` through stdin/stdout with no temp file
+  - prove one Access stdin/stdout path on `Projects > SNPM > Access` without touching any other project
+- [x] Re-run `npm test` and `npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
+- [x] Update the live SNPM planning pages again after validation so the reset is marked shipped and the next active follow-on is `doctor` truth routing instead of new surface expansion.

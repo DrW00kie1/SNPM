@@ -22,6 +22,7 @@ Committed development work beyond published `main`:
 - triage-first validation-session `Findings` / `Follow-Up` redesign
 - first-class project Access surfaces under `Projects > <Project> > Access`
 - read-only `snpm doctor` / `snpm recommend` on `codex/doctor`
+- paused experimental Chromium-only `validation-bundle` UI automation on `codex/validation-bundle`
 
 Important publication boundary:
 - the latest published testing tag is still `sprint-3-validation-sessions`
@@ -36,7 +37,8 @@ Tall Man signal:
 
 Contour signal:
 - the important answer was a safe, project-local workflow for secrets
-- the important problem was discoverability and guardrails, not raw Notion access
+- the important problem was discoverability, guardrails, and day-to-day friction, not raw Notion access
+- simple updates still feel too choreographed when they require temp files and multiple commands
 
 Cross-repo Codex signal:
 - threads want explicit task commands they can shell out to
@@ -51,6 +53,7 @@ Boundary signal:
 - repo sync should exist only where the repo truly owns the artifact
 - project token should stay the default trust boundary
 - manual UI steps are acceptable only when they are bounded and documented
+- duplication is now the failure mode to guard against, not just missing automation
 
 ## Roadmap Reset
 
@@ -59,22 +62,31 @@ Boundary signal:
 - bring README, this roadmap, and the live SNPM planning pages back into alignment with what is actually published versus local
 - keep the Access direction, but do not pre-populate project Access pages again
 
-### Phase 1: Harden the validation-session UI bundle
-- finish the validation-session workflow as one complete supported bundle:
-  - managed surface
-  - sync-safe canonical body
-  - supported surrounding Notion UI bundle
-  - narrow verification plus operator guidance
-- use one blessed bundle:
-  - `Active Sessions`
-  - `Quick Intake`
-  - `Validation Session`
-  - manual button wiring
-- keep the boundary as docs + verify, not generic UI automation
+### Phase 1: Make the narrow band easier to use
+- do not add new major surfaces yet
+- improve the current primary band:
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+- remove temp-file choreography from the core band with stdin/stdout support
+- keep preview-first behavior and project-token boundaries unchanged
 
-### Phase 2: Build the workflow layer
-- stop framing next work as "more primitives first"
-- define first-class workflow bundles around real jobs:
+### Phase 2: Add truth routing and migration guidance
+- add a project-level doctor/recommend layer that tells an operator:
+  - which managed surfaces are present
+  - which are missing
+  - which are unmanaged but adoptable
+  - what command to run next
+- the first read-only slice is now implemented on `codex/doctor`
+- extend it next with truth routing:
+  - should this update live in Notion?
+  - should it live in the repo?
+  - is a hybrid sync path justified?
+- add surface-specific adoption planners before widening broad verification further
+- keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
+
+### Phase 3: Build the workflow layer
+- only after ergonomics and truth routing are in place, define first-class workflow bundles around real jobs:
   - validation run lifecycle
   - release/build evidence capture
   - project access record creation/update
@@ -85,16 +97,6 @@ Boundary signal:
   - narrow verifier
   - explicit next-step guidance
   - optional repo sync only where it helps
-
-### Phase 3: Add project doctoring and migration support
-- add a project-level doctor/recommend layer that tells an operator:
-  - which managed surfaces are present
-  - which are missing
-  - which are unmanaged but adoptable
-  - what command to run next
-- the first read-only slice is now implemented on `codex/doctor`
-- add surface-specific adoption planners before widening broad verification further
-- keep `verify-project` as the structural contract, but pair it with narrow per-surface health checks
 
 ### Phase 4: Harden cross-repo consumption
 - make pinned install/use from other repos a first-class supported path
@@ -112,7 +114,8 @@ Boundary signal:
 Current active command-family work:
 - `snpm doctor` / `snpm recommend`
 - `validation-sessions verify --bundle`
-- the next product slice is validation-session UI bundle hardening before broader workflow bundles
+- pipe-friendly planning-page, runbook, and Access updates with stdin/stdout
+- the next product slice after ergonomics is truth routing inside `doctor` / `recommend`
 
 Workflow bundles:
 - `start validation run`
@@ -132,13 +135,19 @@ Workflow-linked evidence:
   - validation session linked to release readiness
   - access record linked to the runbook that depends on it
 
+Paused experimental work:
+- `codex/validation-bundle` preserves the Chromium UI automation lane
+- it is not the active near-term publication target
+- `validation-sessions verify --bundle` remains the supported API-visible check while the browser lane stays paused
+
 ## Guardrails
 
 Keep these boundaries:
 - project token stays the default safety boundary
 - approved project-owned surfaces stay explicit
 - repo sync stays selective
-- manual UI-only steps remain bounded and documented
+- Notion stays primary unless the repo is clearly the better home
+- UI automation remains paused experimental work unless the narrow band proves it is worth resuming
 - `Access Index` and other workspace-global surfaces remain out of scope for project-local day-to-day mutation
 
 ## How This Experiment Should Be Judged

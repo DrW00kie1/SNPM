@@ -81,6 +81,18 @@ Managed workflow rules:
 - if a domain page does not exist, create or adopt the domain first
 - SNPM-managed Access records stay inside `Projects > <Project> > Access`
 
+Pipe-friendly core-band path:
+
+```bash
+npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output - --project-token-env PROJECT_NAME_NOTION_TOKEN \
+  | npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file - --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Core-band stdin/stdout rules:
+- use `--output -` on Access pull commands to stream the managed body to stdout
+- use `--file -` on Access create, diff, and push commands to read markdown from stdin
+- when `--output -` is used, SNPM writes the markdown body to stdout and the structured success metadata to stderr so shell pipelines stay clean
+
 ## Body Ownership
 
 Access domain, secret record, and token record pages use the standard SNPM-managed header above the divider.

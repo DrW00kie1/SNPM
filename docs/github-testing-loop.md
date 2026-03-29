@@ -12,7 +12,7 @@ Current testing snapshot:
 - `sprint-3-validation-sessions`
 
 `main` remains the integration branch for follow-on work after the current snapshot.
-Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag but are on published `main`. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The read-only `doctor` / `recommend` slice is committed on `codex/doctor`. If you test any of those newer slices, say explicitly whether you were on published `main`, `codex/development`, `codex/doctor`, or an unpublished local checkout.
+Manifest-backed validation-session sync and the checkbox-first validation-session workflow are newer than the latest published testing tag but are on published `main`. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The read-only `doctor` / `recommend` slice is committed on `codex/doctor`. `codex/validation-bundle` is paused experimental work. If you test any of those newer slices, say explicitly whether you were on published `main`, `codex/development`, `codex/doctor`, `codex/validation-bundle`, or an unpublished local checkout.
 
 ## Tester Workflow
 
@@ -34,7 +34,8 @@ node src/cli.mjs help
 Trusted live-tester validation:
 - `verify-project` is the default live command because it is read-heavy and validates the real workspace without creating a new project
 - `validation-sessions-verify` is also allowed for trusted testers because it verifies only the managed validation-session surface on an existing project
-- `validation-sessions-verify --bundle` is also allowed for trusted testers on `codex/doctor` because it verifies only API-visible bundle rules and returns manual UI checks for the rest
+- `validation-sessions-verify --bundle` is also allowed for trusted testers on `codex/doctor` because it verifies only API-visible bundle rules
+- `validation-bundle-preview` and `validation-bundle-verify` are paused experimental checks on `codex/validation-bundle`, not part of the active testing path
 - `page-pull` and `page-diff` are also allowed for trusted testers on the approved planning pages
 - preview-only `page-push` without `--apply` is allowed for trusted testers because it computes drift without mutating the workspace
 - `runbook-pull`, `runbook-diff`, `build-record-pull`, `build-record-diff`, `validation-session-pull`, and `validation-session-diff` are also allowed for trusted testers on SNPM-managed project pages
@@ -46,13 +47,16 @@ Trusted live-tester validation:
 - `create-project`, `page-push --apply`, `access-domain-create --apply`, `access-domain-adopt --apply`, `access-domain-push --apply`, `secret-record-create --apply`, `secret-record-adopt --apply`, `secret-record-push --apply`, `access-token-create --apply`, `access-token-adopt --apply`, `access-token-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, `runbook-push --apply`, `build-record-create --apply`, `build-record-push --apply`, `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, `validation-session-push --apply`, `sync-push --apply`, or any other live mutation should be treated as trusted-tester work only and called out explicitly in the issue when used
 - use workspace and project tokens only if you already have approved access
 - use the file produced by `page-pull` as the editing base for `page-push`; Notion may re-escape markdown-sensitive characters such as `>` on read-back
+- for the core band, `page-pull`, `runbook-pull`, and Access pull commands also accept `--output -` so the pulled body can go straight to stdout
+- for the core band, `page-diff`, `page-push`, `runbook-create`, `runbook-diff`, `runbook-push`, and the Access create/diff/push commands accept `--file -` so markdown can come from stdin instead of a temp file
 - use the file produced by `runbook-pull` or `build-record-pull` as the editing base for follow-on push commands for the same reason
 - use the file produced by `access-domain-pull`, `secret-record-pull`, or `access-token-pull` as the editing base for follow-on Access pushes; the pulled file is the canonical editable shape for those managed pages
 - use the file produced by `validation-session-pull` as the editing base for follow-on validation-session pushes; the local file is the canonical editable shape because it includes normalized YAML front matter plus the managed body
 - when testing validation-session workflow changes, report whether you changed checkbox task-list state, callout/toggle triage content, follow-up to-dos, or a mix of them; that makes markdown round-trip regressions much easier to classify
 - when testing the validation-session UI bundle, report separately:
   - whether `validation-sessions-verify --bundle` passed
-  - which manual UI elements were configured: `Active Sessions`, `Quick Intake`, `Validation Session`, button wiring
+  - whether any paused experimental `validation-bundle-*` command was run
+  - whether the Chromium session was freshly seeded or already persisted
   - whether the tested row still round-tripped cleanly through `validation-session-pull`, `validation-session-diff`, or manifest sync
 
 Example trusted live check:
@@ -62,10 +66,10 @@ npm run verify-project -- --name "SNPM"
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --bundle
-npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output roadmap.md --project-token-env SNPM_NOTION_TOKEN
-npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
-npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --project-token-env SNPM_NOTION_TOKEN
-npm run runbook-pull -- --project "SNPM" --title "SNPM Operator Validation Runbook" --output runbook.md --project-token-env SNPM_NOTION_TOKEN
+npm run page-pull -- --project "SNPM" --page "Planning > Roadmap" --output - --project-token-env SNPM_NOTION_TOKEN
+Get-Content roadmap.md | npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file - --project-token-env SNPM_NOTION_TOKEN
+Get-Content roadmap.md | npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file - --project-token-env SNPM_NOTION_TOKEN
+npm run runbook-pull -- --project "SNPM" --title "SNPM Operator Validation Runbook" --output - --project-token-env SNPM_NOTION_TOKEN
 npm run build-record-diff -- --project "SNPM" --title "SNPM Operator Validation Build Record" --file build-record.md --project-token-env SNPM_NOTION_TOKEN
 npm run validation-session-pull -- --project "SNPM" --title "SNPM Validation Session Fixture" --output validation-session.md --project-token-env SNPM_NOTION_TOKEN
 npm run validation-session-diff -- --project "SNPM" --title "SNPM Validation Session Fixture" --file validation-session.md --project-token-env SNPM_NOTION_TOKEN
@@ -112,7 +116,7 @@ When a finding lands:
 - validation-session UI-bundle findings should always say whether the failure was in:
   - the canonical synced body
   - an API-visible property/schema rule
-  - a manual UI-only step such as the view, form, template, or button
+  - the paused experimental Chromium UI lane such as the view, form, template, button, or persisted login state
 - `sync` issues should always include the manifest path and whether the failure was `sync-check`, `sync-pull`, or `sync-push`.
 - if you tested an unpublished local checkout instead of a published tag, say so explicitly in the issue.
 - Live Notion validation stays limited to a smaller trusted tester group because SNPM touches a real workspace.

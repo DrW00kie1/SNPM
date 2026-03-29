@@ -1172,3 +1172,179 @@ Explicit remaining boundary:
   - `Validation Session` template configuration
   - button wiring
 - SNPM now documents and reports those manual checks explicitly, but it does not automate them in this slice
+
+## 2026-03-29 — Hybrid UI Automation Lane for the Validation-Session Bundle
+
+Problem statement:
+- the current public-API control plane stops at honest docs plus verification for the validation-session bundle
+- that leaves four high-friction UI-only steps manual:
+  - `Active Sessions` view
+  - `Quick Intake` form
+  - `Validation Session` template
+  - button wiring on `Projects > <Project> > Ops > Validation`
+- Tall Man and SNPM now have enough validation-session usage to justify automating this exact bundle instead of documenting it indefinitely
+
+Chosen product response:
+- keep the public Notion API lane as the stable control plane for:
+  - managed surfaces
+  - canonical sync-safe markdown bodies
+  - schema checks
+  - repo sync
+  - API-visible bundle verification
+- add a second, opt-in UI automation lane that is explicitly narrower and more fragile:
+  - Chromium-only Playwright automation
+  - validation-session bundle only
+  - no generic Notion UI builder tooling
+
+Why this boundary is correct:
+- Notion view/form/button configuration is still fundamentally UI-managed in practice for this workflow
+- the public API remains the right source of truth for data and structure, but not for fully reconciling the surrounding operator UX
+- a hybrid control plane keeps the current API-based surfaces stable while giving SNPM a credible way to finish one workflow end to end
+
+Machine constraints and browser choice:
+- Edge is not a viable runtime on this machine and must not be targeted
+- LibreWolf is the default browser on this machine and must not be used implicitly
+- the supported browser path is Playwright Chromium only
+- login must happen inside a Playwright-launched Chromium window, not through shell-open or default-browser handoff
+
+Chosen bundle scope:
+- automate and verify one exact v1 bundle:
+  - `Active Sessions` view
+  - `Quick Intake` form
+  - `Validation Session` database template
+  - button on `Projects > <Project> > Ops > Validation`
+- keep runbooks out of button wiring for v1
+- treat `Quick Intake` as valid only if submitted rows immediately inherit the SNPM-managed `Validation Session` body
+
+Implementation direction:
+- add a new `validation-bundle` command family rather than widening `validation-sessions`
+- keep `validation-sessions verify --bundle` as the API-visible verifier
+- add a separate `src/notion-ui/` subsystem for:
+  - bundle spec
+  - Chromium session/profile management
+  - UI action planning
+  - UI apply flows
+  - UI verification flows
+- store browser profile state, traces, and screenshots outside the repo
+- fail loudly on selector drift or expired login so the stable API lane is never confused with the UI lane
+
+Roadmap impact:
+- this hybrid UI lane now becomes the next milestone ahead of broader workflow-bundle orchestration
+- future workflow milestones should define both:
+  - canonical sync-safe content
+  - supported surrounding Notion UI bundle
+- `doctor` remains useful as-is; this milestone completes one workflow rather than replacing read-only discovery
+
+## 2026-03-29 — Hybrid UI Automation Lane Result
+
+Implementation result:
+- added `validation-bundle login`, `preview`, `apply`, and `verify`
+- kept `validation-sessions verify --bundle` as the API-visible verifier rather than widening it into a UI driver
+- added a separate `src/notion-ui/` subsystem for:
+  - Chromium profile/session handling outside the repo
+  - machine-readable validation-bundle metadata
+  - UI planning/apply/verify flows
+- added Playwright and locked the supported browser path to Chromium only
+- added runtime protection against Edge/default-browser handoff and a clear install path for Playwright Chromium
+- moved template verification back onto the stable API lane by using data-source template listing plus markdown verification
+
+Important model adjustment:
+- database templates cannot know the future row title, but the managed validation-session header normally encodes the exact row path
+- the implemented compromise is a template-managed canonical placeholder:
+  - `Projects > <Project> > Ops > Validation > Validation Sessions > <Session Title>`
+- rows created from the UI bundle still inherit the managed header/body contract immediately
+- the first SNPM pull/push cycle then normalizes the placeholder to the exact row title path
+- validation-session verification was updated to accept that placeholder as part of the supported bundle path
+
+Validation result:
+- `npm test` passes with the new UI-lane coverage
+- `npx playwright install chromium` succeeded locally
+- `validation-bundle preview -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` succeeded as a live non-mutating probe of the browser lane:
+  - Playwright Chromium launched directly
+  - no Edge or default-browser path was used
+  - the command correctly reported that no persisted Chromium Notion login exists yet
+- that means the remaining live gap is no longer product design or repo code; it is the first interactive Chromium login seed
+
+Explicit remaining live step:
+- `validation-bundle-login` still needs one manual interactive Chromium login on this machine before end-to-end live apply/verify can run on `SNPM` and `Tall Man Training`
+- until that login is seeded, the repo implementation is complete but full live UI-bundle reconciliation remains blocked by auth rather than by the public API boundary
+
+## 2026-03-29 — Contour Narrow-Band Product Signal
+
+Contour's direct feedback is the clearest product signal so far because it splits value from drag without ambiguity.
+
+What Contour says is clearly helping:
+- project bootstrap gives a consistent Notion structure
+- Access records are useful for canonical secret storage
+- managed planning pages keep roadmap, current cycle, and decision log synchronized
+- managed runbooks work well for operator-state inventory such as VPS host tracking
+
+What Contour says is clearly slowing work down:
+- the supported surface model is still incomplete, so real ops data gets forced into the nearest supported shape
+- simple updates still require temp files and command choreography too often
+- building SNPM while depending on it means tool gaps immediately interrupt project work
+- some truths already live better in the repo, so Notion can become duplication rather than leverage
+
+Product conclusion from this feedback:
+- SNPM should stay mostly Notion-first, but it should stop expanding scope until the narrow band that is already valuable becomes easier to use
+- the primary product line is now:
+  - `create-project` / `verify-project`
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+- secondary or conditional surfaces are now:
+  - build records
+  - validation sessions
+  - manifest-backed sync
+  - Chromium UI automation
+
+Roadmap effect:
+- the `codex/validation-bundle` browser lane should be preserved as experimental branch work, but paused as a non-core track rather than treated as the next publication target
+- the next active milestone should be ergonomic cleanup on the primary band, not more surface expansion
+- the first concrete ergonomics gap is temp-file choreography, so the next code change should add stdin/stdout support to the core pull/create/diff/push flows
+
+Chosen repo-vs-Notion boundary:
+- Notion-primary:
+  - planning pages
+  - runbooks
+  - canonical Access records
+  - live operator inventory
+- Repo-primary:
+  - code-coupled docs
+  - generated artifacts
+  - machine-owned outputs
+  - any artifact where the repo is plainly the better long-term source of truth
+- Hybrid only when justified:
+  - validation-session artifacts and similar cases where repo sync adds real value without duplicating the whole workflow
+
+High-value next differentiator after ergonomics:
+- extend `doctor` / `recommend` from surface-health reporting into truth routing
+- the command should eventually tell an operator whether an update belongs in Notion, the repo, or a justified hybrid path, and explain why before duplication is created
+
+## 2026-03-29 — Contour Narrow-Band Reset Result
+
+Implementation result:
+- updated the repo docs and live SNPM planning pages so the active product line is now clearly the narrow band:
+  - bootstrap / verify
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+- reclassified `codex/validation-bundle` as paused experimental work rather than the near-term publication target
+- made the repo-vs-Notion ownership boundary explicit in README, roadmap docs, and the live planning pages
+- added a shared stdin/stdout command I/O helper and wired it into the core band:
+  - `page-pull`, `page-diff`, `page-push`
+  - `runbook-create`, `runbook-pull`, `runbook-diff`, `runbook-push`
+  - `access-domain`, `secret-record`, and `access-token` create/pull/diff/push
+- kept preview-first mutation behavior unchanged and routed structured success metadata to stderr when a pull command uses `--output -`
+
+Validation result:
+- `npm test` passed with `103` tests
+- `Projects > SNPM > Planning > Roadmap` was updated through the stdin/stdout path and ended with a clean `page-pull --output - | page-diff --file -`
+- `Runbooks > SNPM Operator Validation Runbook` was updated through the stdin/stdout path and ended with a clean direct pipe `runbook-pull --output - | runbook-diff --file -`
+- a temporary SNPM-only Access fixture domain and secret record were created, updated through the stdin/stdout path, verified clean with `secret-record-diff --file -`, and then archived so `Projects > SNPM > Access` returned to empty
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` confirmed `Access` is empty again after cleanup
+- `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed after the live validation pass
+
+Operational conclusion:
+- the core-band stdin/stdout path removes a real chunk of operator friction without changing the safety model
+- the next meaningful product move should now be truth routing inside `doctor` / `recommend`, not new surfaces and not resumed browser automation
