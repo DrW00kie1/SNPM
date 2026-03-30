@@ -519,3 +519,14 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `recommend --project "SNPM" --intent generated-output --repo-path "artifacts/build.json"`
 - [x] Re-run `npm test` and `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
 - [x] Update README and roadmap/tester docs after implementation so the active next differentiator is truth routing rather than new surface expansion.
+
+## 2026-03-29 — SNPM Self-Hosted Notion Doc Audit
+
+- [x] Record the supported live SNPM doc surfaces, current doctor state, and unsupported-page boundaries in `research.md`.
+- [x] Add this audit checklist to `plan.md` before mutating live Notion docs.
+- [x] Reframe `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` around a short self-hosting doc audit so the live planning pages themselves are part of the test.
+- [x] Update the four approved planning pages through `page-pull`, `page-diff`, and `page-push`.
+- [x] Update the managed SNPM runbooks through `runbook-pull`, `runbook-diff`, and `runbook-push`.
+- [x] Run at least one unsupported-page probe and record what fails cleanly versus what is simply out of scope.
+- [x] Summarize what worked and what did not in the live SNPM planning pages and in the repo research notes.
+- [x] Finish with `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` and `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.

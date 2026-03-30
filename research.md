@@ -1473,3 +1473,71 @@ Product conclusion:
   - what exists and what is adoptable
   - where a change should live before duplication is created
 - the next useful layer after this is migration guidance for recurring legacy patterns surfaced by `doctor`, not new surfaces
+
+## 2026-03-29 — SNPM Self-Hosted Notion Doc Audit
+
+Current live SNPM doc inventory from the approved command surfaces:
+- supported live documentation surfaces:
+  - `Projects > SNPM > Planning > Roadmap`
+  - `Projects > SNPM > Planning > Current Cycle`
+  - `Projects > SNPM > Planning > Backlog`
+  - `Projects > SNPM > Planning > Decision Log`
+  - `Projects > SNPM > Runbooks > SNPM Operator Validation Runbook`
+  - `Projects > SNPM > Runbooks > SNPM Operator Validation Legacy Runbook`
+- current `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` result:
+  - no issues
+  - no adoptable content
+  - both runbooks are already managed
+  - `Access` is empty
+
+What this means for the audit:
+- the cleanest self-hosting test is to update the live SNPM planning pages and the managed SNPM runbooks through SNPM itself
+- these surfaces are already standardized and sit inside the current narrow supported band
+
+What SNPM can test directly right now:
+- planning pages through `page-pull`, `page-diff`, and `page-push`
+- managed runbooks through `runbook-pull`, `runbook-diff`, and `runbook-push`
+- truth routing and surface health through `doctor` / `recommend`
+
+What SNPM still cannot update directly through the approved CLI:
+- the `Projects > SNPM` root landing-page body
+- arbitrary non-planning project pages
+- template-library docs such as `Templates > Project Templates > ...`
+- generic workspace docs outside the approved project-owned surfaces
+
+Chosen audit goal:
+- prove that SNPM can self-host updates on its own live Notion planning pages and managed runbooks without leaving the safe surface model
+- capture the practical limitation that arbitrary page editing is still outside the approved CLI contract
+
+Chosen audit validation:
+- update the four live planning pages with a short self-hosting audit section or wording refresh through `page-pull` / `page-push`
+- update both managed SNPM runbooks through `runbook-pull` / `runbook-push`
+- run at least one unsupported-page probe and record the failure as a current product boundary rather than a bug
+- finish with `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+
+## 2026-03-29 — SNPM Self-Hosted Notion Doc Audit Result
+
+What worked:
+- the four approved planning pages were updated live through the supported `page-pull` / `page-diff` / `page-push` path
+- both managed SNPM runbooks were updated live through the supported `runbook-pull` / `runbook-diff` / `runbook-push` path
+- the live planning pages now document the actual current boundary:
+  - supported self-hosted doc surfaces are planning pages and managed runbooks
+  - unsupported surfaces include the project root landing page, template-library docs, and arbitrary non-surface pages
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` stayed green after the audit
+- `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` stayed green after the audit
+
+What failed cleanly:
+- an explicit unsupported-page probe against `Projects > SNPM` through `page-pull --page "Projects > SNPM"` failed with the approved-target guard rather than touching the wrong page
+- this confirms the current boundary is enforced in the CLI rather than being only documentation
+
+What did not round-trip cleanly yet:
+- immediate re-diff on both planning pages and managed runbooks still reports trailing-newline-only drift
+- the diff is limited to end-of-file newline normalization and does not indicate content loss or structural drift
+- this is an ergonomics issue in the markdown round-trip, not a data-integrity failure
+
+Product conclusion from the audit:
+- SNPM is already credible for self-hosting updates on its narrow-band doc surfaces
+- the next decision is not “more raw page reach”
+- the next decision is whether:
+  - migration guidance is enough for the current doc surfaces
+  - or the project root / template-library docs justify a new managed surface later
