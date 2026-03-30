@@ -1541,3 +1541,77 @@ Product conclusion from the audit:
 - the next decision is whether:
   - migration guidance is enough for the current doc surfaces
   - or the project root / template-library docs justify a new managed surface later
+
+## 2026-03-29 — Shared EOF Normalization For Managed Doc Surfaces
+
+Chosen next slice:
+- keep the current approved-surface model unchanged
+- do not widen planning-page targets or add generic page editing
+- fix the shared markdown round-trip so EOF-only trailing-newline mismatch no longer produces diffs on current managed doc surfaces
+
+Why this is next:
+- the self-hosting audit proved the current planning-page and managed-runbook surfaces are valuable and safe
+- the only remaining friction on those surfaces was immediate re-diff drift caused by a missing final newline
+- expanding page reach before removing that friction would add scope while leaving the core band rough
+
+Chosen implementation boundary:
+- fix the behavior once in the shared markdown/page helper layer
+- apply it to:
+  - approved planning pages
+  - managed runbooks
+  - managed Access pages
+  - managed build records
+- leave validation-session files and manifest sync unchanged because they use their own front-matter/body pipeline
+
+Root cause from code inspection:
+- `normalizeMarkdownNewlines(...)` currently collapses CRLF to LF but does not guarantee a canonical EOF shape for editable body markdown
+- managed template builders already force a trailing newline in several places, but pull/diff/push on the shared page helpers do not canonicalize body EOF consistently
+- `splitManagedPageMarkdown(...)` returns the raw body tail, so a stored markdown body without a final newline compares differently from an otherwise identical file body that ends with `\n`
+
+Chosen normalization rule:
+- preserve internal content and preserve intentional extra blank lines
+- only normalize the single missing final newline case by ensuring editable managed-page bodies end with at least one trailing newline
+- do not collapse multiple trailing blank lines, because that would hide real EOF-content drift
+
+Acceptance target:
+- update one approved planning page, then immediate `page-diff` is clean
+- update one managed runbook, then immediate `runbook-diff` is clean
+- unsupported root-page probes still fail with the approved-target guard
+- `doctor` and `verify-project` remain green on `SNPM`
+
+## 2026-03-29 — Shared EOF Normalization Result
+
+Implementation result:
+- added a shared editable-body normalization helper in the page-markdown layer
+- the helper now ensures managed doc bodies have a canonical final newline when they are:
+  - extracted on pull
+  - prepared before diff
+  - prepared before push
+- applied that shared behavior to:
+  - approved planning pages
+  - managed runbooks
+  - managed Access pages
+  - managed build records
+- kept the approved-target model unchanged
+- kept header rewriting unchanged
+- left validation-session files and manifest sync untouched
+
+Important behavior choice:
+- preserved intentional extra blank lines at EOF
+- normalized only the missing-final-newline case
+- this matches the product goal of removing false-positive diffs without hiding real content drift
+
+Validation result:
+- `npm test` passed with the added regression coverage
+- live SNPM-only validation passed:
+  - updated `Projects > SNPM > Planning > Roadmap`
+  - immediate `page-diff` on `Planning > Roadmap` returned `No body changes.`
+  - updated `Projects > SNPM > Runbooks > SNPM Operator Validation Runbook`
+  - immediate `runbook-diff` on that runbook returned `No body changes.`
+  - unsupported root-page probe still failed with the approved-target guard
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` stayed green
+  - `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` stayed green
+
+Product conclusion:
+- the current supported doc surfaces now have the text-stable round-trip behavior they needed
+- the next narrow-band slice should return to migration guidance for recurring legacy patterns rather than widening page reach

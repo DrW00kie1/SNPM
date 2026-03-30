@@ -6,6 +6,7 @@ import {
   diffMarkdownBodies,
   diffMarkdownText,
   fetchPageMarkdown,
+  normalizeEditableBodyMarkdown,
   normalizeMarkdownNewlines,
   replacePageMarkdown,
   splitManagedPageMarkdownIfPresent,
@@ -40,7 +41,7 @@ import {
 import { createChildPage } from "./project-service.mjs";
 
 function ensureBodyMarkdown(fileBodyMarkdown) {
-  return normalizeMarkdownNewlines(fileBodyMarkdown || "");
+  return normalizeEditableBodyMarkdown(fileBodyMarkdown || "");
 }
 
 function managedPageError(surfaceLabel, title, hint) {

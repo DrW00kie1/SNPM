@@ -530,3 +530,28 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Run at least one unsupported-page probe and record what fails cleanly versus what is simply out of scope.
 - [x] Summarize what worked and what did not in the live SNPM planning pages and in the repo research notes.
 - [x] Finish with `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` and `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`.
+
+## 2026-03-29 — Shared EOF Normalization For Managed Doc Surfaces
+
+- [x] Record the shared-helper normalization rationale, root cause, and chosen scope in `research.md`.
+- [x] Add this implementation checklist to `plan.md` before code changes.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the live plan reflects EOF normalization as the active next milestone.
+- [x] Add one shared managed-body normalization helper alongside the current newline helpers.
+- [x] Apply the helper to body extraction on pull for the approved planning-page and shared managed-page flows.
+- [x] Apply the helper to body preparation before diff and before push for the same shared flows.
+- [x] Keep full-page header rewriting behavior unchanged.
+- [x] Keep stdout/stderr command I/O behavior unchanged for `--output -`.
+- [x] Add automated coverage for:
+  - helper behavior on `body` vs `body\n`
+  - clean no-diff behavior on approved planning pages
+  - clean no-diff behavior on one managed runbook
+  - clean no-diff behavior on one Access surface
+  - clean no-diff behavior on one build-record surface
+- [x] Re-run `npm test`.
+- [x] Live-validate on `Projects > SNPM` only:
+  - update one planning page and confirm immediate `page-diff` is clean
+  - update `SNPM Operator Validation Runbook` and confirm immediate `runbook-diff` is clean
+  - rerun an unsupported root-page probe and confirm it still fails with the approved-target guard
+  - rerun `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - rerun `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] Update the live SNPM planning pages again after validation so the normalization slice is marked shipped and the next follow-on returns to migration guidance for recurring legacy patterns surfaced by `doctor`.

@@ -6,6 +6,7 @@ import {
   createAccessDomain,
   createAccessToken,
   createSecretRecord,
+  diffSecretRecordBody,
   pullAccessTokenBody,
   pullSecretRecordBody,
   pushAccessTokenBody,
@@ -291,4 +292,44 @@ test("access-token pull and push work on managed token pages", async () => {
   assert.equal(created.pageId, pushed.pageId);
   assert.match(fixture.markdownByPageId[pushed.pageId], /Last Updated: 03-29-2026 12:45:00/);
   assert.match(fixture.markdownByPageId[pushed.pageId], /System: Notion/);
+});
+
+test("diffSecretRecordBody ignores EOF-only missing newline drift", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "access", child_page: { title: "Access" } }]],
+    ["access", [{ type: "child_page", id: "domain", child_page: { title: "App & Backend" } }]],
+    ["domain", [{ type: "child_page", id: "secret", child_page: { title: "GEMINI_API_KEY" } }]],
+  ]);
+  const fixture = makePageFixture({
+    childrenMap,
+    markdownByPageId: {
+      secret: [
+        "Purpose: GEMINI_API_KEY is the SNPM-managed secret record for this project access domain.",
+        "Canonical Source: Projects \\> SNPM \\> Access \\> App & Backend \\> GEMINI_API_KEY",
+        "Read This When: You need the canonical raw value, scope, owner, or rotation path for this secret.",
+        "Last Updated: 03-29-2026 12:30:00",
+        "Sensitive: yes",
+        "---",
+        "## Secret Record",
+        "- Secret Name: GEMINI_API_KEY",
+      ].join("\n"),
+    },
+    pageMeta: {
+      secret: { icon: { type: "emoji", emoji: "🔑" } },
+    },
+  });
+
+  const result = await diffSecretRecordBody({
+    config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+    domainTitle: "App & Backend",
+    fileBodyMarkdown: "## Secret Record\n- Secret Name: GEMINI_API_KEY",
+    projectName: "SNPM",
+    title: "GEMINI_API_KEY",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
 });

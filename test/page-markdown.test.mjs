@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import {
   buildManagedPageMarkdown,
   choosePageSyncAuth,
+  diffApprovedPageBody,
   diffMarkdownText,
   diffMarkdownBodies,
   fetchPageMarkdown,
   loadResolvedPageContext,
+  normalizeEditableBodyMarkdown,
   normalizeMarkdownNewlines,
   pullApprovedPageBody,
   replacePageMarkdown,
@@ -87,6 +89,12 @@ test("choosePageSyncAuth prefers the project token when provided", () => {
 
 test("normalizeMarkdownNewlines collapses CRLF to LF", () => {
   assert.equal(normalizeMarkdownNewlines("one\r\ntwo\r\n"), "one\ntwo\n");
+});
+
+test("normalizeEditableBodyMarkdown adds one missing final newline without collapsing extra blank lines", () => {
+  assert.equal(normalizeEditableBodyMarkdown("body"), "body\n");
+  assert.equal(normalizeEditableBodyMarkdown("body\n"), "body\n");
+  assert.equal(normalizeEditableBodyMarkdown("body\n\n"), "body\n\n");
 });
 
 test("diffMarkdownBodies returns a unified diff only when content changes", () => {
@@ -177,6 +185,47 @@ test("pullApprovedPageBody rejects unsupported markdown payloads", async () => {
     }),
     /truncated/,
   );
+});
+
+test("diffApprovedPageBody ignores EOF-only missing newline drift", async () => {
+  const resolveClient = {
+    async getChildren(pageId) {
+      if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+      if (pageId === "project-root") return [{ type: "child_page", id: "planning", child_page: { title: "Planning" } }];
+      if (pageId === "planning") return [{ type: "child_page", id: "roadmap", child_page: { title: "Roadmap" } }];
+      return [];
+    },
+  };
+  const syncClient = {
+    async request() {
+      return {
+        markdown: [
+          "Purpose: Sample page",
+          "Canonical Source: Projects \\> SNPM \\> Planning \\> Roadmap",
+          "Read This When: Sample",
+          "Last Updated: 03-28-2026 20:34:16",
+          "Sensitive: no",
+          "---",
+          "## Current Phase",
+          "- First bullet",
+        ].join("\n"),
+        truncated: false,
+        unknown_block_ids: [],
+      };
+    },
+  };
+
+  const result = await diffApprovedPageBody({
+    projectName: "SNPM",
+    pagePath: "Planning > Roadmap",
+    config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+    fileBodyMarkdown: "## Current Phase\n- First bullet",
+    resolveClient,
+    syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
 });
 
 test("pushApprovedPageBody rewrites the managed header before replace_content", async () => {

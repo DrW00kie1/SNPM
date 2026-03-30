@@ -5,6 +5,8 @@ import {
   adoptRunbook,
   createBuildRecord,
   createRunbook,
+  diffBuildRecordBody,
+  diffRunbookBody,
   pullBuildRecordBody,
   pullRunbookBody,
   pushBuildRecordBody,
@@ -221,6 +223,41 @@ test("pullRunbookBody rejects unmanaged runbooks with adopt guidance", async () 
   );
 });
 
+test("diffRunbookBody ignores EOF-only missing newline drift", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } }]],
+    ["runbooks", [{ type: "child_page", id: "managed-runbook", child_page: { title: "Managed Runbook" } }]],
+  ]);
+  const fixture = makePageFixture({
+    childrenMap,
+    markdownByPageId: {
+      "managed-runbook": [
+        "Purpose: Managed Runbook is the SNPM-managed runbook for this project workflow.",
+        "Canonical Source: Projects \\> SNPM \\> Runbooks \\> Managed Runbook",
+        "Read This When: You need the validated procedure, validation steps, or rollback path for this workflow.",
+        "Last Updated: 03-29-2026 09:00:00",
+        "Sensitive: no",
+        "---",
+        "## Procedure",
+        "- Step one",
+      ].join("\n"),
+    },
+  });
+
+  const result = await diffRunbookBody({
+    config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+    fileBodyMarkdown: "## Procedure\n- Step one",
+    projectName: "SNPM",
+    title: "Managed Runbook",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
+});
+
 test("createBuildRecord can create the Builds container on demand", async () => {
   const childrenMap = new Map([
     ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
@@ -296,4 +333,43 @@ test("build-record pull and push work on managed pages", async () => {
   assert.equal(pushed.applied, true);
   assert.match(fixture.markdownByPageId["build-record"], /Last Updated: 03-29-2026 09:10:00/);
   assert.match(fixture.markdownByPageId["build-record"], /## Build Summary\n- Updated body/);
+});
+
+test("diffBuildRecordBody ignores EOF-only missing newline drift", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "ops", child_page: { title: "Ops" } }]],
+    ["ops", [{ type: "child_page", id: "builds", child_page: { title: "Builds" } }]],
+    ["builds", [{ type: "child_page", id: "build-record", child_page: { title: "Validation Build" } }]],
+  ]);
+  const fixture = makePageFixture({
+    childrenMap,
+    markdownByPageId: {
+      "build-record": [
+        "Purpose: Build record",
+        "Canonical Source: Projects \\> SNPM \\> Ops \\> Builds \\> Validation Build",
+        "Read This When: Build state",
+        "Last Updated: 03-28-2026 20:00:00",
+        "Sensitive: no",
+        "---",
+        "## Build Summary",
+        "- Existing body",
+      ].join("\n"),
+    },
+    pageMeta: {
+      "build-record": { icon: { type: "emoji", emoji: "📦" } },
+    },
+  });
+
+  const result = await diffBuildRecordBody({
+    config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+    fileBodyMarkdown: "## Build Summary\n- Existing body",
+    projectName: "SNPM",
+    title: "Validation Build",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
 });

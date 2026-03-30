@@ -31,6 +31,11 @@ export function normalizeMarkdownNewlines(markdown) {
   return markdown.replace(/\r\n/g, "\n");
 }
 
+export function normalizeEditableBodyMarkdown(markdown) {
+  const normalized = normalizeMarkdownNewlines(markdown || "");
+  return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+}
+
 export function validatePageMarkdownResponse(response, targetPath) {
   if (response.truncated) {
     throw new Error(`Page markdown for "${targetPath}" is truncated and cannot be synced safely.`);
@@ -58,7 +63,7 @@ export function splitManagedPageMarkdown(markdown) {
 
   return {
     headerMarkdown,
-    bodyMarkdown,
+    bodyMarkdown: normalizeEditableBodyMarkdown(bodyMarkdown),
   };
 }
 
@@ -93,7 +98,7 @@ export function rewriteManagedHeaderMarkdown(headerMarkdown, canonicalPath, time
 
 export function buildManagedPageMarkdown({ headerMarkdown, bodyMarkdown, canonicalPath, timestamp }) {
   return rewriteManagedHeaderMarkdown(headerMarkdown, canonicalPath, timestamp)
-    + normalizeMarkdownNewlines(bodyMarkdown);
+    + normalizeEditableBodyMarkdown(bodyMarkdown);
 }
 
 export function diffMarkdownText(currentMarkdown, nextMarkdown, { spawnSyncImpl = spawnSync } = {}) {
@@ -223,7 +228,7 @@ export async function diffApprovedPageBody({
   ...options
 }) {
   const context = await loadApprovedPlanningPageContext(options);
-  const normalizedFileBody = normalizeMarkdownNewlines(fileBodyMarkdown);
+  const normalizedFileBody = normalizeEditableBodyMarkdown(fileBodyMarkdown);
   const diff = diffMarkdownBodies(context.bodyMarkdown, normalizedFileBody);
 
   return {
@@ -243,7 +248,7 @@ export async function pushApprovedPageBody({
   ...options
 }) {
   const context = await loadApprovedPlanningPageContext(options);
-  const normalizedFileBody = normalizeMarkdownNewlines(fileBodyMarkdown);
+  const normalizedFileBody = normalizeEditableBodyMarkdown(fileBodyMarkdown);
   const diff = diffMarkdownBodies(context.bodyMarkdown, normalizedFileBody);
 
   if (!apply || diff.length === 0) {
