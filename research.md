@@ -1615,3 +1615,96 @@ Validation result:
 Product conclusion:
 - the current supported doc surfaces now have the text-stable round-trip behavior they needed
 - the next narrow-band slice should return to migration guidance for recurring legacy patterns rather than widening page reach
+
+## 2026-03-29 — Narrow-Band Release Candidate Readiness
+
+Current branch reality:
+- `codex/core-normalization` is the strongest RC base because it already contains the full narrow-band ancestry:
+  - bootstrap / `verify-project`
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+  - `doctor`
+  - truth-routed `recommend`
+  - stdin/stdout core-band ergonomics
+  - shared EOF normalization
+- `main` should stay unchanged until the RC is accepted
+
+Chosen RC support boundary:
+- in RC support:
+  - `create-project`
+  - `verify-project`
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+  - `doctor`
+  - intent-driven `recommend`
+  - stdin/stdout core-band ergonomics
+  - EOF-stable pull / diff / push behavior
+- present on the branch but outside RC support:
+  - build records
+  - validation sessions
+  - manifest-backed sync
+  - paused `validation-bundle`
+
+Why this is the right RC line:
+- it is the clearest statement of why SNPM is better than a generic Notion connector:
+  - approved-surface mutation only
+  - project-token-safe paths
+  - deterministic routing before mutation
+  - no temp-file choreography on the core band
+  - text-stable round-trips on supported doc surfaces
+- it avoids waiting on broader workflow work or paused UI automation before shipping a credible candidate
+
+Chosen RC validation contract:
+- repo-level:
+  - `npm test`
+  - `node src/cli.mjs help`
+- live SNPM-only:
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend` for `planning`, `runbook`, `secret`, and `repo-doc`
+  - planning-page live pull / diff / push loop with immediate clean re-diff
+  - runbook live pull / diff / push loop with immediate clean re-diff
+  - temporary Access fixture domain and record live pull / diff / push loop, followed by cleanup back to empty
+  - unsupported root-page probe to confirm the approved-target guard still holds
+
+Chosen publication contract:
+- create `codex/rc-0.1.0` from `codex/core-normalization`
+- push `codex/rc-0.1.0`
+- tag the validated RC commit as `v0.1.0-rc.1`
+- update repo docs and live SNPM planning pages so `v0.1.0-rc.1` becomes the active tester contract while the older sprint tags remain historical snapshots
+
+## 2026-03-29 — Narrow-Band Release Candidate Result
+
+Implementation result:
+- cut `codex/rc-0.1.0` from `codex/core-normalization`
+- aligned repo docs and live SNPM planning pages to one RC story instead of a branch maze
+- froze the RC support boundary to:
+  - project bootstrap
+  - `verify-project`
+  - planning-page sync
+  - managed runbooks
+  - managed Access records
+  - `doctor`
+  - intent-driven `recommend`
+  - stdin/stdout ergonomics
+  - EOF-stable managed-doc round-trips
+- kept build records, validation sessions, manifest sync, and `validation-bundle` present on the branch but outside RC support
+
+Validation result:
+- `npm test` passed with `106` tests
+- `node src/cli.mjs help` returned the expected CLI usage output
+- live SNPM-only validation passed:
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend` for `planning`, `runbook`, `secret`, and `repo-doc`
+  - planning-page pipe-friendly pull / diff / push loop with immediate clean re-diff
+  - runbook pipe-friendly pull / diff / push loop with immediate clean re-diff
+  - temporary Access fixture domain and record create / pull / diff / push loop with cleanup back to empty
+  - unsupported root-page probe failed cleanly with the approved-target guard
+
+Operational result:
+- `Projects > SNPM > Access` returned to empty after the temporary RC fixture cleanup
+- the live SNPM planning pages now mark the RC validated and return the next follow-on to migration guidance
+- the RC line now has one clear tester contract instead of branch-by-branch release language

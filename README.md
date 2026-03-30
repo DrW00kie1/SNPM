@@ -8,7 +8,7 @@ SNPM has two important layers right now:
 
 GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
-- current published testing snapshot: `sprint-3-validation-sessions`
+- current active testing contract: `v0.1.0-rc.1`
 
 This repo owns:
 - project bootstrap automation for `Templates > Project Templates`
@@ -18,45 +18,52 @@ This repo owns:
 
 ## Current Status
 
-Published baseline on `main`:
+Narrow-band release candidate line:
+- branch: `codex/rc-0.1.0`
+- tag: `v0.1.0-rc.1`
+- `main` stays unchanged until the RC is accepted
+
+Supported RC surface:
 - `create-project`
 - `verify-project`
-- `page pull` for approved planning pages
-- `page diff` for approved planning pages
-- `page push` for approved planning pages, with preview-only behavior until `--apply` is present
-- `runbook create`, `runbook adopt`, `runbook pull`, `runbook diff`, and `runbook push` for project-owned runbooks
-- `build-record create`, `build-record pull`, `build-record diff`, and `build-record push` for project-owned build records under `Ops > Builds`
-- `validation-sessions init`, `validation-session create`, `validation-session adopt`, `validation-session pull`, `validation-session diff`, and `validation-session push` for human validation-session records under `Ops > Validation > Validation Sessions`
-- `validation-sessions verify` for narrow read-only verification of the managed validation-session surface on an existing project
-- `validation-sessions verify --bundle` for narrow validation-session bundle verification of API-visible rules
-- `sync check`, `sync pull`, and `sync push` for repo-backed validation-session artifacts declared in `snpm.sync.json`
-- project-token scope verification when a project token is provided
-- cross-repo use through the shared `C:\\SNPM` control checkout
+- `page pull`, `page diff`, and `page push` for the four approved planning pages
+- `runbook create`, `runbook adopt`, `runbook pull`, `runbook diff`, and `runbook push`
+- `access-domain`, `secret-record`, and `access-token` create / adopt / pull / diff / push
+- `doctor`
+- `recommend --intent ...`
+- stdin/stdout core-band ergonomics with `--output -` and `--file -`
+- EOF-stable pull / diff / push behavior on supported managed doc surfaces
 
-Committed development branches beyond published `main`:
-- `codex/development` adds the triage-first validation-session findings/follow-up redesign
-- `codex/development` also adds first-class project Access surfaces (`access-domain`, `secret-record`, `access-token`)
-- `codex/doctor` is the clean integration base after the core-band stdin/stdout ergonomics reset
-- `codex/truth-routing` adds intent-driven truth routing on top of `codex/doctor`
-- `codex/validation-bundle` contains a paused experimental Chromium-only `validation-bundle` UI automation lane on top of `codex/doctor`
+Present on this branch but outside RC support:
+- build records
+- validation sessions
+- manifest-backed validation-session sync
+- the paused `validation-bundle` Chromium UI lane
 
-Important publication boundary:
-- the latest published testing tag `sprint-3-validation-sessions` is older than the current published `main` baseline
-- `main` includes manifest-backed validation-session sync and the checkbox-first validation-session workflow even though the latest tag does not
-- `codex/development` currently includes the triage-first validation-session redesign and the committed-but-unpublished Access slice
-- `codex/doctor` currently carries the narrow-band reset plus stdin/stdout ergonomics
-- `codex/truth-routing` currently adds intent-driven Notion-vs-repo routing on top of that line
+Why this RC exists:
+- approved-surface mutation only
+- project-token-safe paths
+- deterministic routing before mutation
+- no temp-file requirement on the core band
+- text-stable round-trips on supported doc surfaces
+
+Publication boundary:
+- `v0.1.0-rc.1` is the active tester contract
+- `sprint-1-foundation`, `sprint-2-planning-sync`, and `sprint-3-validation-sessions` remain historical snapshots
+- the RC line replaces the older branch-by-branch tester story with one supported candidate line
 
 Current project-token-safe sync and mutation rules:
 - approved targets only: `Planning > Roadmap`, `Planning > Current Cycle`, `Planning > Backlog`, and `Planning > Decision Log`
 - body-only ownership: SNPM preserves the standard page header above the divider and syncs only the body below it
 - project token preferred when provided, with workspace-token fallback
-- the primary supported product line is currently:
+- the RC-supported product line is:
   - `create-project` / `verify-project`
   - planning-page sync
   - managed runbooks
-  - managed Access records on `codex/development`
-- secondary or conditional surfaces are currently:
+  - managed Access records
+  - `doctor`
+  - intent-driven `recommend`
+- present but outside RC support:
   - build records
   - validation sessions
   - manifest-backed validation-session sync
@@ -137,11 +144,7 @@ npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file
 npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md --apply
 ```
 
-Development-branch Access workflow examples:
-
-```text
-These commands are committed on `codex/development`, but they are not part of published `main` or the latest published testing tag.
-```
+Supported RC Access workflow examples:
 
 Create or adopt a project-scoped Access domain:
 
@@ -199,6 +202,10 @@ npm run runbook-pull -- --project "Project Name" --title "Release Smoke Test" --
 ```
 
 Create or sync a managed build record:
+
+```text
+The remaining command families below are present on this branch, but they are not part of the `v0.1.0-rc.1` support contract.
+```
 
 ```bash
 npm run build-record-create -- --project "Project Name" --title "Build 2026-03-28" --file build-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
@@ -272,14 +279,13 @@ Defaults:
 
 ## Next Phase
 
-The chosen next phase is to evolve SNPM into an internal, high-guardrail workflow operator.
+The immediate next phase after RC is migration guidance for recurring legacy patterns surfaced by `doctor`.
 
-The roadmap is now being reset around complete task workflows rather than raw surface expansion. The immediate priorities are:
-- align the published baseline, testing tags, and live roadmap language
-- make the current narrow band easier to use day to day
-- ship temp-file-free stdin/stdout updates on the core band
-- ship read-only truth routing inside `doctor` / `recommend`
-- then add migration guidance for recurring legacy patterns before adding new major surfaces
+The broader direction stays the same:
+- keep the narrow band as the supported day-to-day product line
+- add migration guidance before adding new major surfaces
+- build workflow bundles only after the core band remains stable under real use
+- keep browser automation paused experimental work unless the narrow band proves it is worth resuming
 
 The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
 
@@ -302,13 +308,12 @@ SNPM now uses its private GitHub repo as the tester feedback loop.
 
 Default tester flow:
 - clone or open the repo directly
-- check out the current published testing snapshot tag: `sprint-3-validation-sessions`
+- check out the active RC tag: `v0.1.0-rc.1`
 - run `npm test`
 - use GitHub issues to report bugs or testing findings
 
-Trusted live testers may also run `verify-project`, `page-pull`, `page-diff`, preview-only `page-push`, and the project-token-safe `runbook` / `build-record` commands against the real Notion workspace when they already have the right token setup. Live mutation commands such as `create-project`, `page-push --apply`, `runbook-create --apply`, `runbook-adopt --apply`, or `build-record-create --apply` are not the default testing path.
-Trusted live testers may also use `validation-sessions-verify` and the validation-session commands against project-owned `Ops > Validation > Validation Sessions` surfaces when they already have the right token setup. `validation-sessions-init --apply`, `validation-session-create --apply`, `validation-session-adopt --apply`, and `validation-session-push --apply` remain trusted live-mutation paths rather than default testing steps.
-Manifest-backed validation-session sync and the checkbox-first validation-session workflow are on published `main` but newer than the latest published testing tag. The triage-first findings / follow-up redesign and the Access-surface command family are committed on `codex/development`. The narrow-band reset plus stdin/stdout ergonomics are committed on `codex/doctor`. Intent-driven truth routing is committed on `codex/truth-routing`. `codex/validation-bundle` is paused experimental work. If you test any of those newer slices, report clearly whether you were on published `main`, `codex/development`, `codex/doctor`, `codex/truth-routing`, `codex/validation-bundle`, or an unpublished local checkout.
+Trusted live testers should focus on the RC-supported core band: `verify-project`, `doctor`, `recommend --intent ...`, planning-page sync, managed runbooks, and managed Access records. Trusted live mutation on the RC line is limited to explicit narrow-band validation such as `page-push --apply`, `runbook-* --apply`, or Access `* --apply` against SNPM-owned fixtures when the report says exactly what was touched.
+Build records, validation sessions, manifest sync, and `validation-bundle` are still present on the branch but are not part of the active RC support contract.
 
 ## Docs
 

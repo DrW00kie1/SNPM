@@ -555,3 +555,28 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - rerun `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
   - rerun `verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
 - [x] Update the live SNPM planning pages again after validation so the normalization slice is marked shipped and the next follow-on returns to migration guidance for recurring legacy patterns surfaced by `doctor`.
+
+## 2026-03-29 — Narrow-Band Release Candidate Readiness
+
+- [x] Record the RC base, scope freeze, validation contract, and publication contract in `research.md`.
+- [x] Add this RC-readiness checklist to `plan.md` before mutation.
+- [x] Create `codex/rc-0.1.0` from `codex/core-normalization` and do all RC work on that branch.
+- [x] Update `README.md`, `docs/operator-roadmap.md`, and `docs/github-testing-loop.md` so the active tester story is one narrow-band RC line rather than a branch maze.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` so the live plan reflects:
+  - narrow-band RC support
+  - explicit non-RC surfaces
+  - the reasons SNPM beats a generic Notion connector on this slice
+- [x] Run the integrated RC validation pass on `Projects > SNPM` only:
+  - `npm test`
+  - `node src/cli.mjs help`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend` for `planning`, `runbook`, `secret`, and `repo-doc`
+  - planning-page live pull / diff / push with immediate clean re-diff
+  - runbook live pull / diff / push with immediate clean re-diff
+  - temporary Access fixture live pull / diff / push with cleanup back to empty
+  - unsupported root-page probe
+- [x] Update the live SNPM planning pages again after validation so the RC state is marked shipped and the next follow-on returns to migration guidance for recurring legacy patterns surfaced by `doctor`.
+- [ ] Push `codex/rc-0.1.0`.
+- [ ] Tag the validated RC commit as `v0.1.0-rc.1` and push the tag.
+- [ ] Confirm the README, roadmap doc, testing doc, live SNPM planning pages, branch tip, and tag all describe the same RC support boundary.
