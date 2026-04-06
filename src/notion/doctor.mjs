@@ -11,6 +11,18 @@ import {
   VALIDATION_SESSION_ICON,
 } from "./managed-page-templates.mjs";
 import { fetchPageMarkdown } from "./page-markdown.mjs";
+import {
+  buildMissingBuildsSurfaceGuidance,
+  buildMissingValidationSessionsSurfaceGuidance,
+  buildProjectTokenNotCheckedGuidance,
+  buildUnmanagedAccessDomainGuidance,
+  buildUnmanagedAccessRecordGuidance,
+  buildUnmanagedBuildRecordGuidance,
+  buildUnmanagedRunbookGuidance,
+  buildUntitledValidationSessionRowGuidance,
+  pushMigrationGuidance,
+  sortMigrationGuidance,
+} from "./migration-guidance.mjs";
 import { expectedCanonicalSource, projectPath } from "./project-model.mjs";
 import { findChildPage, verifyScope } from "./project-service.mjs";
 import { findBuildsContainerTarget, findProjectPathTarget, findValidationSessionsDatabaseTarget, resolveProjectRootTarget } from "./page-targets.mjs";
@@ -156,7 +168,17 @@ function addRecommendation(result, recommendationKeys, { surface, targetPath, re
   );
 }
 
-async function analyzeRunbooks({ config, projectName, client, projectTokenEnv, result, issueKeys, adoptableKeys, recommendationKeys }) {
+async function analyzeRunbooks({
+  config,
+  projectName,
+  client,
+  projectTokenEnv,
+  result,
+  issueKeys,
+  adoptableKeys,
+  recommendationKeys,
+  migrationGuidanceKeys,
+}) {
   const targetPath = projectPath(projectName, ["Runbooks"]);
   const target = await findProjectPathTarget(projectName, ["Runbooks"], config, client);
 
@@ -219,12 +241,31 @@ async function analyzeRunbooks({ config, projectName, client, projectTokenEnv, r
       reason: `Standardize the existing unmanaged runbook "${title}".`,
       command,
     });
+    pushMigrationGuidance(
+      result.migrationGuidance,
+      migrationGuidanceKeys,
+      buildUnmanagedRunbookGuidance({
+        projectName,
+        projectTokenEnv,
+        targetPath: inspection.targetPath,
+        title,
+      }),
+    );
   }
 
   result.surfaces.runbooks = summary;
 }
 
-async function analyzeBuilds({ config, projectName, client, projectTokenEnv, result, issueKeys, recommendationKeys }) {
+async function analyzeBuilds({
+  config,
+  projectName,
+  client,
+  projectTokenEnv,
+  result,
+  issueKeys,
+  recommendationKeys,
+  migrationGuidanceKeys,
+}) {
   const targetPath = projectPath(projectName, ["Ops", "Builds"]);
   const target = await findBuildsContainerTarget(projectName, config, client);
 
@@ -247,6 +288,15 @@ async function analyzeBuilds({ config, projectName, client, projectTokenEnv, res
         ["file", "build-record.md"],
       ], projectTokenEnv),
     });
+    pushMigrationGuidance(
+      result.migrationGuidance,
+      migrationGuidanceKeys,
+      buildMissingBuildsSurfaceGuidance({
+        projectName,
+        projectTokenEnv,
+        targetPath,
+      }),
+    );
     return;
   }
 
@@ -310,6 +360,16 @@ async function analyzeBuilds({ config, projectName, client, projectTokenEnv, res
         ["file", "build-record.md"],
       ], projectTokenEnv),
     });
+    pushMigrationGuidance(
+      result.migrationGuidance,
+      migrationGuidanceKeys,
+      buildUnmanagedBuildRecordGuidance({
+        projectName,
+        projectTokenEnv,
+        targetPath: inspection.targetPath,
+        title,
+      }),
+    );
   }
 
   result.surfaces.builds = summary;
@@ -324,6 +384,7 @@ async function analyzeValidationSessions({
   issueKeys,
   adoptableKeys,
   recommendationKeys,
+  migrationGuidanceKeys,
   verifyValidationSessionsSurfaceImpl = verifyValidationSessionsSurface,
 }) {
   const validationRootPath = projectPath(projectName, ["Ops", "Validation"]);
@@ -376,6 +437,15 @@ async function analyzeValidationSessions({
         ["project", projectName],
       ], projectTokenEnv),
     });
+    pushMigrationGuidance(
+      result.migrationGuidance,
+      migrationGuidanceKeys,
+      buildMissingValidationSessionsSurfaceGuidance({
+        projectName,
+        projectTokenEnv,
+        targetPath,
+      }),
+    );
     return;
   }
 
@@ -437,6 +507,15 @@ async function analyzeValidationSessions({
         targetPath: `${targetPath} > ${row.id}`,
         reason: "Set a Name title on the unmanaged validation-session row, then rerun doctor to get a valid adopt command.",
       });
+      pushMigrationGuidance(
+        result.migrationGuidance,
+        migrationGuidanceKeys,
+        buildUntitledValidationSessionRowGuidance({
+          projectName,
+          projectTokenEnv,
+          targetPath: `${targetPath} > ${row.id}`,
+        }),
+      );
       continue;
     }
 
@@ -485,6 +564,7 @@ async function analyzeAccess({
   issueKeys,
   adoptableKeys,
   recommendationKeys,
+  migrationGuidanceKeys,
 }) {
   const targetPath = projectPath(projectName, ["Access"]);
   const target = await findProjectPathTarget(projectName, ["Access"], config, client);
@@ -559,6 +639,16 @@ async function analyzeAccess({
         reason: `Standardize the existing unmanaged Access domain "${title}".`,
         command,
       });
+      pushMigrationGuidance(
+        result.migrationGuidance,
+        migrationGuidanceKeys,
+        buildUnmanagedAccessDomainGuidance({
+          projectName,
+          projectTokenEnv,
+          targetPath: domainPath,
+          title,
+        }),
+      );
     }
 
     const records = await listChildPages(domain.id, client);
@@ -604,13 +694,31 @@ async function analyzeAccess({
         reason: `Standardize the existing unmanaged ${kind === "access-token" ? "access token" : "secret record"} "${recordTitle}".`,
         command,
       });
+      pushMigrationGuidance(
+        result.migrationGuidance,
+        migrationGuidanceKeys,
+        buildUnmanagedAccessRecordGuidance({
+          projectName,
+          projectTokenEnv,
+          targetPath: recordInspection.targetPath,
+          domainTitle: title,
+          title: recordTitle,
+          recordType: kind,
+        }),
+      );
     }
   }
 
   result.surfaces.access = summary;
 }
 
-function maybeAddProjectTokenRecommendation({ projectName, projectTokenEnv, result, recommendationKeys }) {
+function maybeAddProjectTokenRecommendation({
+  projectName,
+  projectTokenEnv,
+  result,
+  recommendationKeys,
+  migrationGuidanceKeys,
+}) {
   if (projectTokenEnv || (result.adoptable.length === 0 && result.recommendations.length === 0)) {
     return;
   }
@@ -623,6 +731,14 @@ function maybeAddProjectTokenRecommendation({ projectName, projectTokenEnv, resu
       ["project", projectName],
     ], "<PROJECT_TOKEN_ENV>"),
   });
+  pushMigrationGuidance(
+    result.migrationGuidance,
+    migrationGuidanceKeys,
+    buildProjectTokenNotCheckedGuidance({
+      projectName,
+      targetPath: result.targetPath,
+    }),
+  );
 }
 
 export async function diagnoseProject({
@@ -647,10 +763,12 @@ export async function diagnoseProject({
     issues: [],
     adoptable: [],
     recommendations: [],
+    migrationGuidance: [],
   };
   const issueKeys = new Set();
   const adoptableKeys = new Set();
   const recommendationKeys = new Set();
+  const migrationGuidanceKeys = new Set();
 
   if (projectTokenEnv) {
     const scopeFailures = await verifyScopeImpl(projectRoot.pageId, projectName, config, projectTokenEnv);
@@ -664,8 +782,27 @@ export async function diagnoseProject({
     }
   }
 
-  await analyzeRunbooks({ config, projectName, client, projectTokenEnv, result, issueKeys, adoptableKeys, recommendationKeys });
-  await analyzeBuilds({ config, projectName, client, projectTokenEnv, result, issueKeys, recommendationKeys });
+  await analyzeRunbooks({
+    config,
+    projectName,
+    client,
+    projectTokenEnv,
+    result,
+    issueKeys,
+    adoptableKeys,
+    recommendationKeys,
+    migrationGuidanceKeys,
+  });
+  await analyzeBuilds({
+    config,
+    projectName,
+    client,
+    projectTokenEnv,
+    result,
+    issueKeys,
+    recommendationKeys,
+    migrationGuidanceKeys,
+  });
   await analyzeValidationSessions({
     config,
     projectName,
@@ -675,10 +812,28 @@ export async function diagnoseProject({
     issueKeys,
     adoptableKeys,
     recommendationKeys,
+    migrationGuidanceKeys,
     verifyValidationSessionsSurfaceImpl,
   });
-  await analyzeAccess({ config, projectName, client, projectTokenEnv, result, issueKeys, adoptableKeys, recommendationKeys });
-  maybeAddProjectTokenRecommendation({ projectName, projectTokenEnv, result, recommendationKeys });
+  await analyzeAccess({
+    config,
+    projectName,
+    client,
+    projectTokenEnv,
+    result,
+    issueKeys,
+    adoptableKeys,
+    recommendationKeys,
+    migrationGuidanceKeys,
+  });
+  maybeAddProjectTokenRecommendation({
+    projectName,
+    projectTokenEnv,
+    result,
+    recommendationKeys,
+    migrationGuidanceKeys,
+  });
+  result.migrationGuidance = sortMigrationGuidance(result.migrationGuidance);
 
   return result;
 }

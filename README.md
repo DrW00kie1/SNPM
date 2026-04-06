@@ -33,6 +33,7 @@ Supported RC surface:
 - `recommend --intent ...`
 - stdin/stdout core-band ergonomics with `--output -` and `--file -`
 - EOF-stable pull / diff / push behavior on supported managed doc surfaces
+- post-RC branch follow-on: read-only migration guidance in `doctor` and targeted `recommend --intent ...` responses on `codex/migration-guidance`
 
 Present on this branch but outside RC support:
 - build records
@@ -80,7 +81,9 @@ Current project-token-safe sync and mutation rules:
 - manifest-backed sync is intentionally limited to existing managed validation-session rows listed in `snpm.sync.json`
 - `sync` does not implicitly initialize the surface, create rows, or adopt unmanaged rows
 - `doctor` is read-only and summarizes managed surfaces, truth boundaries, hard issues, adoptable content, and next-step commands without mutating Notion
+- `doctor` on `codex/migration-guidance` also returns reusable `migrationGuidance` entries for recurring legacy patterns
 - `recommend --intent ...` is read-only and returns one deterministic approved-home answer plus the exact next SNPM command shape when the update belongs in Notion
+- `recommend --intent ...` on `codex/migration-guidance` also adds targeted `migrationGuidance` when a runbook or Access request needs an adopt-first or create-first migration path
 
 Chosen truth boundary:
 - Notion-primary: planning pages, runbooks, canonical Access records, and live operator inventory
@@ -279,12 +282,12 @@ Defaults:
 
 ## Next Phase
 
-The immediate next phase after RC is migration guidance for recurring legacy patterns surfaced by `doctor`.
+The current post-RC follow-on branch is `codex/migration-guidance`.
 
 The broader direction stays the same:
 - keep the narrow band as the supported day-to-day product line
-- add migration guidance before adding new major surfaces
-- build workflow bundles only after the core band remains stable under real use
+- use migration guidance to standardize recurring legacy patterns before adding new major surfaces
+- return to workflow bundles only after the guidance layer proves the core band is easier to adopt
 - keep browser automation paused experimental work unless the narrow band proves it is worth resuming
 
 The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
@@ -325,6 +328,7 @@ Build records, validation sessions, manifest sync, and `validation-bundle` are s
 - [project token setup](./docs/project-token-setup.md)
 - [workspace config ownership](./docs/workspace-config.md)
 - [project access workflows](./docs/project-access.md)
+- [migration guidance](./docs/migration-guidance.md)
 - [validation sessions](./docs/validation-sessions.md)
 - [validation-session UI bundle](./docs/validation-session-ui-bundle.md)
 - [validation-session sync](./docs/validation-session-sync.md)

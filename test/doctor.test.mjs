@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   ACCESS_DOMAIN_ICON,
+  ACCESS_TOKEN_ICON,
+  BUILDS_CONTAINER_ICON,
   SECRET_RECORD_ICON,
   VALIDATION_SESSION_ICON,
 } from "../src/notion/managed-page-templates.mjs";
@@ -141,6 +143,10 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
   assert.ok(result.recommendations.some((entry) => entry.surface === "builds" && /build-record-create/.test(entry.command)));
   assert.ok(result.recommendations.some((entry) => entry.surface === "validation-sessions" && /validation-sessions-init/.test(entry.command)));
   assert.ok(result.recommendations.some((entry) => entry.surface === "project-token-scope"));
+  assert.deepEqual(
+    result.migrationGuidance.map((entry) => entry.patternId),
+    ["project-token-not-checked", "missing-builds-surface", "missing-validation-sessions-surface"],
+  );
 });
 
 test("doctor reports unmanaged runbooks and access descendants as adoptable", async () => {
@@ -155,12 +161,14 @@ test("doctor reports unmanaged runbooks and access descendants as adoptable", as
   ]);
   childrenMap.set("app-backend", [
     childPage("gemini-key", "GEMINI_API_KEY"),
+    childPage("project-token", "PROJECT_TOKEN"),
   ]);
 
   const pageMap = makeBasePageMap();
   pageMap.set("legacy-runbook", { icon: null });
   pageMap.set("app-backend", { icon: null });
   pageMap.set("gemini-key", { icon: SECRET_RECORD_ICON });
+  pageMap.set("project-token", { icon: ACCESS_TOKEN_ICON });
 
   const result = await diagnoseProject({
     config: makeConfig(),
@@ -173,11 +181,17 @@ test("doctor reports unmanaged runbooks and access descendants as adoptable", as
   assert.equal(result.issues.length, 0);
   assert.deepEqual(
     result.adoptable.map((entry) => entry.type).sort(),
-    ["access-domain", "runbook", "secret-record"],
+    ["access-domain", "access-token", "runbook", "secret-record"],
   );
   assert.ok(result.adoptable.some((entry) => /runbook-adopt/.test(entry.command)));
   assert.ok(result.adoptable.some((entry) => /access-domain-adopt/.test(entry.command)));
   assert.ok(result.adoptable.some((entry) => /secret-record-adopt/.test(entry.command)));
+  assert.ok(result.adoptable.some((entry) => /access-token-adopt/.test(entry.command)));
+  const patternIds = new Set(result.migrationGuidance.map((entry) => entry.patternId));
+  assert.equal(patternIds.has("unmanaged-access-domain"), true);
+  assert.equal(patternIds.has("unmanaged-secret-record"), true);
+  assert.equal(patternIds.has("unmanaged-access-token"), true);
+  assert.equal(patternIds.has("unmanaged-runbook"), true);
 });
 
 test("doctor surfaces validation-session health failures as hard issues", async () => {
@@ -230,6 +244,65 @@ test("doctor surfaces validation-session health failures as hard issues", async 
   assert.equal(result.surfaces.validationSessions.unmanagedCount, 0);
 });
 
+test("doctor summarizes unmanaged build records and untitled validation rows as conditional migration guidance", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("ops", [
+    childPage("builds", "Builds"),
+    childPage("validation", "Validation"),
+    paragraph("Canonical Source: Projects > SNPM > Ops"),
+  ]);
+  childrenMap.set("builds", [
+    childPage("legacy-build", "Legacy Build"),
+    paragraph("Canonical Source: Projects > SNPM > Ops > Builds"),
+  ]);
+  childrenMap.set("validation", [
+    childDatabase("validation-db", "Validation Sessions"),
+    paragraph("Canonical Source: Projects > SNPM > Ops > Validation"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("builds", { icon: BUILDS_CONTAINER_ICON });
+  pageMap.set("legacy-build", { icon: null });
+
+  const databaseMap = new Map([
+    ["validation-db", {
+      id: "validation-db",
+      title: [{ plain_text: "Validation Sessions" }],
+      icon: { type: "emoji", emoji: "🧪" },
+      data_sources: [{ id: "validation-ds" }],
+    }],
+  ]);
+  const queryMap = new Map([
+    ["validation-ds", [{
+      id: "row-without-title",
+      properties: {
+        Name: { title: [] },
+      },
+    }]],
+  ]);
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({ childrenMap, pageMap, databaseMap, queryMap }),
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    verifyScopeImpl: async () => [],
+    verifyValidationSessionsSurfaceImpl: async () => ({
+      targetPath: "Projects > SNPM > Ops > Validation > Validation Sessions",
+      initialized: true,
+      failures: [],
+      rowCount: 1,
+      authMode: "project-token",
+    }),
+  });
+
+  assert.deepEqual(
+    result.migrationGuidance.map((entry) => entry.patternId),
+    ["unmanaged-build-record", "untitled-validation-session-row"],
+  );
+  assert.ok(result.migrationGuidance.every((entry) => entry.supportTier === "conditional"));
+});
+
 test("doctor includes project-token scope only when requested", async () => {
   const client = makeFakeClient({
     childrenMap: makeBaseChildrenMap("Tall Man Training"),
@@ -255,4 +328,5 @@ test("doctor includes project-token scope only when requested", async () => {
   assert.equal(withToken.surfaces.projectTokenScope.checked, true);
   assert.equal(withToken.surfaces.projectTokenScope.ok, false);
   assert.ok(withToken.issues.some((issue) => issue.surface === "project-token-scope"));
+  assert.equal(withToken.migrationGuidance.some((entry) => entry.patternId === "project-token-not-checked"), false);
 });

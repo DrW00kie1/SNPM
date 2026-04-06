@@ -2,6 +2,12 @@ import { makeNotionClient } from "./client.mjs";
 import { getWorkspaceToken } from "./env.mjs";
 import { diagnoseProject } from "./doctor.mjs";
 import {
+  buildMissingAccessDomainGuidance,
+  buildUnmanagedAccessDomainGuidance,
+  buildUnmanagedAccessRecordGuidance,
+  buildUnmanagedRunbookGuidance,
+} from "./migration-guidance.mjs";
+import {
   findAccessDomainTarget,
   findAccessRecordTarget,
   findProjectPathTarget,
@@ -47,6 +53,7 @@ function createBaseResult({
   repoPath = null,
   warnings = [],
   nextCommands = [],
+  migrationGuidance = [],
 }) {
   return {
     ok,
@@ -60,6 +67,7 @@ function createBaseResult({
     ...(repoPath ? { repoPath } : {}),
     warnings,
     nextCommands,
+    ...(migrationGuidance.length > 0 ? { migrationGuidance } : {}),
   };
 }
 
@@ -190,6 +198,14 @@ function routeRunbook({ diagnosis, projectName, title, projectTokenEnv, config, 
       nextCommands: [
         buildCommandStep(adoptable.command, "Standardize the existing unmanaged runbook first."),
       ],
+      migrationGuidance: [
+        buildUnmanagedRunbookGuidance({
+          projectName,
+          projectTokenEnv,
+          targetPath: adoptable.targetPath,
+          title,
+        }),
+      ],
     });
   }
 
@@ -309,6 +325,14 @@ function routeAccessRecord({
       nextCommands: [
         buildCommandStep(adoptableDomain.command, "Standardize the Access domain before creating or updating nested records."),
       ],
+      migrationGuidance: [
+        buildUnmanagedAccessDomainGuidance({
+          projectName,
+          projectTokenEnv,
+          targetPath: adoptableDomain.targetPath,
+          title: domainTitle,
+        }),
+      ],
     });
   }
 
@@ -331,6 +355,14 @@ function routeAccessRecord({
             ], projectTokenEnv),
             "Create the Access domain before creating nested records.",
           ),
+        ],
+        migrationGuidance: [
+          buildMissingAccessDomainGuidance({
+            projectName,
+            projectTokenEnv,
+            targetPath: projectPath(projectName, ["Access", domainTitle]),
+            title: domainTitle,
+          }),
         ],
       });
     }
@@ -357,6 +389,16 @@ function routeAccessRecord({
             adoptableRecord.command,
             `Standardize the existing unmanaged ${recordType === "token" ? "access token" : "secret record"} first.`,
           ),
+        ],
+        migrationGuidance: [
+          buildUnmanagedAccessRecordGuidance({
+            projectName,
+            projectTokenEnv,
+            targetPath: adoptableRecord.targetPath,
+            domainTitle,
+            title,
+            recordType: expectedType,
+          }),
         ],
       });
     }

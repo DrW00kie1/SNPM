@@ -39,6 +39,7 @@ Trusted live-tester validation:
 - `verify-project` is the default live command because it is read-heavy and validates the real workspace without creating a new project
 - `doctor` is a safe read-only live command on the RC line
 - `recommend --intent ...` is a safe read-only live command on the RC line
+- on post-RC follow-on branches, `doctor` may also return `migrationGuidance` and `recommend --intent ...` may return targeted migration guidance for legacy runbook or Access cases
 - `page-pull` and `page-diff` are allowed on the approved planning pages
 - preview-only `page-push` without `--apply` is allowed because it computes drift without mutating the workspace
 - `runbook-pull` and `runbook-diff` are allowed on managed runbooks
@@ -99,4 +100,5 @@ When a finding lands:
 - Access mutation issues should include the affected project, domain, and record title.
 - runbook mutation issues should include the affected project and target title.
 - if you test non-RC command families such as `build-record`, `validation-session`, `sync`, or `validation-bundle`, say so explicitly because they are outside the active RC contract.
+- if you test the post-RC migration-guidance follow-on branch, say so explicitly because `v0.1.0-rc.1` remains the fixed RC tester contract.
 - Live Notion validation stays limited to a smaller trusted tester group because SNPM touches a real workspace.

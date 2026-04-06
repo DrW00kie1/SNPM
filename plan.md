@@ -577,6 +577,48 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - temporary Access fixture live pull / diff / push with cleanup back to empty
   - unsupported root-page probe
 - [x] Update the live SNPM planning pages again after validation so the RC state is marked shipped and the next follow-on returns to migration guidance for recurring legacy patterns surfaced by `doctor`.
-- [ ] Push `codex/rc-0.1.0`.
-- [ ] Tag the validated RC commit as `v0.1.0-rc.1` and push the tag.
-- [ ] Confirm the README, roadmap doc, testing doc, live SNPM planning pages, branch tip, and tag all describe the same RC support boundary.
+- [x] Push `codex/rc-0.1.0`.
+- [x] Tag the validated RC commit as `v0.1.0-rc.1` and push the tag.
+- [x] Confirm the README, roadmap doc, testing doc, live SNPM planning pages, branch tip, and tag all describe the same RC support boundary.
+
+## 2026-04-06 — Post-RC Cleanup And Legacy Migration Guidance
+
+- [x] Record the validated RC branch/tag state and the next migration-guidance slice in `research.md`.
+- [x] Correct the stale RC publication checklist in `plan.md`.
+- [x] Create `codex/migration-guidance` from `codex/rc-0.1.0` and keep `v0.1.0-rc.1` fixed.
+- [x] Update `Projects > SNPM > Planning > Roadmap`, `Current Cycle`, `Backlog`, and `Decision Log` first so the live plan frames migration guidance as the active next milestone.
+- [x] Extend `doctor` with a top-level `migrationGuidance` array containing:
+  - `patternId`
+  - `surface`
+  - `supportTier`
+  - `targetPath`
+  - `summary`
+  - `manualSteps`
+  - `nextCommands`
+- [x] Cover these recurring v1 patterns in `doctor`:
+  - `unmanaged-runbook`
+  - `unmanaged-access-domain`
+  - `unmanaged-secret-record`
+  - `unmanaged-access-token`
+  - `unmanaged-build-record`
+  - `missing-builds-surface`
+  - `missing-validation-sessions-surface`
+  - `untitled-validation-session-row`
+  - `project-token-not-checked`
+- [x] Keep unsupported structural failures in `issues`, not `migrationGuidance`.
+- [x] Keep migration-guidance ordering stable: `rc` entries first, then `conditional`, then by `targetPath`.
+- [x] Extend `recommend --intent ...` with optional `migrationGuidance` when the requested runbook or Access target matches a known recurring pattern.
+- [x] Keep repo-owned intents free of Notion mutation commands and free of migration guidance.
+- [x] Add a dedicated operator doc at `docs/migration-guidance.md`.
+- [x] Update `README.md`, `docs/operator-roadmap.md`, and `docs/github-testing-loop.md` so migration guidance is the active post-RC slice.
+- [x] Add automated coverage in `test/doctor.test.mjs` for all v1 migration-guidance patterns.
+- [x] Add automated coverage in `test/recommend.test.mjs` for targeted runbook and Access migration guidance.
+- [x] Live-validate on `Projects > SNPM` only:
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --intent planning`
+  - `recommend --intent runbook`
+  - `recommend --intent secret`
+  - `recommend --intent repo-doc`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] Update the live SNPM planning pages again after validation so migration guidance is marked shipped and the next follow-on is clear.
+- [ ] Push `codex/migration-guidance`.

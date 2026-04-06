@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ACCESS_DOMAIN_ICON,
   ACCESS_TOKEN_ICON,
+  SECRET_RECORD_ICON,
 } from "../src/notion/managed-page-templates.mjs";
 import { recommendProjectUpdate } from "../src/notion/recommend.mjs";
 
@@ -159,6 +160,7 @@ test("recommend routes unmanaged runbooks to adopt first", async () => {
   assert.equal(result.recommendedHome, "notion");
   assert.match(result.warnings.join("\n"), /not managed by SNPM/i);
   assert.match(result.nextCommands[0].command, /npm run runbook-adopt/);
+  assert.equal(result.migrationGuidance[0].patternId, "unmanaged-runbook");
 });
 
 test("recommend routes missing Access domains to domain creation first", async () => {
@@ -179,6 +181,60 @@ test("recommend routes missing Access domains to domain creation first", async (
   assert.equal(result.surface, "access");
   assert.equal(result.targetPath, "Projects > SNPM > Access > App & Backend");
   assert.match(result.nextCommands[0].command, /npm run access-domain-create/);
+  assert.equal(result.migrationGuidance[0].patternId, "missing-access-domain");
+});
+
+test("recommend routes unmanaged Access domains to adopt first with migration guidance", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("app-backend", { icon: null });
+
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    projectName: "SNPM",
+    intent: "secret",
+    domainTitle: "App & Backend",
+    title: "GEMINI_API_KEY",
+    workspaceClient: makeFakeClient({ childrenMap, pageMap }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.nextCommands[0].command, /npm run access-domain-adopt/);
+  assert.equal(result.migrationGuidance[0].patternId, "unmanaged-access-domain");
+});
+
+test("recommend routes unmanaged secret records to adopt first with migration guidance", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("app-backend", [
+    childPage("gemini-key", "GEMINI_API_KEY"),
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("app-backend", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("gemini-key", { icon: SECRET_RECORD_ICON });
+
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    projectName: "SNPM",
+    intent: "secret",
+    domainTitle: "App & Backend",
+    title: "GEMINI_API_KEY",
+    workspaceClient: makeFakeClient({ childrenMap, pageMap }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.nextCommands[0].command, /npm run secret-record-adopt/);
+  assert.equal(result.migrationGuidance[0].patternId, "unmanaged-secret-record");
 });
 
 test("recommend routes managed access tokens to pull diff push commands", async () => {
@@ -215,6 +271,7 @@ test("recommend routes managed access tokens to pull diff push commands", async 
   assert.match(result.nextCommands[0].command, /npm run access-token-pull/);
   assert.match(result.nextCommands[1].command, /npm run access-token-diff/);
   assert.match(result.nextCommands[2].command, /npm run access-token-push/);
+  assert.equal("migrationGuidance" in result, false);
 });
 
 test("recommend routes repo docs away from Notion", async () => {
@@ -233,6 +290,7 @@ test("recommend routes repo docs away from Notion", async () => {
   assert.equal(result.recommendedHome, "repo");
   assert.equal(result.repoPath, "docs/operator-roadmap.md");
   assert.equal(result.nextCommands[0].kind, "repo");
+  assert.equal("migrationGuidance" in result, false);
 });
 
 test("recommend routes generated outputs away from Notion", async () => {

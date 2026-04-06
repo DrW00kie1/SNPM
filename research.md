@@ -1708,3 +1708,131 @@ Operational result:
 - `Projects > SNPM > Access` returned to empty after the temporary RC fixture cleanup
 - the live SNPM planning pages now mark the RC validated and return the next follow-on to migration guidance
 - the RC line now has one clear tester contract instead of branch-by-branch release language
+
+## 2026-04-06 — Post-RC Cleanup And Legacy Migration Guidance
+
+Current branch reality at the start of this slice:
+- `codex/rc-0.1.0` is clean and validated
+- `v0.1.0-rc.1` already exists and points at the same RC commit
+- `main` remains unchanged
+- the stale RC checklist issue is documentation drift in `plan.md`, not a git-state problem
+
+Why this is the correct next slice:
+- the RC already froze the supported narrow band
+- the next friction is not missing surface area, it is recurring legacy-state interpretation
+- `doctor` already surfaces repeated patterns such as unmanaged runbooks, unmanaged Access pages, optional-surface gaps, and validation-session adoption problems
+- those patterns need reusable migration guidance rather than one-off interpretation by each operator or Codex thread
+
+Chosen implementation boundary:
+- keep the feature read-only
+- extend `doctor` with a dedicated `migrationGuidance` summary layer
+- extend `recommend --intent ...` with targeted migration guidance only where the request maps to known runbook or Access legacy patterns
+- keep repo-owned intents (`repo-doc`, `generated-output`) free of migration guidance because they already resolve away from Notion
+
+Chosen v1 migration-guidance patterns:
+- `unmanaged-runbook`
+- `unmanaged-access-domain`
+- `unmanaged-secret-record`
+- `unmanaged-access-token`
+- `unmanaged-build-record`
+- `missing-builds-surface`
+- `missing-validation-sessions-surface`
+- `untitled-validation-session-row`
+- `project-token-not-checked`
+
+Chosen support tiers:
+- `rc`:
+  - runbooks
+  - Access domains
+  - secret records
+  - access tokens
+  - project-token scope guidance for the RC-supported surfaces
+- `conditional`:
+  - build records
+  - validation sessions
+
+Important behavior rules:
+- keep unsupported structural failures in `issues`, not `migrationGuidance`
+- do not copy `issues` or `adoptable` entries verbatim into guidance; summarize them into stable recurring patterns
+- keep output ordering stable so the guidance layer is predictable for operators and tests
+
+Validation target:
+- SNPM-only live validation should stay clean, which means `migrationGuidance` should be empty on the current `Projects > SNPM` project
+- the recurring legacy patterns should be proven mainly through automated tests with fake project state rather than by introducing new live drift just to exercise the feature
+
+## 2026-04-06 — SNPM Notion Doc Audit And SNPM-Only Correction Scope
+
+Live audit summary before the correction pass:
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` is currently clean on `Projects > SNPM`
+- `page-pull` plus `page-diff` on `Projects > SNPM > Planning > Roadmap` returns a clean no-diff result, so the current planning child pages remain aligned with the repo's active migration-guidance slice
+- the workspace-global bootstrap and token-setup pages remain intentionally narrow and still point to the correct SNPM bootstrap flow, but they do not attempt to mirror the full RC command surface
+- the SNPM root, planning index, ops index, validation index, runbooks index, and access index pages still read like generic template or pre-RC summary pages, but those pages are outside the current SNPM-managed planning-page and managed-runbook write surfaces
+- `Projects > SNPM > Runbooks > SNPM Operator Validation Legacy Runbook` is inside the current managed runbook surface and contains one stale claim: it still says the immediate re-diff shows trailing-newline-only drift
+
+Chosen correction boundary for this pass:
+- keep the work `SNPM`-only and stay inside the existing supported `page-*` and `runbook-*` surfaces
+- correct the stale managed runbook statement through the runbook sync flow
+- add one short audit-boundary note to `Projects > SNPM > Planning > Decision Log`
+- add one low-priority deferred follow-up line to `Projects > SNPM > Planning > Backlog`
+- do not patch unsupported root or index pages through ad hoc tooling and do not broaden the product surface in this pass
+
+## 2026-04-06 — Post-RC Cleanup And Legacy Migration Guidance Result
+
+Implementation result:
+- corrected the stale RC checklist in `plan.md` while leaving the RC tag and `main` unchanged
+- cut `codex/migration-guidance` from `codex/rc-0.1.0`
+- added a reusable `migration-guidance` helper module so `doctor` and `recommend` share the same recurring-pattern summaries
+- extended `doctor` with a top-level `migrationGuidance` array
+- extended `recommend --intent ...` with targeted migration guidance for:
+  - unmanaged runbooks
+  - unmanaged Access domains
+  - unmanaged secret/token records
+  - missing Access domains
+- kept repo-owned intents free of Notion mutation commands and free of migration guidance
+- added `docs/migration-guidance.md`
+- updated README, roadmap, and testing docs so the post-RC branch state is explicit
+
+Behavior result:
+- `doctor` now summarizes recurring legacy patterns into reusable entries with:
+  - `patternId`
+  - `surface`
+  - `supportTier`
+  - `targetPath`
+  - `summary`
+  - `manualSteps`
+  - `nextCommands`
+- the v1 `doctor` pattern set is:
+  - `unmanaged-runbook`
+  - `unmanaged-access-domain`
+  - `unmanaged-secret-record`
+  - `unmanaged-access-token`
+  - `unmanaged-build-record`
+  - `missing-builds-surface`
+  - `missing-validation-sessions-surface`
+  - `untitled-validation-session-row`
+  - `project-token-not-checked`
+- migration guidance stays read-only and does not change the RC mutation surface
+- structural failures still stay in `issues`
+- guidance ordering is stable: `rc` first, then `conditional`, then by `targetPath`
+
+SNPM-only live validation result:
+- `npm test` passed with `109` tests
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` returned:
+  - zero issues
+  - zero recommendations
+  - zero migration-guidance entries
+- `recommend --intent planning` on `SNPM` stayed clean with no migration guidance
+- `recommend --intent runbook` on the managed SNPM operator runbook stayed clean with no migration guidance
+- `recommend --intent repo-doc` stayed repo-owned with no migration guidance
+- `recommend --intent secret --domain "App & Backend" --title "GEMINI_API_KEY"` returned one deliberate `missing-access-domain` migration pattern, which is the expected create-domain-first case on the currently empty SNPM Access surface
+- `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` remained green
+
+Live planning-page result:
+- the SNPM planning pages were updated first to frame migration guidance as the active milestone
+- after validation they were updated again to mark the slice shipped and set the next follow-on back to workflow bundles, contingent on real usefulness of the guidance layer
+
+Product conclusion:
+- this keeps SNPM on the narrow-band path
+- the product now explains recurring legacy states explicitly instead of relying on maintainer interpretation of raw `doctor` output
+- the next question is no longer "what new surface should be added"
+- the next question is whether this guidance layer is sufficient, or whether the next phase should add workflow-bundle shortcuts on top of the stabilized core band

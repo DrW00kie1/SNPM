@@ -40,8 +40,9 @@ Why this line matters:
 - keep `main` unchanged until the RC is accepted
 
 ### Phase 1: Add migration guidance
-- turn recurring `doctor` findings into explicit migration guidance
-- make adoption paths easier before adding new major surfaces
+- turn recurring `doctor` findings into explicit `migrationGuidance` entries
+- add targeted migration guidance to `recommend --intent ...` for runbook and Access legacy cases
+- publish one operator playbook so recurring adopt/create-first paths stop living only in maintainer memory
 - keep `verify-project` structural and keep `doctor` / `recommend` read-only
 
 ### Phase 2: Build workflow bundles
