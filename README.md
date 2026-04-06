@@ -13,7 +13,7 @@ GitHub remote:
 
 Current branch reality:
 - active stable baseline: `main`
-- current follow-on branch: `codex/managed-doc-surface`
+- promotion trace branch: `codex/managed-doc-surface`
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -24,21 +24,17 @@ Supported narrow-band baseline on `main`:
 - planning-page sync for the four approved planning pages
 - managed runbooks
 - managed Access records
-- `doctor`
-- intent-driven `recommend`
-- stdin/stdout ergonomics on the core band
-- EOF-stable round-trips on managed planning, runbook, Access, and build-record pages
-
-Added on `codex/managed-doc-surface`:
-- curated managed docs for project root docs
-- curated managed docs for `Templates > Project Templates` and its non-reserved descendants
-- curated managed docs for a small named set of workspace-global docs
+- curated managed docs for:
+  - project root docs
+  - `Templates > Project Templates` and its non-reserved descendants
+  - a small named set of workspace-global docs
 - `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
 - `verify-workspace-docs`
-- new `recommend` intents:
-  - `project-doc`
-  - `template-doc`
-  - `workspace-doc`
+- `doctor`
+- intent-driven `recommend`
+- `recommend --intent project-doc|template-doc|workspace-doc`
+- stdin/stdout ergonomics on the core band
+- EOF-stable round-trips on managed planning, runbook, Access, and build-record pages
 
 Present in the repo but outside the current supported line:
 - build records
@@ -148,7 +144,7 @@ npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" 
 npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 ```
 
-Managed-doc workflow on this branch:
+Managed-doc workflow on `main`:
 
 ```bash
 npm run doc-pull -- --project "Project Name" --path "Root" --output root.md --project-token-env PROJECT_NAME_NOTION_TOKEN
@@ -180,9 +176,6 @@ Stable baseline testing:
 
 Historical pinned snapshot:
 - `v0.1.0-rc.1`
-
-Current follow-on branch testing:
-- use `codex/managed-doc-surface` if you are explicitly testing curated managed docs and `verify-workspace-docs`
 
 Default repo checks:
 
@@ -218,8 +211,8 @@ Hybrid only when justified:
 
 ## Current Direction
 
-Near-term direction on `codex/managed-doc-surface`:
-- make project root docs, template docs, and a small set of workspace docs first-class supported surfaces
+Near-term direction on `main`:
+- use the managed-doc surface to standardize remaining curated root, template, and workspace docs
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 

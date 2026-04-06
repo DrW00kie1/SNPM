@@ -10,24 +10,14 @@ Supported on `main`:
 - planning-page sync
 - managed runbooks
 - managed Access records
+- curated managed docs for project root docs, curated template docs, and curated workspace-global docs
+- `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
+- `verify-workspace-docs`
 - `doctor`
 - intent-driven `recommend`
+- `recommend --intent project-doc|template-doc|workspace-doc`
 - stdin/stdout ergonomics on the core band
 - EOF-stable managed-page round-trips
-
-Current follow-on branch:
-- `codex/managed-doc-surface`
-- adds curated managed docs for:
-  - project root docs
-  - `Templates > Project Templates`
-  - a small named set of workspace-global docs
-- adds:
-  - `doc-create`
-  - `doc-adopt`
-  - `doc-pull`
-  - `doc-diff`
-  - `doc-push`
-  - `verify-workspace-docs`
 
 Still outside the supported line:
 - build records
@@ -68,17 +58,12 @@ Those surfaces continue to use their own command families.
 
 ## Roadmap
 
-### Phase 0: Validate and Promote Managed Docs
-- prove the curated managed-doc surface on `Projects > SNPM`
-- keep workspace-global coverage explicit and config-backed
-- promote the branch only after project, template, and workspace doc loops are all clean
-
-### Phase 1: Doc Adoption And Audit Coverage
+### Phase 0: Doc Adoption And Audit Coverage
 - use the new surface to standardize remaining live root/template/workspace docs that belong inside the curated boundary
 - extend guidance so unmanaged docs are easy to adopt safely
 - keep unsupported or structural pages out of scope rather than silently broadening reach
 
-### Phase 2: Workflow Bundles
+### Phase 1: Workflow Bundles
 - only after the current core band and curated docs stay stable under real use
 - likely first bundles:
   - validation run lifecycle
@@ -86,12 +71,12 @@ Those surfaces continue to use their own command families.
   - project secret management
   - runbook standardization
 
-### Phase 3: Harden Cross-Repo Consumption
+### Phase 2: Harden Cross-Repo Consumption
 - keep pinned install/use from other repos straightforward
 - keep the CLI as the policy layer for other Codex threads
 - add wrappers only after the CLI workflows are stable
 
-### Phase 4: Expand Only Proven Surfaces
+### Phase 3: Expand Only Proven Surfaces
 - add new surfaces only when repeated demand justifies them
 - avoid generic arbitrary workspace CRUD
 - keep the product boundary explicit

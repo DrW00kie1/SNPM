@@ -4,7 +4,7 @@ This doc describes the read-only migration-guidance layer built on top of `docto
 
 Scope:
 - current stable baseline: `main`
-- the guidance layer shipped first on `codex/migration-guidance`
+- the guidance layer is part of `main`
 - the guidance layer does not mutate Notion by itself
 
 How to use it:

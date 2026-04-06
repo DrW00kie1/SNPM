@@ -722,3 +722,46 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `recommend --intent project-doc ...`
   - `recommend --intent template-doc ...`
 - [x] Confirm reserved-root guard checks fail clearly and point to the owning surface commands.
+
+## 2026-04-06 — Promote Managed Docs To `main` And Align Repo + Notion Docs
+
+- [x] Fast-forward `main` to the current `codex/managed-doc-surface` tip and push `main`.
+- [x] Keep `codex/managed-doc-surface` after the promotion for traceability.
+- [x] Update repo docs so managed docs are described as part of the `main` baseline rather than branch-only work:
+  - `README.md`
+  - `docs/operator-roadmap.md`
+  - `docs/github-testing-loop.md`
+  - `docs/live-notion-docs.md`
+  - `docs/migration-guidance.md`
+  - `research.md`
+  - `plan.md`
+- [x] Update live curated SNPM/workspace docs through SNPM only:
+  - `Projects > SNPM`
+  - `Projects > SNPM > Planning > Roadmap`
+  - `Projects > SNPM > Planning > Current Cycle`
+  - `Projects > SNPM > Planning > Backlog`
+  - `Projects > SNPM > Planning > Decision Log`
+  - `Infrastructure HQ Home`
+  - `Projects`
+  - `Templates`
+  - `Templates > Project Templates`
+  - `Runbooks > Notion Workspace Workflow`
+  - `Runbooks > Notion Project Token Setup`
+- [x] Reframe the SNPM planning pages first so the promotion/alignment pass is visible while it is in progress.
+- [x] Mark the SNPM planning pages shipped after validation and set the next follow-on clearly.
+- [x] Record the live-pass issue:
+  - bare repo-style paths can pull back as markdown links
+  - angle-bracket and square-bracket placeholders can pull back escaped
+  - clean managed-doc loops should therefore prefer backticks for literal paths and plain uppercase placeholder tokens
+- [x] Re-run:
+  - `npm test`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `verify-workspace-docs`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --project "SNPM" --intent project-doc --path "Root > Overview" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --intent workspace-doc --path "Runbooks > Notion Workspace Workflow"`
+- [x] Confirm immediate clean re-diff for at least:
+  - one planning page
+  - `Projects > SNPM`
+  - one curated workspace-global doc
+  - `Templates > Project Templates`

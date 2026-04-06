@@ -10,11 +10,6 @@ Stable baseline:
 Historical pinned snapshot:
 - `v0.1.0-rc.1`
 
-Current follow-on branch under validation:
-- `codex/managed-doc-surface`
-
-Use `main` unless you are explicitly testing the curated managed-doc surface.
-
 ## Scope By Line
 
 Stable baseline on `main`:
@@ -23,16 +18,14 @@ Stable baseline on `main`:
 - planning-page sync
 - managed runbooks
 - managed Access records
-- `doctor`
-- `recommend`
-
-Follow-on branch `codex/managed-doc-surface` adds:
 - `doc-create`
 - `doc-adopt`
 - `doc-pull`
 - `doc-diff`
 - `doc-push`
 - `verify-workspace-docs`
+- `doctor`
+- `recommend`
 - curated doc routing via `recommend --intent project-doc|template-doc|workspace-doc`
 
 Still outside the active supported path:
@@ -51,13 +44,6 @@ Set-Location SNPM
 git checkout main
 npm test
 node src/cli.mjs help
-```
-
-Managed-doc branch:
-
-```powershell
-git checkout codex/managed-doc-surface
-npm test
 ```
 
 ## Safe Live Validation
@@ -103,7 +89,7 @@ Include:
 - affected project or path
 - copied CLI output when useful
 
-If you tested `codex/managed-doc-surface`, say so explicitly.
+If you tested a non-`main` branch, say so explicitly.
 
 ## Maintainer Fix Loop
 

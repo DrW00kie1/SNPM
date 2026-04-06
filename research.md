@@ -2019,3 +2019,53 @@ Product conclusion:
 - arbitrary root/template docs can be supported safely if the family is curated and explicit
 - the right expansion path is target modeling plus verification, not generic workspace CRUD
 - the new managed-doc surface should remain constrained to curated families until real usage proves a broader surface is needed
+
+## 2026-04-06 — Managed-Doc Promotion And Live Doc Alignment
+
+Promotion result:
+- `main` was fast-forwarded from `58488db` to `38c6c11`
+- the managed-doc surface is now part of the active baseline on `main`
+- `codex/managed-doc-surface` was kept as the trace branch for the promotion work
+- `v0.1.0-rc.1` remained unchanged as a historical RC snapshot
+
+Repo-doc alignment result:
+- README, roadmap, testing, live-doc guidance, and migration-guidance docs were updated so curated managed docs are described as part of `main`
+- branch-only wording for the managed-doc surface was removed
+- the active boundary now reads consistently:
+  - `page-*` stays planning-only
+  - `Runbooks`, `Access`, `Ops`, `Vendors`, and `Incidents` stay on their specialized surfaces
+  - `validation-bundle` remains paused experimental work
+
+Live SNPM-driven doc pass:
+- updated through SNPM only:
+  - `Projects > SNPM`
+  - `Projects > SNPM > Planning > Roadmap`
+  - `Projects > SNPM > Planning > Current Cycle`
+  - `Projects > SNPM > Planning > Backlog`
+  - `Projects > SNPM > Planning > Decision Log`
+  - `Infrastructure HQ Home`
+  - `Projects`
+  - `Templates`
+  - `Templates > Project Templates`
+  - `Runbooks > Notion Workspace Workflow`
+  - `Runbooks > Notion Project Token Setup`
+- used `page-*` for planning pages and `doc-*` for all curated docs
+- no ad hoc Notion mutation scripts were needed
+
+Issue exposed by the live pass:
+- Notion markdown normalization is not byte-stable for some authoring patterns on managed-doc pages
+- specific cases hit during this pass:
+  - bare repo-style paths such as `docs/live-notion-docs.md` were pulled back as markdown links
+  - angle-bracket placeholders such as `<PROJECT_NAME>` were pulled back escaped
+  - square-bracket placeholder text in template docs was also pulled back escaped
+- effect:
+  - immediate `doc-diff` after `doc-push --apply` showed false-positive diffs even though the semantic content was correct
+- correction used in the live docs:
+  - wrap repo paths and workspace paths in backticks when they should stay literal
+  - avoid angle-bracket and square-bracket placeholder syntax on managed-doc pages when clean re-diff matters
+  - use plain uppercase placeholder tokens instead
+
+Product conclusion from the pass:
+- the managed-doc surface is viable on `main`
+- the main rough edge is authoring-shape normalization rather than target resolution or mutation safety
+- curated live docs should now be part of the normal promotion checklist so they do not lag the repo again

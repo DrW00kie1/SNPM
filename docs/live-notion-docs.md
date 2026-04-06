@@ -1,6 +1,6 @@
 # Live Notion Doc Updates
 
-SNPM now supports a curated managed-doc surface for selected root, template, and workspace-global docs.
+The curated managed-doc surface is now supported on `main` for selected root, template, and workspace-global docs.
 
 ## Curated Workspace-Global Docs
 
@@ -97,3 +97,16 @@ npm run verify-workspace-docs
 ```
 
 Use `verify-workspace-docs` after any live mutation to curated workspace-global or template docs.
+
+## Release Alignment Rule
+
+When the supported SNPM surface changes, include these curated live docs in the same promotion pass:
+- `Projects > SNPM`
+- `Infrastructure HQ Home`
+- `Projects`
+- `Templates`
+- `Templates > Project Templates`
+- `Runbooks > Notion Workspace Workflow`
+- `Runbooks > Notion Project Token Setup`
+
+This keeps the repo and the curated live docs from drifting apart.
