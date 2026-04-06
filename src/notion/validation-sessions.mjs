@@ -24,6 +24,7 @@ import {
   buildManagedValidationSessionMarkdown,
 } from "./managed-page-templates.mjs";
 import {
+  canonicalizeManagedBodyMarkdown,
   choosePageSyncAuth,
   diffMarkdownText,
   fetchPageMarkdown,
@@ -174,14 +175,14 @@ export function normalizeValidationSessionBodyMarkdown(bodyMarkdown) {
     output.push(line);
   }
 
-  return output
+  return canonicalizeManagedBodyMarkdown(output
     .join("\n")
     .replace(/\n(## )/g, "\n\n$1")
     .replace(/\n(<callout>|<details>)/g, "\n\n$1")
     .replace(/(<\/callout>|<\/details>)\n(?!\n|## )/g, "$1\n\n")
     .replace(/(<summary>.*<\/summary>)\n(?!\n)/g, "$1\n\n")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/^\n+/, "");
+    .replace(/^\n+/, ""));
 }
 
 function buildRichTextValue(text) {

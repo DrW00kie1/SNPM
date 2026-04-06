@@ -31,8 +31,138 @@ export function normalizeMarkdownNewlines(markdown) {
   return markdown.replace(/\r\n/g, "\n");
 }
 
-export function normalizeEditableBodyMarkdown(markdown) {
+function isRepoOrWorkspaceLiteralPath(text) {
+  const candidate = (text || "").trim();
+  if (!candidate) {
+    return false;
+  }
+
+  if (/^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i.test(candidate)) {
+    return false;
+  }
+
+  if (candidate.includes(" > ")) {
+    return true;
+  }
+
+  if (/[\\/]/.test(candidate)) {
+    return true;
+  }
+
+  return /^[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+$/.test(candidate);
+}
+
+function isPlaceholderLiteral(text) {
+  return /[A-Z]/.test(text || "") && /^[A-Z0-9 _./:-]+$/.test(text || "");
+}
+
+function canonicalizeSelfLinks(text) {
+  return text.replace(/\[([^\]\n]+)\]\(([^)\n]+)\)/g, (match, label, destination) => {
+    if (label !== destination) {
+      return match;
+    }
+
+    return isRepoOrWorkspaceLiteralPath(destination) ? destination : match;
+  });
+}
+
+function canonicalizeAutoLinkedFileNames(text) {
+  return text.replace(
+    /\[([A-Za-z0-9._-]+\.[A-Za-z0-9._-]+)\]\((https?:\/\/)\1\)/g,
+    (_match, fileName) => fileName,
+  );
+}
+
+function canonicalizeEscapedWorkspaceSeparators(text) {
+  return text.replace(/ \\> /g, " > ");
+}
+
+function canonicalizeEscapedPlaceholders(text) {
+  return text
+    .replace(/\\<([^>\n]+)\\>/g, (match, placeholderText) => (
+      isPlaceholderLiteral(placeholderText) ? `<${placeholderText}>` : match
+    ))
+    .replace(/\\\[([^\]\n]+)\\\]/g, (match, placeholderText) => (
+      isPlaceholderLiteral(placeholderText) ? `[${placeholderText}]` : match
+    ));
+}
+
+function canonicalizeMarkdownSegment(text) {
+  return canonicalizeEscapedPlaceholders(
+    canonicalizeEscapedWorkspaceSeparators(
+      canonicalizeAutoLinkedFileNames(
+        canonicalizeSelfLinks(text),
+      ),
+    ),
+  );
+}
+
+function rewriteOutsideInlineCode(line, transform) {
+  let output = "";
+  let cursor = 0;
+
+  while (cursor < line.length) {
+    const backtickIndex = line.indexOf("`", cursor);
+    if (backtickIndex === -1) {
+      output += transform(line.slice(cursor));
+      break;
+    }
+
+    output += transform(line.slice(cursor, backtickIndex));
+
+    let delimiterEnd = backtickIndex;
+    while (delimiterEnd < line.length && line[delimiterEnd] === "`") {
+      delimiterEnd += 1;
+    }
+
+    const delimiter = line.slice(backtickIndex, delimiterEnd);
+    const closingIndex = line.indexOf(delimiter, delimiterEnd);
+    if (closingIndex === -1) {
+      output += line.slice(backtickIndex);
+      break;
+    }
+
+    output += line.slice(backtickIndex, closingIndex + delimiter.length);
+    cursor = closingIndex + delimiter.length;
+  }
+
+  return output;
+}
+
+export function canonicalizeManagedBodyMarkdown(markdown) {
   const normalized = normalizeMarkdownNewlines(markdown || "");
+  const lines = normalized.split("\n");
+  const output = [];
+  let openFence = null;
+
+  for (const line of lines) {
+    const fenceMatch = /^\s*(`{3,}|~{3,})/.exec(line);
+
+    if (fenceMatch) {
+      const fence = fenceMatch[1];
+      if (!openFence) {
+        openFence = fence;
+      } else if (fence[0] === openFence[0] && fence.length >= openFence.length) {
+        openFence = null;
+      }
+
+      output.push(line);
+      continue;
+    }
+
+    if (openFence) {
+      output.push(line);
+      continue;
+    }
+
+    output.push(rewriteOutsideInlineCode(line, canonicalizeMarkdownSegment));
+  }
+
+  return output.join("\n");
+}
+
+export function normalizeEditableBodyMarkdown(markdown) {
+  const normalized = canonicalizeManagedBodyMarkdown(markdown || "");
   return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
 }
 
@@ -134,7 +264,11 @@ export function diffMarkdownText(currentMarkdown, nextMarkdown, { spawnSyncImpl 
 }
 
 export function diffMarkdownBodies(currentBodyMarkdown, fileBodyMarkdown, options) {
-  return diffMarkdownText(currentBodyMarkdown, fileBodyMarkdown, options);
+  return diffMarkdownText(
+    normalizeEditableBodyMarkdown(currentBodyMarkdown),
+    normalizeEditableBodyMarkdown(fileBodyMarkdown),
+    options,
+  );
 }
 
 export async function fetchPageMarkdown(pageId, targetPath, client) {

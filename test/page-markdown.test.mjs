@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildManagedPageMarkdown,
+  canonicalizeManagedBodyMarkdown,
   choosePageSyncAuth,
   diffApprovedPageBody,
   diffMarkdownText,
@@ -97,6 +98,41 @@ test("normalizeEditableBodyMarkdown adds one missing final newline without colla
   assert.equal(normalizeEditableBodyMarkdown("body\n\n"), "body\n\n");
 });
 
+test("canonicalizeManagedBodyMarkdown rewrites only the known equivalent authoring patterns", () => {
+  const input = [
+    "Path: [docs/live-notion-docs.md](docs/live-notion-docs.md)",
+    "Split path: docs/[live-notion-docs.md](http://live-notion-docs.md)",
+    "Workspace: [Templates > Project Templates](Templates > Project Templates)",
+    "Escaped workspace path: Planning \\> Roadmap",
+    "Angle: \\<PROJECT_NAME\\>",
+    "Square: \\[PROJECT_TOKEN_ENV\\]",
+    "Link: [Live Docs](docs/live-notion-docs.md)",
+    "URL: [https://example.com](https://example.com)",
+    "<details>",
+    "<summary>Detail</summary>",
+    "</details>",
+    "Inline code: `[docs/live-notion-docs.md](docs/live-notion-docs.md)` and `\\<PROJECT_NAME\\>`",
+    "```md",
+    "[docs/live-notion-docs.md](docs/live-notion-docs.md)",
+    "\\<PROJECT_NAME\\>",
+    "```",
+  ].join("\n");
+
+  const result = canonicalizeManagedBodyMarkdown(input);
+
+  assert.match(result, /Path: docs\/live-notion-docs\.md/);
+  assert.match(result, /Split path: docs\/live-notion-docs\.md/);
+  assert.match(result, /Workspace: Templates > Project Templates/);
+  assert.match(result, /Escaped workspace path: Planning > Roadmap/);
+  assert.match(result, /Angle: <PROJECT_NAME>/);
+  assert.match(result, /Square: \[PROJECT_TOKEN_ENV\]/);
+  assert.match(result, /Link: \[Live Docs\]\(docs\/live-notion-docs\.md\)/);
+  assert.match(result, /URL: \[https:\/\/example\.com\]\(https:\/\/example\.com\)/);
+  assert.match(result, /<details>\n<summary>Detail<\/summary>\n<\/details>/);
+  assert.match(result, /Inline code: `\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)` and `\\<PROJECT_NAME\\>`/);
+  assert.match(result, /```md\n\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)\n\\<PROJECT_NAME\\>\n```/);
+});
+
 test("diffMarkdownBodies returns a unified diff only when content changes", () => {
   const spawnSyncImpl = (_command, _args) => ({
     status: 1,
@@ -106,6 +142,15 @@ test("diffMarkdownBodies returns a unified diff only when content changes", () =
 
   const diff = diffMarkdownBodies("old\n", "new\n", { spawnSyncImpl });
   assert.match(diff, /^diff --git/);
+});
+
+test("diffMarkdownBodies treats equivalent markdown normalization artifacts as unchanged", () => {
+  const diff = diffMarkdownBodies(
+    "Path: [docs/live-notion-docs.md](docs/live-notion-docs.md)\nSplit path: docs/[live-notion-docs.md](http://live-notion-docs.md)\nWorkspace: Planning \\> Roadmap\nAngle: \\<PROJECT_NAME\\>\nSquare: \\[PROJECT_TOKEN_ENV\\]\n",
+    "Path: docs/live-notion-docs.md\nSplit path: docs/live-notion-docs.md\nWorkspace: Planning > Roadmap\nAngle: <PROJECT_NAME>\nSquare: [PROJECT_TOKEN_ENV]\n",
+  );
+
+  assert.equal(diff, "");
 });
 
 test("diffMarkdownText can compare full page markdown", () => {

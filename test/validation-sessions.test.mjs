@@ -456,6 +456,113 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
   assert.equal(row.properties["Session State"].select.name, "Failed");
 });
 
+test("diffValidationSessionFile ignores managed-body normalization artifacts", async () => {
+  const childrenMap = makeBaseChildren();
+  childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
+  const fixture = makeValidationFixture({
+    childrenMap,
+    databases: {
+      "validation-db": {
+        id: "validation-db",
+        title: [{ plain_text: "Validation Sessions" }],
+        icon: { type: "emoji", emoji: "🧪" },
+        data_sources: [{ id: "validation-ds" }],
+      },
+    },
+    dataSources: {
+      "validation-ds": {
+        id: "validation-ds",
+        properties: {
+          Name: { type: "title" },
+          Platform: { type: "select", select: { options: [{ name: "Web" }, { name: "Android" }, { name: "iPhone" }, { name: "Cross-Platform" }] } },
+          "Session State": { type: "select", select: { options: [{ name: "Planned" }, { name: "In Progress" }, { name: "Passed" }, { name: "Failed" }, { name: "Blocked" }] } },
+          Tester: { type: "rich_text" },
+          "Build Label": { type: "rich_text" },
+          "Runbook URL": { type: "url" },
+          "Started On": { type: "date" },
+          "Completed On": { type: "date" },
+        },
+      },
+    },
+    rowsByDataSource: {
+      "validation-ds": [{
+        id: "session-row",
+        properties: {
+          Name: { title: [{ plain_text: "Normalization Session" }] },
+          Platform: { type: "select", select: { name: "Web" } },
+          "Session State": { type: "select", select: { name: "Passed" } },
+          Tester: { type: "rich_text", rich_text: [{ plain_text: "Sean" }] },
+          "Build Label": { type: "rich_text", rich_text: [{ plain_text: "v0.3.3" }] },
+          "Runbook URL": { type: "url", url: "https://example.com/runbook" },
+          "Started On": { type: "date", date: { start: "2026-03-29" } },
+          "Completed On": { type: "date", date: { start: "2026-03-29" } },
+        },
+      }],
+    },
+    markdownByPageId: {
+      "session-row": [
+        "Purpose: Validation session",
+        "Canonical Source: Projects \\> SNPM \\> Ops \\> Validation \\> Validation Sessions \\> Normalization Session",
+        "Read This When: Session details",
+        "Last Updated: 03-29-2026 12:00:00",
+        "Sensitive: no",
+        "---",
+        "## Session Summary",
+        "Path: [docs/live-notion-docs.md](docs/live-notion-docs.md)",
+        "Placeholder: \\<PROJECT_NAME\\>",
+        "",
+        "## Checklist",
+        "- [ ] Launch app",
+        "",
+        "## Findings",
+        "Token: \\[PROJECT_TOKEN_ENV\\]",
+        "",
+        "## Follow-Up",
+        "- [ ] Retest after normalization fix.",
+        "",
+      ].join("\n"),
+    },
+    pageMeta: {
+      "session-row": { icon: { type: "emoji", emoji: "🧾" } },
+    },
+  });
+
+  const result = await diffValidationSessionFile({
+    config: baseConfig(),
+    projectName: "SNPM",
+    title: "Normalization Session",
+    fileMarkdown: [
+      "---",
+      "Platform: Web",
+      "Session State: Passed",
+      "Tester: Sean",
+      "Build Label: v0.3.3",
+      "Runbook URL: https://example.com/runbook",
+      "Started On: 2026-03-29",
+      "Completed On: 2026-03-29",
+      "---",
+      "## Session Summary",
+      "Path: docs/live-notion-docs.md",
+      "Placeholder: <PROJECT_NAME>",
+      "",
+      "## Checklist",
+      "- [ ] Launch app",
+      "",
+      "## Findings",
+      "Token: [PROJECT_TOKEN_ENV]",
+      "",
+      "## Follow-Up",
+      "- [ ] Retest after normalization fix.",
+      "",
+    ].join("\n"),
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
+});
+
 test("adoptValidationSession preserves existing row body while standardizing the page", async () => {
   const childrenMap = makeBaseChildren();
   childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);

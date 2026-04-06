@@ -252,6 +252,48 @@ test("diffDocBody ignores EOF-only newline drift on managed docs", async () => {
   assert.equal(result.diff, "");
 });
 
+test("diffDocBody ignores managed-doc normalization artifacts for paths and placeholders", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "overview", child_page: { title: "Overview" } }]],
+  ]);
+  const fixture = makeFixture({
+    childrenMap,
+    markdownByPageId: {
+      overview: [
+        "Purpose: Overview is the SNPM-managed doc for this curated Notion surface.",
+        "Canonical Source: Projects \\> SNPM \\> Overview",
+        "Read This When: You need the current reference content for this page.",
+        "Last Updated: 04-06-2026 10:00:00",
+        "Sensitive: no",
+        "---",
+        "Path: docs/[live-notion-docs.md](http://live-notion-docs.md)",
+        "Workspace: Templates \\> Project Templates",
+        "Placeholder: \\<PROJECT_NAME\\>",
+        "Token: \\[PROJECT_TOKEN_ENV\\]",
+      ].join("\n"),
+    },
+  });
+
+  const result = await diffDocBody({
+    config: makeConfig(),
+    docPath: "Root > Overview",
+    fileBodyMarkdown: [
+      "Path: docs/live-notion-docs.md",
+      "Workspace: Templates > Project Templates",
+      "Placeholder: <PROJECT_NAME>",
+      "Token: [PROJECT_TOKEN_ENV]",
+      "",
+    ].join("\n"),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
+});
+
 test("verifyWorkspaceDocs checks curated exact pages and template descendants", async () => {
   const childrenMap = new Map([
     ["project-templates", [{ type: "child_page", id: "overview", child_page: { title: "Overview" } }]],

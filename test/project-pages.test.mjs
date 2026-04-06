@@ -258,6 +258,42 @@ test("diffRunbookBody ignores EOF-only missing newline drift", async () => {
   assert.equal(result.diff, "");
 });
 
+test("diffRunbookBody ignores managed-page normalization artifacts for paths and placeholders", async () => {
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "runbooks", child_page: { title: "Runbooks" } }]],
+    ["runbooks", [{ type: "child_page", id: "managed-runbook", child_page: { title: "Managed Runbook" } }]],
+  ]);
+  const fixture = makePageFixture({
+    childrenMap,
+    markdownByPageId: {
+      "managed-runbook": [
+        "Purpose: Managed Runbook is the SNPM-managed runbook for this project workflow.",
+        "Canonical Source: Projects \\> SNPM \\> Runbooks \\> Managed Runbook",
+        "Read This When: You need the validated procedure, validation steps, or rollback path for this workflow.",
+        "Last Updated: 03-29-2026 09:00:00",
+        "Sensitive: no",
+        "---",
+        "Path: docs/[operator-roadmap.md](http://operator-roadmap.md)",
+        "Workspace: Templates \\> Project Templates",
+        "Placeholder: \\<PROJECT_NAME\\>",
+      ].join("\n"),
+    },
+  });
+
+  const result = await diffRunbookBody({
+    config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+    fileBodyMarkdown: "Path: docs/operator-roadmap.md\nWorkspace: Templates > Project Templates\nPlaceholder: <PROJECT_NAME>\n",
+    projectName: "SNPM",
+    title: "Managed Runbook",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.hasDiff, false);
+  assert.equal(result.diff, "");
+});
+
 test("createBuildRecord can create the Builds container on demand", async () => {
   const childrenMap = new Map([
     ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],

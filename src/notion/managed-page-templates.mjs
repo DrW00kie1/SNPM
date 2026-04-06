@@ -1,4 +1,8 @@
-import { normalizeMarkdownNewlines, escapeManagedHeaderText } from "./page-markdown.mjs";
+import {
+  escapeManagedHeaderText,
+  normalizeEditableBodyMarkdown,
+  normalizeMarkdownNewlines,
+} from "./page-markdown.mjs";
 
 export const RUNBOOK_ICON = { type: "emoji", emoji: "📘" };
 export const BUILD_RECORD_ICON = { type: "emoji", emoji: "📦" };
@@ -11,8 +15,7 @@ export const ACCESS_TOKEN_ICON = { type: "emoji", emoji: "🪪" };
 export const MANAGED_DOC_ICON = { type: "emoji", emoji: "📝" };
 
 function ensureTrailingNewline(markdown) {
-  const normalized = normalizeMarkdownNewlines(markdown || "");
-  return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+  return normalizeEditableBodyMarkdown(markdown || "");
 }
 
 export function buildManagedHeaderMarkdown({

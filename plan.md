@@ -765,3 +765,40 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `Projects > SNPM`
   - one curated workspace-global doc
   - `Templates > Project Templates`
+
+## 2026-04-06 — Stabilize Managed Markdown Round-Trips Across All Managed Pages
+
+- [x] Record the issue and active slice in `research.md` and `plan.md` before implementation.
+- [x] Create a dedicated branch from `main` for the fix.
+- [x] Add one shared canonical body normalizer above the existing newline/final-newline handling.
+- [x] Keep the canonicalizer narrow:
+  - collapse self-links only when `label === destination` and the destination is a repo/workspace-style literal path
+  - normalize escaped angle-bracket placeholder text back to literal placeholder text
+  - normalize escaped square-bracket placeholder text back to literal placeholder text
+  - do not rewrite real links, URLs, HTML tags, fenced code blocks, or inline code spans
+- [x] Extend the canonicalizer for the live rollout artifacts that appeared on supported pages:
+  - basename auto-links split out of repo paths such as `docs/[file.md](http://file.md)`
+  - escaped workspace separators such as `Planning \> Roadmap`
+- [x] Apply the canonicalizer to all managed markdown body flows:
+  - planning pages via `page-*`
+  - runbooks, Access, and build records
+  - curated docs via `doc-*`
+  - validation-session body content only
+- [x] Add automated coverage for:
+  - canonicalizer unit cases
+  - planning/runbook-or-build/doc no-diff regressions
+  - validation-session body no-diff regression
+- [x] Re-run:
+  - `npm test`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `verify-workspace-docs`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] Live-validate on SNPM only:
+  - one planning-page push with immediate clean re-diff
+  - one project-doc push with a bare path and placeholder text, then immediate clean re-diff
+  - one curated workspace doc push with the same patterns, then immediate clean re-diff
+  - one unchanged runbook or Access smoke diff
+- [x] Update `research.md`, `plan.md`, and the SNPM planning pages with the outcome and any residual edge case.
+- Residual note:
+  - plain Windows backslash paths are still not byte-stable in Notion markdown bodies
+  - use forward slashes for Windows-style repo paths in live docs when the path should stay literal

@@ -2069,3 +2069,43 @@ Product conclusion from the pass:
 - the managed-doc surface is viable on `main`
 - the main rough edge is authoring-shape normalization rather than target resolution or mutation safety
 - curated live docs should now be part of the normal promotion checklist so they do not lag the repo again
+
+## 2026-04-06 - Managed Markdown Stability Follow-On
+
+Current implementation target:
+- stabilize managed markdown round-trips across all managed SNPM page surfaces
+- keep the fix in the shared markdown comparison layer rather than per-command special cases
+
+Confirmed shared hook points before implementation:
+- `src/notion/page-markdown.mjs` owns the common body normalization used by planning pages
+- `src/notion/project-pages.mjs` reuses that normalization for runbooks, Access, and build records
+- `src/notion/doc-pages.mjs` reuses the same body model for curated docs
+- `src/notion/validation-sessions.mjs` has a separate body normalizer and needs the same canonicalization applied to body content only
+
+Confirmed live issue shape:
+- Notion can round-trip some author-authored markdown into semantically equivalent but textually different exports
+- the concrete drift patterns already seen are:
+  - self-links where the label and destination are the same repo/workspace-style path
+  - escaped angle-bracket placeholder text
+  - escaped square-bracket placeholder text
+
+Implementation constraint:
+- canonicalization must stay narrow and only rewrite known-equivalent non-code markdown
+- real links, URLs, HTML tags such as `<details>`, and code spans/blocks must stay unchanged
+
+Validation outcome:
+- the canonicalizer now handles the original drift plus the two additional live export artifacts surfaced during rollout:
+  - basename auto-links split out of repo paths such as `docs/[file.md](http://file.md)`
+  - escaped workspace separators such as `Planning \> Roadmap`
+- live SNPM validation passed for:
+  - planning pages through `page-*`
+  - `Projects > SNPM` through `doc-*`
+  - `Runbooks > Notion Workspace Workflow` through `doc-*`
+  - an unchanged runbook smoke diff
+  - `verify-project`
+  - `verify-workspace-docs`
+  - `doctor`
+
+Residual edge case:
+- plain Windows backslash paths are still not byte-stable in Notion markdown bodies
+- current supported authoring guidance is to use forward slashes when a Windows-style repo path must stay literal in live docs, for example `C:/SNPM`
