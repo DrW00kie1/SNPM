@@ -1890,3 +1890,46 @@ Chosen cleanup result:
 Chosen local cleanup handling:
 - discard the stray local worktree edits in `plan.md` and `research.md` before branch surgery
 - do not preserve those local changes in a stash or side branch because the chosen action is explicit discard
+
+## 2026-04-06 — Branch Consolidation Result
+
+Implementation result:
+- discarded the stray local `plan.md` and `research.md` worktree edits before branch surgery
+- recorded the branch-consolidation decision on `codex/migration-guidance`
+- fast-forwarded `main` from `6d3471a` to `462a850`
+- pushed the promoted `main`
+- deleted these redundant strict-ancestor branches locally and on `origin`:
+  - `codex/core-ergonomics`
+  - `codex/core-normalization`
+  - `codex/development`
+  - `codex/doctor`
+  - `codex/notion-doc-audit`
+  - `codex/rc-0.1.0`
+  - `codex/truth-routing`
+- preserved:
+  - `main`
+  - `codex/migration-guidance`
+  - `codex/validation-bundle`
+
+Final git state:
+- local branches:
+  - `main`
+  - `codex/migration-guidance`
+  - `codex/validation-bundle`
+- remote branches:
+  - `origin/main`
+  - `origin/codex/migration-guidance`
+  - `origin/codex/validation-bundle`
+- `main` and `codex/migration-guidance` both point to `462a850`
+- `codex/validation-bundle` still points to `73f2780`
+- tags preserved:
+  - `sprint-1-foundation`
+  - `sprint-2-planning-sync`
+  - `sprint-3-validation-sessions`
+  - `v0.1.0-rc.1`
+
+Operational conclusion:
+- the repo is no longer carrying a branch maze for linear ancestor history
+- `main` is now the active narrow-band baseline
+- `codex/migration-guidance` remains available as the active follow-on line
+- `codex/validation-bundle` remains isolated as paused experimental work

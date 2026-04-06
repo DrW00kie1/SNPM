@@ -628,15 +628,15 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - [x] Record the current 10-branch state, branch ancestry facts, and chosen 3-branch end state in `research.md`.
 - [x] Add this branch-consolidation checklist to `plan.md` before branch surgery.
 - [x] Discard the stray local `plan.md` and `research.md` worktree edits so cleanup starts from a clean base.
-- [ ] Run `git fetch --prune origin` and re-confirm:
+- [x] Run `git fetch --prune origin` and re-confirm:
   - `main` is still fast-forwardable to `codex/migration-guidance`
   - no branch unexpectedly moved
   - no new remote branches appeared
-- [ ] Fast-forward local `main` to `codex/migration-guidance` with `--ff-only`.
-- [ ] Push `main` to `origin`.
-- [ ] Keep `codex/migration-guidance` after the promotion.
-- [ ] Do not retag anything and do not change `v0.1.0-rc.1`.
-- [ ] Delete these strict ancestor branches locally and on `origin`:
+- [x] Fast-forward local `main` to `codex/migration-guidance` with `--ff-only`.
+- [x] Push `main` to `origin`.
+- [x] Keep `codex/migration-guidance` after the promotion.
+- [x] Do not retag anything and do not change `v0.1.0-rc.1`.
+- [x] Delete these strict ancestor branches locally and on `origin`:
   - `codex/core-ergonomics`
   - `codex/core-normalization`
   - `codex/development`
@@ -644,22 +644,22 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `codex/notion-doc-audit`
   - `codex/rc-0.1.0`
   - `codex/truth-routing`
-- [ ] Keep these branches:
+- [x] Keep these branches:
   - `main`
   - `codex/migration-guidance`
   - `codex/validation-bundle`
-- [ ] Prune remotes again after deletion.
-- [ ] Confirm local branches are exactly:
+- [x] Prune remotes again after deletion.
+- [x] Confirm local branches are exactly:
   - `main`
   - `codex/migration-guidance`
   - `codex/validation-bundle`
-- [ ] Confirm remote branches are exactly:
+- [x] Confirm remote branches are exactly:
   - `origin/main`
   - `origin/codex/migration-guidance`
   - `origin/codex/validation-bundle`
-- [ ] Confirm `main` and `codex/migration-guidance` point to the same commit.
-- [ ] Confirm `codex/validation-bundle` still points to `73f2780`.
-- [ ] Confirm tags remain:
+- [x] Confirm `main` and `codex/migration-guidance` point to the same commit.
+- [x] Confirm `codex/validation-bundle` still points to `73f2780`.
+- [x] Confirm tags remain:
   - `sprint-1-foundation`
   - `sprint-2-planning-sync`
   - `sprint-3-validation-sessions`
