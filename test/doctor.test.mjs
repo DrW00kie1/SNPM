@@ -41,6 +41,16 @@ function makeConfig() {
     workspace: {
       projectsPageId: "projects-root",
     },
+    projectStarter: {
+      children: [
+        { title: "Ops", children: [] },
+        { title: "Planning", children: [] },
+        { title: "Access", children: [] },
+        { title: "Vendors", children: [] },
+        { title: "Runbooks", children: [] },
+        { title: "Incidents", children: [] },
+      ],
+    },
   };
 }
 
@@ -99,6 +109,7 @@ function makeBaseChildrenMap(projectName = "SNPM") {
       childPage("access", "Access"),
       childPage("ops", "Ops"),
       childPage("runbooks", "Runbooks"),
+      paragraph(`Canonical Source: Projects > ${projectName}`),
     ]],
     ["access", [paragraph(`Canonical Source: Projects > ${projectName} > Access`)]],
     ["runbooks", [paragraph(`Canonical Source: Projects > ${projectName} > Runbooks`)]],
@@ -133,8 +144,11 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
   assert.equal(result.authMode, "workspace-token");
   assert.equal(result.projectTokenChecked, false);
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "planning" && entry.recommendedHome === "notion"));
+  assert.ok(result.truthBoundaries.some((entry) => entry.surface === "project-docs" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "repo-doc" && entry.recommendedHome === "repo"));
   assert.equal(result.issues.length, 0);
+  assert.equal(result.surfaces.projectDocs.rootStatus, "managed");
+  assert.equal(result.surfaces.projectDocs.totalCount, 0);
   assert.equal(result.surfaces.runbooks.present, true);
   assert.equal(result.surfaces.runbooks.empty, true);
   assert.equal(result.surfaces.builds.present, false);

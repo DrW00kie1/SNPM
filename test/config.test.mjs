@@ -7,6 +7,8 @@ test("loadWorkspaceConfig returns the validated Infrastructure HQ config", () =>
   const config = loadWorkspaceConfig("infrastructure-hq");
   assert.equal(config.notionVersion, "2026-03-11");
   assert.equal(config.projectStarter.children[0].title, "Ops");
+  assert.ok(config.workspace.managedDocs.exactPages.some((entry) => entry.path === "Templates"));
+  assert.ok(config.workspace.managedDocs.subtreeRoots.some((entry) => entry.path === "Templates > Project Templates"));
 });
 
 test("resolveWorkspaceConfigPath points at the expected workspace file", () => {
@@ -28,6 +30,10 @@ test("validateWorkspaceConfig rejects malformed starter-tree definitions", () =>
       workspace: {
         projectsPageId: "projects",
         projectTemplatesPageId: "templates",
+        managedDocs: {
+          exactPages: [],
+          subtreeRoots: [],
+        },
         forbiddenScopePageIds: { home: "home" },
       },
       projectStarter: {

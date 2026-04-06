@@ -3,6 +3,18 @@
   "workspace": {
     "projectsPageId": "3319f5f6-66d0-81ab-b6e8-c4fe3e2047be",
     "projectTemplatesPageId": "3319f5f6-66d0-817a-8d71-d6c194ea4bb8",
+    "managedDocs": {
+      "exactPages": [
+        { "path": "Infrastructure HQ Home", "pageId": "3319f5f6-66d0-805b-8ad5-f358f6a1b494" },
+        { "path": "Projects", "pageId": "3319f5f6-66d0-81ab-b6e8-c4fe3e2047be" },
+        { "path": "Templates", "pageId": "3319f5f6-66d0-811b-ac7f-d7a8bb77d99e" },
+        { "path": "Runbooks > Notion Workspace Workflow", "pageId": "3319f5f6-66d0-81d3-b81c-dc0109d3d796" },
+        { "path": "Runbooks > Notion Project Token Setup", "pageId": "3319f5f6-66d0-8182-b7c3-f18396ab199b" }
+      ],
+      "subtreeRoots": [
+        { "path": "Templates > Project Templates", "pageId": "3319f5f6-66d0-817a-8d71-d6c194ea4bb8" }
+      ]
+    },
     "forbiddenScopePageIds": {
       "home": "3319f5f6-66d0-805b-8ad5-f358f6a1b494",
       "accessIndex": "3319f5f6-66d0-8160-b214-df4c8ad91c1e",

@@ -15,6 +15,21 @@ function requireNonEmptyString(value, label, sourceLabel) {
   }
 }
 
+function validateManagedDocEntries(entries, label, sourceLabel) {
+  if (!Array.isArray(entries)) {
+    throw new Error(`${sourceLabel} must include an array for ${label}.`);
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    const entryLabel = `${label}[${index}]`;
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`${sourceLabel} must include an object for ${entryLabel}.`);
+    }
+    requireNonEmptyString(entry.path, `${entryLabel}.path`, sourceLabel);
+    requireNonEmptyString(entry.pageId, `${entryLabel}.pageId`, sourceLabel);
+  }
+}
+
 function validateTreeNodes(nodes, label, sourceLabel) {
   if (!Array.isArray(nodes)) {
     throw new Error(`${sourceLabel} must include an array for ${label}.`);
@@ -42,6 +57,11 @@ export function validateWorkspaceConfig(config, sourceLabel = "workspace config"
   }
   requireNonEmptyString(config.workspace.projectsPageId, "workspace.projectsPageId", sourceLabel);
   requireNonEmptyString(config.workspace.projectTemplatesPageId, "workspace.projectTemplatesPageId", sourceLabel);
+  if (!config.workspace.managedDocs || typeof config.workspace.managedDocs !== "object") {
+    throw new Error(`${sourceLabel} must include workspace.managedDocs.`);
+  }
+  validateManagedDocEntries(config.workspace.managedDocs.exactPages, "workspace.managedDocs.exactPages", sourceLabel);
+  validateManagedDocEntries(config.workspace.managedDocs.subtreeRoots, "workspace.managedDocs.subtreeRoots", sourceLabel);
 
   if (!config.workspace.forbiddenScopePageIds || typeof config.workspace.forbiddenScopePageIds !== "object") {
     throw new Error(`${sourceLabel} must include workspace.forbiddenScopePageIds.`);

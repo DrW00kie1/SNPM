@@ -23,6 +23,11 @@
     "build-record-pull": "node src/cli.mjs build-record pull",
     "build-record-push": "node src/cli.mjs build-record push",
     "create-project": "node src/cli.mjs create-project",
+    "doc-adopt": "node src/cli.mjs doc adopt",
+    "doc-create": "node src/cli.mjs doc create",
+    "doc-diff": "node src/cli.mjs doc diff",
+    "doc-pull": "node src/cli.mjs doc pull",
+    "doc-push": "node src/cli.mjs doc push",
     "doctor": "node src/cli.mjs doctor",
     "page-diff": "node src/cli.mjs page diff",
     "page-pull": "node src/cli.mjs page pull",
@@ -49,6 +54,7 @@
     "validation-sessions-init": "node src/cli.mjs validation-sessions init",
     "validation-sessions-verify": "node src/cli.mjs validation-sessions verify",
     "verify-project": "node src/cli.mjs verify-project",
+    "verify-workspace-docs": "node src/cli.mjs verify-workspace-docs",
     "test": "node --test"
   }
 }

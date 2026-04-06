@@ -3,6 +3,21 @@ import assert from "node:assert/strict";
 
 import { verifyApprovedExtensions, verifyExpectedTree } from "../src/notion/project-service.mjs";
 
+function makeConfig() {
+  return {
+    projectStarter: {
+      children: [
+        { title: "Ops", children: [] },
+        { title: "Planning", children: [] },
+        { title: "Access", children: [] },
+        { title: "Vendors", children: [] },
+        { title: "Runbooks", children: [] },
+        { title: "Incidents", children: [] },
+      ],
+    },
+  };
+}
+
 function paragraph(text) {
   return {
     type: "paragraph",
@@ -131,6 +146,66 @@ test("verifyExpectedTree allows dynamic runbooks, dynamic access domains, and th
   assert.deepEqual(failures, []);
 });
 
+test("verifyExpectedTree allows non-reserved project root docs", async () => {
+  const pageMap = new Map([
+    ["root", { icon: { type: "emoji", emoji: "🗂️" } }],
+    ["ops", { icon: { type: "emoji", emoji: "🛠️" } }],
+  ]);
+
+  const childrenMap = new Map([
+    ["root", [
+      { type: "child_page", id: "ops", child_page: { title: "Ops" } },
+      { type: "child_page", id: "overview", child_page: { title: "Overview" } },
+      paragraph("Canonical Source: Projects > SNPM"),
+    ]],
+    ["ops", [
+      { type: "child_page", id: "environments", child_page: { title: "Environments" } },
+      { type: "child_page", id: "validation", child_page: { title: "Validation" } },
+      { type: "child_page", id: "release-readiness", child_page: { title: "Release Readiness" } },
+      paragraph("Canonical Source: Projects > SNPM > Ops"),
+    ]],
+    ["overview", [paragraph("Canonical Source: Projects > SNPM > Overview")]],
+    ["environments", [paragraph("Canonical Source: Projects > SNPM > Ops > Environments")]],
+    ["validation", [paragraph("Canonical Source: Projects > SNPM > Ops > Validation")]],
+    ["release-readiness", [paragraph("Canonical Source: Projects > SNPM > Ops > Release Readiness")]],
+  ]);
+
+  const fakeClient = {
+    async request(method, apiPath) {
+      if (method !== "GET" || !apiPath.startsWith("pages/")) {
+        throw new Error(`Unexpected request: ${method} ${apiPath}`);
+      }
+      return pageMap.get(apiPath.slice("pages/".length)) || { icon: { type: "emoji", emoji: "📄" } };
+    },
+    async getChildren(pageId) {
+      return childrenMap.get(pageId) || [];
+    },
+  };
+
+  const failures = [];
+  await verifyExpectedTree(
+    "root",
+    {
+      title: "SNPM",
+      children: [{
+        title: "Ops",
+        children: [
+          { title: "Environments", children: [] },
+          { title: "Validation", children: [] },
+          { title: "Release Readiness", children: [] },
+        ],
+      }],
+    },
+    "SNPM",
+    fakeClient,
+    failures,
+    ["SNPM"],
+    makeConfig(),
+  );
+
+  assert.deepEqual(failures, []);
+});
+
 test("verifyExpectedTree allows the optional Ops > Validation > Validation Sessions database", async () => {
   const pageMap = new Map([
     ["root", { icon: { type: "emoji", emoji: "🗂️" } }],
@@ -239,7 +314,7 @@ test("verifyApprovedExtensions checks managed extension pages while ignoring unm
   };
 
   const failures = [];
-  await verifyApprovedExtensions("root", "SNPM", fakeClient, failures);
+  await verifyApprovedExtensions("root", "SNPM", makeConfig(), fakeClient, failures);
 
   assert.deepEqual(failures, []);
 });
@@ -325,7 +400,7 @@ test("verifyApprovedExtensions validates the optional Validation Sessions databa
   };
 
   const failures = [];
-  await verifyApprovedExtensions("root", "SNPM", fakeClient, failures);
+  await verifyApprovedExtensions("root", "SNPM", makeConfig(), fakeClient, failures);
 
   assert.deepEqual(failures, []);
 });

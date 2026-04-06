@@ -24,6 +24,13 @@ import {
   runBuildRecordPush,
 } from "./commands/build-record.mjs";
 import { runCreateProject } from "./commands/create-project.mjs";
+import {
+  runDocAdopt,
+  runDocCreate,
+  runDocDiff,
+  runDocPull,
+  runDocPush,
+} from "./commands/doc.mjs";
 import { runDoctor, runRecommend } from "./commands/doctor.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
@@ -45,6 +52,7 @@ import {
   runValidationSessionsVerify,
 } from "./commands/validation-session.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
+import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
 const BOOLEAN_FLAGS = new Set(["apply", "bundle"]);
@@ -58,8 +66,18 @@ export function usage() {
     '  npm run recommend -- --project "Project Name" --intent planning --page "Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run recommend -- --project "Project Name" --intent runbook --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run recommend -- --project "Project Name" --intent secret --domain "App & Backend" --title "Record Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --project "Project Name" --intent project-doc --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run recommend -- --intent template-doc --path "Templates > Project Templates > Overview"',
+    '  npm run recommend -- --intent workspace-doc --path "Runbooks > Notion Workspace Workflow"',
     '  npm run recommend -- --project "Project Name" --intent repo-doc --repo-path "docs/path.md"',
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run verify-workspace-docs',
+    '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run doc-adopt -- --project "Project Name" --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run doc-pull -- --project "Project Name" --path "Root > Overview" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run doc-diff -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run doc-push -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run doc-pull -- --path "Templates > Project Templates" --output <file|->',
     '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
@@ -102,12 +120,16 @@ export function usage() {
     "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
     "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
     "Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
+    "The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
     "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
+    'Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
+    'Workspace-scoped doc paths are limited to the curated exact pages plus "Templates > Project Templates" and descendants under it.',
     "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
     "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
     "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+    "verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
     "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
     "",
@@ -258,13 +280,18 @@ async function main() {
 
   if (command === "recommend") {
     if (options.intent) {
-      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|repo-doc|generated-output>.");
+      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|repo-doc|generated-output>.");
       const result = await runRecommend({
-        projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+        projectName: intent === "template-doc" || intent === "workspace-doc"
+          ? options.project
+          : requireOption(options, "project", 'Provide --project "Project Name".'),
         projectTokenEnv: options["project-token-env"],
         intent,
         pagePath: intent === "planning"
           ? requireOption(options, "page", 'Provide --page "Roadmap" or --page "Planning > Roadmap".')
+          : undefined,
+        docPath: intent === "project-doc" || intent === "template-doc" || intent === "workspace-doc"
+          ? requireOption(options, "path", 'Provide --path "<doc path>".')
           : undefined,
         title: intent === "runbook" || intent === "secret" || intent === "token"
           ? requireOption(options, "title", 'Provide --title "Title".')
@@ -321,6 +348,123 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+    return;
+  }
+
+  if (command === "verify-workspace-docs") {
+    const result = await runVerifyWorkspaceDocs({ workspaceName });
+    console.log(JSON.stringify({
+      ok: result.failures.length === 0,
+      command: "verify-workspace-docs",
+      ...result,
+    }, null, 2));
+    if (result.failures.length > 0) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "doc create" || command === "doc-create") {
+    const result = await runDocCreate({
+      apply: options.apply === true,
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "doc-create",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "doc adopt" || command === "doc-adopt") {
+    const result = await runDocAdopt({
+      apply: options.apply === true,
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "doc-adopt",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "doc pull" || command === "doc-pull") {
+    const result = await runDocPull({
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    writeStructuredOutput({
+      ok: true,
+      command: "doc-pull",
+      ...result,
+    }, { stderr: result.wroteToStdout === true });
+    return;
+  }
+
+  if (command === "doc diff" || command === "doc-diff") {
+    const result = await runDocDiff({
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "doc-diff",
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+    }, null, 2));
+    return;
+  }
+
+  if (command === "doc push" || command === "doc-push") {
+    const result = await runDocPush({
+      apply: options.apply === true,
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify({
+      ok: true,
+      command: "doc-push",
+      applied: result.applied,
+      hasDiff: result.hasDiff,
+      targetPath: result.targetPath,
+      authMode: result.authMode,
+      pageId: result.pageId,
+      timestamp: result.timestamp,
+    }, null, 2));
     return;
   }
 

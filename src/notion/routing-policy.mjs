@@ -38,6 +38,21 @@ export function buildTruthBoundaries() {
       reason: "Canonical project-local secrets and tokens live under Projects > <Project> > Access.",
     },
     {
+      surface: "project-docs",
+      recommendedHome: "notion",
+      reason: "Curated project root docs belong in Notion under the managed project-doc surface instead of drifting into arbitrary page edits.",
+    },
+    {
+      surface: "template-docs",
+      recommendedHome: "notion",
+      reason: "Curated template docs belong in Notion under Templates > Project Templates and stay inside the managed doc registry.",
+    },
+    {
+      surface: "workspace-docs",
+      recommendedHome: "notion",
+      reason: "A small named set of workspace-global operator docs belong in Notion and stay constrained to the managed doc registry.",
+    },
+    {
       surface: "repo-doc",
       recommendedHome: "repo",
       reason: "Code-coupled documentation should stay in the repo and be linked from Notion rather than mirrored into it.",

@@ -30,6 +30,25 @@ function makeConfig() {
     notionVersion: "2026-03-11",
     workspace: {
       projectsPageId: "projects-root",
+      managedDocs: {
+        exactPages: [
+          { path: "Templates", pageId: "templates-root" },
+          { path: "Runbooks > Notion Workspace Workflow", pageId: "workflow-runbook" },
+        ],
+        subtreeRoots: [
+          { path: "Templates > Project Templates", pageId: "project-templates" },
+        ],
+      },
+    },
+    projectStarter: {
+      children: [
+        { title: "Ops", children: [] },
+        { title: "Planning", children: [] },
+        { title: "Access", children: [] },
+        { title: "Vendors", children: [] },
+        { title: "Runbooks", children: [] },
+        { title: "Incidents", children: [] },
+      ],
     },
   };
 }
@@ -291,6 +310,79 @@ test("recommend routes repo docs away from Notion", async () => {
   assert.equal(result.repoPath, "docs/operator-roadmap.md");
   assert.equal(result.nextCommands[0].kind, "repo");
   assert.equal("migrationGuidance" in result, false);
+});
+
+test("recommend routes missing project docs to managed doc creation", async () => {
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    projectName: "SNPM",
+    intent: "project-doc",
+    docPath: "Root > Overview",
+    workspaceClient: makeFakeClient({
+      childrenMap: makeBaseChildrenMap(),
+      pageMap: makeBasePageMap(),
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recommendedHome, "notion");
+  assert.equal(result.surface, "project-docs");
+  assert.equal(result.targetPath, "Projects > SNPM > Overview");
+  assert.match(result.nextCommands[0].command, /npm run doc-create/);
+});
+
+test("recommend routes managed template docs to doc pull diff push", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project-templates", [{ type: "child_page", id: "template-overview", child_page: { title: "Overview" } }]);
+  const pageMap = makeBasePageMap();
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    intent: "template-doc",
+    docPath: "Templates > Project Templates > Overview",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap: new Map([
+        ["template-overview", [
+          "Purpose: Overview",
+          "Canonical Source: Templates \\> Project Templates \\> Overview",
+          "Read This When: Template overview",
+          "Last Updated: 04-06-2026 10:00:00",
+          "Sensitive: no",
+          "---",
+          "## Content",
+          "- Existing",
+          "",
+        ].join("\n")],
+      ]),
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recommendedHome, "notion");
+  assert.equal(result.targetPath, "Templates > Project Templates > Overview");
+  assert.match(result.nextCommands[0].command, /npm run doc-pull/);
+  assert.match(result.nextCommands[1].command, /npm run doc-diff/);
+  assert.match(result.nextCommands[2].command, /npm run doc-push/);
+});
+
+test("recommend routes exact workspace docs to doc adoption when unmanaged", async () => {
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    intent: "workspace-doc",
+    docPath: "Runbooks > Notion Workspace Workflow",
+    workspaceClient: makeFakeClient({
+      childrenMap: makeBaseChildrenMap(),
+      pageMap: makeBasePageMap(),
+      markdownMap: new Map([
+        ["workflow-runbook", "## Existing workflow\n- Keep this\n"],
+      ]),
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recommendedHome, "notion");
+  assert.match(result.nextCommands[0].command, /npm run doc-adopt/);
 });
 
 test("recommend routes generated outputs away from Notion", async () => {

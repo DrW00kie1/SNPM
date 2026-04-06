@@ -1,4 +1,12 @@
 import { makeNotionClient } from "./client.mjs";
+import {
+  findProjectManagedDocTarget,
+  findWorkspaceManagedDocTarget,
+  normalizeProjectManagedDocPath,
+  normalizeWorkspaceManagedDocPath,
+  prepareProjectManagedDocCreateTarget,
+  prepareWorkspaceManagedDocCreateTarget,
+} from "./doc-targets.mjs";
 import { getWorkspaceToken } from "./env.mjs";
 import { diagnoseProject } from "./doctor.mjs";
 import {
@@ -13,6 +21,7 @@ import {
   findProjectPathTarget,
   findRunbookTarget,
 } from "./page-targets.mjs";
+import { fetchPageMarkdown, splitManagedPageMarkdownIfPresent } from "./page-markdown.mjs";
 import { projectPath } from "./project-model.mjs";
 import { buildCommand, normalizePlanningIntentPage } from "./routing-policy.mjs";
 
@@ -21,6 +30,9 @@ const SUPPORTED_INTENTS = new Set([
   "runbook",
   "secret",
   "token",
+  "project-doc",
+  "template-doc",
+  "workspace-doc",
   "repo-doc",
   "generated-output",
 ]);
@@ -57,7 +69,7 @@ function createBaseResult({
 }) {
   return {
     ok,
-    projectId: diagnosis.projectId,
+    ...(diagnosis?.projectId ? { projectId: diagnosis.projectId } : {}),
     intent,
     recommendedHome,
     surface,
@@ -72,6 +84,10 @@ function createBaseResult({
 }
 
 function getProjectTokenWarnings(diagnosis, recommendedHome) {
+  if (!diagnosis) {
+    return [];
+  }
+
   if (recommendedHome === "repo") {
     return [];
   }
@@ -86,6 +102,207 @@ function getProjectTokenWarnings(diagnosis, recommendedHome) {
 
 function findAdoptableEntry(diagnosis, predicate) {
   return diagnosis.adoptable.find(predicate) || null;
+}
+
+async function isManagedDocTarget(target, client) {
+  const markdown = await fetchPageMarkdown(target.pageId, target.targetPath, client);
+  const parts = splitManagedPageMarkdownIfPresent(markdown);
+  return Boolean(parts)
+    && /^Canonical Source:/m.test(parts.headerMarkdown)
+    && /^Last Updated:/m.test(parts.headerMarkdown);
+}
+
+function buildDocPullDiffPushSteps({ commandArgs, projectTokenEnv, fileName }) {
+  return [
+    buildCommandStep(
+      buildCommand("doc-pull", [...commandArgs, ["output", fileName]], projectTokenEnv),
+      "Pull the current managed doc body before editing.",
+    ),
+    buildCommandStep(
+      buildCommand("doc-diff", [...commandArgs, ["file", fileName]], projectTokenEnv),
+      "Diff a proposed managed doc body against Notion.",
+    ),
+    buildCommandStep(
+      buildCommand("doc-push", [...commandArgs, ["file", fileName]], projectTokenEnv),
+      "Preview or apply the managed doc update through SNPM.",
+    ),
+  ];
+}
+
+async function routeProjectDoc({
+  diagnosis,
+  projectName,
+  docPath,
+  projectTokenEnv,
+  config,
+  client,
+}) {
+  const normalized = normalizeProjectManagedDocPath(docPath, config);
+  if (!["project-root", "project-doc"].includes(normalized.family)) {
+    throw new Error('Project doc routing is limited to "Root" and "Root > ..." paths. Use --intent planning for approved planning pages.');
+  }
+
+  const baseWarnings = getProjectTokenWarnings(diagnosis, "notion");
+  const target = await findProjectManagedDocTarget(projectName, docPath, config, client);
+
+  if (!target) {
+    const createTarget = await prepareProjectManagedDocCreateTarget(projectName, docPath, config, client);
+    return createBaseResult({
+      diagnosis,
+      intent: "project-doc",
+      recommendedHome: "notion",
+      surface: "project-docs",
+      reason: "Curated project root docs belong in Notion under the managed project-doc surface.",
+      targetPath: createTarget.targetPath,
+      warnings: baseWarnings,
+      nextCommands: [
+        buildCommandStep(
+          buildCommand("doc-create", [
+            ["project", projectName],
+            ["path", createTarget.docPath],
+            ["file", "doc.md"],
+          ], projectTokenEnv),
+          "Create a new managed project doc under the curated project root doc surface.",
+        ),
+      ],
+    });
+  }
+
+  const adoptable = findAdoptableEntry(
+    diagnosis,
+    (entry) => entry.type === "project-doc" && entry.targetPath === target.targetPath,
+  );
+  if (adoptable) {
+    return createBaseResult({
+      diagnosis,
+      intent: "project-doc",
+      recommendedHome: "notion",
+      surface: "project-docs",
+      reason: "Curated project root docs belong in Notion under the managed project-doc surface.",
+      targetPath: target.targetPath,
+      warnings: [
+        ...baseWarnings,
+        `Doc "${target.targetPath}" exists but is not managed by SNPM yet.`,
+      ],
+      nextCommands: [
+        buildCommandStep(adoptable.command, "Standardize the existing unmanaged project doc first."),
+      ],
+    });
+  }
+
+  return createBaseResult({
+    diagnosis,
+    intent: "project-doc",
+    recommendedHome: "notion",
+    surface: "project-docs",
+    reason: "Curated project root docs belong in Notion under the managed project-doc surface.",
+    targetPath: target.targetPath,
+    warnings: baseWarnings,
+    nextCommands: buildDocPullDiffPushSteps({
+      commandArgs: [
+        ["project", projectName],
+        ["path", normalized.normalizedPath],
+      ],
+      projectTokenEnv,
+      fileName: "doc.md",
+    }),
+  });
+}
+
+async function routeWorkspaceDocFamily({
+  intent,
+  docPath,
+  config,
+  client,
+}) {
+  const normalized = normalizeWorkspaceManagedDocPath(docPath, config);
+  const isTemplateIntent = intent === "template-doc";
+
+  if (isTemplateIntent && !["workspace-subtree-root", "workspace-subtree-doc"].includes(normalized.family)) {
+    throw new Error('Template doc routing is limited to "Templates > Project Templates" and descendants under it.');
+  }
+
+  if (!isTemplateIntent && normalized.family !== "workspace-exact") {
+    throw new Error("Workspace doc routing is limited to the curated exact workspace-global doc paths.");
+  }
+
+  const target = await findWorkspaceManagedDocTarget(docPath, config, client);
+  const reason = isTemplateIntent
+    ? "Curated template docs belong in Notion under Templates > Project Templates."
+    : "Curated workspace-global operator docs belong in Notion on the managed workspace-doc surface.";
+  const surface = isTemplateIntent ? "template-docs" : "workspace-docs";
+
+  if (!target) {
+    if (!normalized.createAllowed) {
+      return createBaseResult({
+        diagnosis: null,
+        intent,
+        recommendedHome: "notion",
+        surface,
+        reason,
+        ok: false,
+        targetPath: normalized.normalizedPath,
+        warnings: [
+          `Curated doc "${normalized.normalizedPath}" is missing and cannot be created through doc-create.`,
+        ],
+        nextCommands: [],
+      });
+    }
+
+    const createTarget = await prepareWorkspaceManagedDocCreateTarget(docPath, config, client);
+    return createBaseResult({
+      diagnosis: null,
+      intent,
+      recommendedHome: "notion",
+      surface,
+      reason,
+      targetPath: createTarget.targetPath,
+      warnings: [],
+      nextCommands: [
+        buildCommandStep(
+          buildCommand("doc-create", [
+            ["path", createTarget.docPath],
+            ["file", "doc.md"],
+          ]),
+          "Create a new managed curated doc at this workspace/template path.",
+        ),
+      ],
+    });
+  }
+
+  if (!(await isManagedDocTarget(target, client))) {
+    return createBaseResult({
+      diagnosis: null,
+      intent,
+      recommendedHome: "notion",
+      surface,
+      reason,
+      targetPath: target.targetPath,
+      warnings: [
+        `Doc "${target.targetPath}" exists but is not managed by SNPM yet.`,
+      ],
+      nextCommands: [
+        buildCommandStep(
+          buildCommand("doc-adopt", [["path", normalized.normalizedPath]]),
+          "Standardize the existing unmanaged curated doc first.",
+        ),
+      ],
+    });
+  }
+
+  return createBaseResult({
+    diagnosis: null,
+    intent,
+    recommendedHome: "notion",
+    surface,
+    reason,
+    targetPath: target.targetPath,
+    warnings: [],
+    nextCommands: buildDocPullDiffPushSteps({
+      commandArgs: [["path", normalized.normalizedPath]],
+      fileName: "doc.md",
+    }),
+  });
 }
 
 function routePlanning({ diagnosis, projectName, pagePath, projectTokenEnv, config, client }) {
@@ -497,6 +714,7 @@ export async function recommendProjectUpdate({
   projectTokenEnv,
   intent,
   pagePath,
+  docPath,
   title,
   domainTitle,
   repoPath,
@@ -506,16 +724,19 @@ export async function recommendProjectUpdate({
   diagnoseProjectImpl = diagnoseProject,
 }) {
   if (!SUPPORTED_INTENTS.has(intent)) {
-    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, repo-doc, generated-output.`);
+    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, project-doc, template-doc, workspace-doc, repo-doc, generated-output.`);
   }
 
   const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
-  const diagnosis = await diagnoseProjectImpl({
-    config,
-    projectName,
-    projectTokenEnv,
-    workspaceClient: client,
-  });
+  const needsProjectDiagnosis = !["template-doc", "workspace-doc"].includes(intent);
+  const diagnosis = needsProjectDiagnosis
+    ? await diagnoseProjectImpl({
+      config,
+      projectName,
+      projectTokenEnv,
+      workspaceClient: client,
+    })
+    : null;
 
   if (intent === "planning") {
     return routePlanning({
@@ -549,6 +770,26 @@ export async function recommendProjectUpdate({
       config,
       client,
       recordType: intent,
+    });
+  }
+
+  if (intent === "project-doc") {
+    return routeProjectDoc({
+      diagnosis,
+      projectName,
+      docPath,
+      projectTokenEnv,
+      config,
+      client,
+    });
+  }
+
+  if (intent === "template-doc" || intent === "workspace-doc") {
+    return routeWorkspaceDocFamily({
+      intent,
+      docPath,
+      config,
+      client,
     });
   }
 

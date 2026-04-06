@@ -3,12 +3,21 @@ import assert from "node:assert/strict";
 
 import { parseArgs, usage } from "../src/cli.mjs";
 
-test("usage includes planning sync plus access, runbook, build-record, validation-session, and manifest sync commands", () => {
+test("usage includes managed docs plus the existing surface commands", () => {
   const help = usage();
   assert.match(help, /npm run doctor/);
   assert.match(help, /npm run recommend/);
   assert.match(help, /--intent planning --page "Roadmap"/);
+  assert.match(help, /--intent project-doc --path "Root > Overview"/);
+  assert.match(help, /--intent template-doc --path "Templates > Project Templates > Overview"/);
+  assert.match(help, /--intent workspace-doc --path "Runbooks > Notion Workspace Workflow"/);
   assert.match(help, /--intent repo-doc --repo-path "docs\/path\.md"/);
+  assert.match(help, /npm run verify-workspace-docs/);
+  assert.match(help, /npm run doc-create/);
+  assert.match(help, /npm run doc-adopt/);
+  assert.match(help, /npm run doc-pull/);
+  assert.match(help, /npm run doc-diff/);
+  assert.match(help, /npm run doc-push/);
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
   assert.match(help, /npm run page-push/);
@@ -30,6 +39,7 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /--output <file\|->/);
   assert.match(help, /--file <file\|->/);
   assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
+  assert.match(help, /managed doc surface uses doc-\* commands/);
   assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
 });
@@ -53,6 +63,26 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(doctorParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
   assert.equal(recommendParsed.command, "recommend");
   assert.equal(recommendParsed.options.project, "Tall Man Training");
+});
+
+test("parseArgs supports doc subcommands", () => {
+  const parsed = parseArgs([
+    "doc",
+    "push",
+    "--project",
+    "SNPM",
+    "--path",
+    "Root > Overview",
+    "--file",
+    "doc.md",
+    "--apply",
+  ]);
+
+  assert.equal(parsed.command, "doc push");
+  assert.equal(parsed.options.project, "SNPM");
+  assert.equal(parsed.options.path, "Root > Overview");
+  assert.equal(parsed.options.file, "doc.md");
+  assert.equal(parsed.options.apply, true);
 });
 
 test("parseArgs supports page subcommands and boolean apply flags", () => {

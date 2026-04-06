@@ -3,8 +3,8 @@
 This doc describes the read-only migration-guidance layer built on top of `doctor` and `recommend`.
 
 Scope:
-- active implementation branch: `codex/migration-guidance`
-- active RC tester contract remains `v0.1.0-rc.1`
+- current stable baseline: `main`
+- the guidance layer shipped first on `codex/migration-guidance`
 - the guidance layer does not mutate Notion by itself
 
 How to use it:

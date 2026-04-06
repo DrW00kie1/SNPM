@@ -1,6 +1,7 @@
 import { makeNotionClient } from "./client.mjs";
 import { listChildDatabases, queryDataSource, retrieveDatabase, getPageTitleProperty, getPrimaryDataSourceId } from "./data-sources.mjs";
 import { getWorkspaceToken } from "./env.mjs";
+import { getManagedDocReservedRootTitles } from "./managed-doc-policy.mjs";
 import {
   ACCESS_DOMAIN_ICON,
   ACCESS_TOKEN_ICON,
@@ -66,6 +67,7 @@ async function inspectManagedPage({
   projectName,
   expectedIcon,
   client,
+  requireIcon = true,
 }) {
   const page = await client.request("GET", `pages/${pageId}`);
   const actualCanonical = await getCanonicalSource(pageId, client);
@@ -87,7 +89,7 @@ async function inspectManagedPage({
     issues.push(`Canonical Source mismatch on ${targetPath}: expected "${expectedCanonical}", got "${actualCanonical}".`);
   }
 
-  if (!page.icon) {
+  if (requireIcon && !page.icon) {
     issues.push(`Missing icon on ${targetPath}.`);
   } else if (expectedIcon && !iconMatches(page.icon, expectedIcon)) {
     issues.push(`Icon mismatch on ${targetPath}: expected "${expectedIcon.emoji}", got "${iconLabel(page.icon)}".`);
@@ -166,6 +168,149 @@ function addRecommendation(result, recommendationKeys, { surface, targetPath, re
     `${surface}:${targetPath}:${reason}:${command || ""}`,
     { surface, targetPath, reason, ...(command ? { command } : {}) },
   );
+}
+
+function buildProjectDocCommandPath(pathTitles) {
+  return pathTitles.length === 0 ? "Root" : `Root > ${pathTitles.join(" > ")}`;
+}
+
+async function analyzeProjectDocBranch({
+  branchPageId,
+  pathTitles,
+  projectName,
+  client,
+  projectTokenEnv,
+  result,
+  issueKeys,
+  adoptableKeys,
+  recommendationKeys,
+  summary,
+}) {
+  const inspection = await inspectManagedPage({
+    pageId: branchPageId,
+    pathTitles,
+    projectName,
+    client,
+    requireIcon: false,
+  });
+
+  summary.totalCount += 1;
+
+  if (inspection.status === "managed") {
+    summary.managedCount += 1;
+    for (const message of inspection.issues) {
+      addIssue(result, issueKeys, "project-docs", inspection.targetPath, message);
+    }
+  } else {
+    summary.unmanagedCount += 1;
+    const command = buildCommand("doc-adopt", [
+      ["project", projectName],
+      ["path", buildProjectDocCommandPath(pathTitles)],
+    ], projectTokenEnv);
+    addAdoptable(result, adoptableKeys, {
+      surface: "project-docs",
+      type: "project-doc",
+      title: pathTitles.at(-1),
+      targetPath: inspection.targetPath,
+      command,
+    });
+    addRecommendation(result, recommendationKeys, {
+      surface: "project-docs",
+      targetPath: inspection.targetPath,
+      reason: `Standardize the existing unmanaged project doc "${pathTitles.at(-1)}".`,
+      command,
+    });
+  }
+
+  const children = await listChildPages(branchPageId, client);
+  for (const child of children) {
+    await analyzeProjectDocBranch({
+      branchPageId: child.id,
+      pathTitles: [...pathTitles, child.child_page.title],
+      projectName,
+      client,
+      projectTokenEnv,
+      result,
+      issueKeys,
+      adoptableKeys,
+      recommendationKeys,
+      summary,
+    });
+  }
+}
+
+async function analyzeProjectDocs({
+  config,
+  projectName,
+  client,
+  projectTokenEnv,
+  result,
+  issueKeys,
+  adoptableKeys,
+  recommendationKeys,
+}) {
+  const projectRoot = await resolveProjectRootTarget(projectName, config, client);
+  const rootInspection = await inspectManagedPage({
+    pageId: projectRoot.pageId,
+    pathTitles: [],
+    projectName,
+    client,
+    requireIcon: false,
+  });
+  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  const summary = {
+    targetPath: projectRoot.targetPath,
+    rootStatus: rootInspection.status,
+    totalCount: 0,
+    managedCount: 0,
+    unmanagedCount: 0,
+  };
+
+  if (rootInspection.status === "managed") {
+    for (const message of rootInspection.issues) {
+      addIssue(result, issueKeys, "project-docs", rootInspection.targetPath, message);
+    }
+  } else {
+    const command = buildCommand("doc-adopt", [
+      ["project", projectName],
+      ["path", "Root"],
+    ], projectTokenEnv);
+    addAdoptable(result, adoptableKeys, {
+      surface: "project-docs",
+      type: "project-doc",
+      title: projectName,
+      targetPath: rootInspection.targetPath,
+      command,
+    });
+    addRecommendation(result, recommendationKeys, {
+      surface: "project-docs",
+      targetPath: rootInspection.targetPath,
+      reason: `Standardize the unmanaged project root doc for "${projectName}".`,
+      command,
+    });
+  }
+
+  const rootChildren = await listChildPages(projectRoot.pageId, client);
+  for (const child of rootChildren) {
+    if (reservedRootTitles.has(child.child_page.title)) {
+      continue;
+    }
+
+    await analyzeProjectDocBranch({
+      branchPageId: child.id,
+      pathTitles: [child.child_page.title],
+      projectName,
+      client,
+      projectTokenEnv,
+      result,
+      issueKeys,
+      adoptableKeys,
+      recommendationKeys,
+      summary,
+    });
+  }
+
+  result.surfaces.projectDocs = summary;
 }
 
 async function analyzeRunbooks({
@@ -782,6 +927,16 @@ export async function diagnoseProject({
     }
   }
 
+  await analyzeProjectDocs({
+    config,
+    projectName,
+    client,
+    projectTokenEnv,
+    result,
+    issueKeys,
+    adoptableKeys,
+    recommendationKeys,
+  });
   await analyzeRunbooks({
     config,
     projectName,

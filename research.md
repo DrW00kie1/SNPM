@@ -1933,3 +1933,89 @@ Operational conclusion:
 - `main` is now the active narrow-band baseline
 - `codex/migration-guidance` remains available as the active follow-on line
 - `codex/validation-bundle` remains isolated as paused experimental work
+
+## 2026-04-06 — Curated Managed-Doc Surface
+
+Current problem:
+- root docs, template docs, and a small number of workspace-global docs are operationally important
+- they already round-trip safely through the Notion markdown endpoint
+- they were still outside the supported SNPM surface because target modeling stopped at planning pages, runbooks, and Access
+
+Why this slice is now justified:
+- the SNPM self-hosted doc audit proved the markdown engine is not the blocker
+- the real blocker was target policy and verification coverage
+- leaving these docs outside the supported surface keeps important operational docs in an unmanaged gap
+
+Chosen product boundary:
+- add a new curated `doc-*` command family
+- do not broaden `page-*`
+- do not turn SNPM into arbitrary workspace page editing
+- keep project, template, and workspace doc families explicit and config-backed
+- keep structural roots reserved:
+  - `Ops`
+  - `Planning`
+  - `Access`
+  - `Vendors`
+  - `Runbooks`
+  - `Incidents`
+
+Chosen workspace-global managed-doc set:
+- exact pages:
+  - `Infrastructure HQ Home`
+  - `Projects`
+  - `Templates`
+  - `Runbooks > Notion Workspace Workflow`
+  - `Runbooks > Notion Project Token Setup`
+- subtree root:
+  - `Templates > Project Templates`
+
+Implementation result:
+- added `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, and `doc-push`
+- added `verify-workspace-docs`
+- added config-backed managed-doc registry support in the workspace config
+- added dedicated managed-doc target resolution for:
+  - `Root`
+  - `Root > ...`
+  - exact curated workspace-global docs
+  - `Templates > Project Templates` descendants
+- kept planning pages on `page-*` for compatibility
+- extended `doctor` with a `projectDocs` surface summary
+- extended `recommend` with:
+  - `project-doc`
+  - `template-doc`
+  - `workspace-doc`
+- extended project verification so non-reserved managed root docs are now part of the allowed project surface
+
+Important live finding:
+- `verify-workspace-docs` initially failed on:
+  - `Infrastructure HQ Home`
+  - `Projects`
+- cause:
+  - stale `Canonical Source` values on the live pages
+- correction:
+  - both pages were standardized through `doc-adopt --apply`
+- result:
+  - `verify-workspace-docs` now passes cleanly
+
+Live validation result on `SNPM` only:
+- `npm test` passed with `130` tests after the managed-doc slice
+- `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed and reported:
+  - `rootStatus: managed`
+  - zero unmanaged project docs
+- `doc-pull --project "SNPM" --path "Root"` passed
+- `doc-pull --path "Templates > Project Templates"` passed
+- `doc-pull --path "Runbooks > Notion Workspace Workflow"` passed
+- `recommend --intent project-doc --path "Root > Overview"` returned the correct `doc-create` guidance
+- `recommend --intent template-doc --path "Templates > Project Templates > Overview"` returned the correct `doc-create` guidance
+- a temporary project doc under `Projects > SNPM > Managed Doc Smoke` completed a full create / pull / diff / push / clean-diff loop and was then archived
+- `Runbooks > Notion Workspace Workflow` completed a live adopt / pull / diff / push / revert / clean-diff loop
+- existing `page-pull` / `page-diff` on `Planning > Roadmap` stayed clean
+- reserved-root guard behavior now fails clearly:
+  - `Runbooks > ...` directs the operator to `runbook-*`
+  - `Access > ...` directs the operator to `access-*`
+
+Product conclusion:
+- arbitrary root/template docs can be supported safely if the family is curated and explicit
+- the right expansion path is target modeling plus verification, not generic workspace CRUD
+- the new managed-doc surface should remain constrained to curated families until real usage proves a broader surface is needed

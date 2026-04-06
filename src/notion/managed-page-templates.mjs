@@ -8,6 +8,7 @@ export const VALIDATION_SESSION_ICON = { type: "emoji", emoji: "🧾" };
 export const ACCESS_DOMAIN_ICON = { type: "emoji", emoji: "🗃️" };
 export const SECRET_RECORD_ICON = { type: "emoji", emoji: "🔑" };
 export const ACCESS_TOKEN_ICON = { type: "emoji", emoji: "🪪" };
+export const MANAGED_DOC_ICON = { type: "emoji", emoji: "📝" };
 
 function ensureTrailingNewline(markdown) {
   const normalized = normalizeMarkdownNewlines(markdown || "");
@@ -237,6 +238,39 @@ export function buildDefaultAccessTokenBody() {
     "- Related Workspace or Project Page",
     "",
   ].join("\n"));
+}
+
+export function buildDefaultManagedDocBody(title) {
+  return ensureTrailingNewline([
+    `> Use this page as the managed source for "${title}". Keep actionable reference content here and let SNPM preserve the standard header.`,
+    "",
+    "## Purpose",
+    `- Describe what "${title}" is for and who should read it.`,
+    "",
+    "## Content",
+    "- Replace this placeholder with the current reference content for the page.",
+    "",
+  ].join("\n"));
+}
+
+export function buildManagedDocMarkdown({
+  canonicalPath,
+  title,
+  bodyMarkdown,
+  timestamp,
+  sensitive = "no",
+}) {
+  const headerMarkdown = buildManagedHeaderMarkdown({
+    purpose: `${title} is the SNPM-managed doc for this curated Notion surface.`,
+    canonicalPath,
+    readThisWhen: "You need the current reference content for this page.",
+    sensitive,
+    timestamp,
+  });
+
+  return headerMarkdown + ensureTrailingNewline(
+    bodyMarkdown?.trim() ? bodyMarkdown : buildDefaultManagedDocBody(title),
+  );
 }
 
 export function buildManagedRunbookMarkdown({ projectName, title, bodyMarkdown, timestamp }) {

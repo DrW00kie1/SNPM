@@ -1,5 +1,6 @@
 import { getProjectToken, getWorkspaceToken, nowTimestamp, deriveProjectTokenEnv } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
+import { getManagedDocReservedRootTitles } from "./managed-doc-policy.mjs";
 import { buildProjectRootNode, expectedCanonicalSource, pathFromSegments, projectPath } from "./project-model.mjs";
 import { cloneTemplateBlock, getCanonicalSource, sanitizeCover, sanitizeIcon } from "./template-blocks.mjs";
 import { collectValidationSessionScopeChecks, verifyValidationSessionsExtension } from "./validation-sessions.mjs";
@@ -88,7 +89,7 @@ export async function clonePageTree({
   return createdPage.id;
 }
 
-export async function verifyExpectedTree(pageId, node, projectName, client, failures, pathTitles = []) {
+export async function verifyExpectedTree(pageId, node, projectName, client, failures, pathTitles = [], config = null) {
   const page = await client.request("GET", `pages/${pageId}`);
   const path = pathTitles.join(" > ");
 
@@ -136,9 +137,21 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
     lastMatchedIndex = nextIndex;
   }
 
+  const reservedRootTitles = config ? new Set(getManagedDocReservedRootTitles(config)) : null;
+  const allowManagedProjectDocExtras = pathTitles.length === 1;
   const disallowedExtras = allowAnyExtras
     ? []
-    : actualTitles.filter((title) => !expectedTitles.includes(title) && !allowedExtraTitles.has(title));
+    : actualTitles.filter((title) => {
+      if (expectedTitles.includes(title) || allowedExtraTitles.has(title)) {
+        return false;
+      }
+
+      if (allowManagedProjectDocExtras && reservedRootTitles && !reservedRootTitles.has(title)) {
+        return false;
+      }
+
+      return true;
+    });
 
   if (missingTitles.length > 0 || !ordered || disallowedExtras.length > 0) {
     failures.push(`Child page mismatch on ${path}: expected [${expectedTitles.join(", ")}], got [${actualTitles.join(", ")}]`);
@@ -154,6 +167,7 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
       client,
       failures,
       [...pathTitles, expectedChild.title],
+      config,
     );
   }
 }
@@ -174,17 +188,22 @@ async function collectDescendantPageIds(pageId, client, collected = [], pathTitl
   return collected;
 }
 
-async function verifyManagedDescendants(pageId, projectName, client, failures, pathTitles = []) {
+async function verifyManagedDescendants(pageId, projectName, client, failures, pathTitles = [], options = {}) {
+  const { requireIcon = true, rootTitleFilter = null, depth = 0 } = options;
   const childPages = (await client.getChildren(pageId)).filter((block) => block.type === "child_page");
 
   for (const childPage of childPages) {
+    if (depth === 0 && typeof rootTitleFilter === "function" && !rootTitleFilter(childPage.child_page.title)) {
+      continue;
+    }
+
     const childPathTitles = [...pathTitles, childPage.child_page.title];
     const childPath = childPathTitles.join(" > ");
     const page = await client.request("GET", `pages/${childPage.id}`);
     const canonical = await getCanonicalSource(childPage.id, client);
 
     if (canonical) {
-      if (!page.icon) {
+      if (requireIcon && !page.icon) {
         failures.push(`Missing icon on ${childPath}`);
       }
 
@@ -194,11 +213,21 @@ async function verifyManagedDescendants(pageId, projectName, client, failures, p
       }
     }
 
-    await verifyManagedDescendants(childPage.id, projectName, client, failures, childPathTitles);
+    await verifyManagedDescendants(childPage.id, projectName, client, failures, childPathTitles, {
+      requireIcon,
+      rootTitleFilter,
+      depth: depth + 1,
+    });
   }
 }
 
-export async function verifyApprovedExtensions(projectPageId, projectName, client, failures) {
+export async function verifyApprovedExtensions(projectPageId, projectName, config, client, failures) {
+  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  await verifyManagedDescendants(projectPageId, projectName, client, failures, [projectName], {
+    requireIcon: false,
+    rootTitleFilter: (title) => !reservedRootTitles.has(title),
+  });
+
   const runbooksPage = await findChildPage(projectPageId, "Runbooks", client);
   if (runbooksPage) {
     await verifyManagedDescendants(runbooksPage.id, projectName, client, failures, [projectName, "Runbooks"]);
@@ -246,6 +275,28 @@ export async function collectExpectedPageIds(pageId, node, client, collected = [
   return collected;
 }
 
+async function collectManagedProjectDocScopeChecks(projectPageId, projectName, config, client) {
+  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  const childPages = (await client.getChildren(projectPageId)).filter((block) => block.type === "child_page");
+  const collected = [];
+
+  for (const childPage of childPages) {
+    const title = childPage.child_page.title;
+    if (reservedRootTitles.has(title)) {
+      continue;
+    }
+
+    collected.push({
+      title,
+      id: childPage.id,
+      path: [projectName, title].join(" > "),
+    });
+    await collectDescendantPageIds(childPage.id, client, collected, [projectName, title]);
+  }
+
+  return collected;
+}
+
 export async function verifyScope(projectPageId, projectName, config, projectTokenEnv) {
   const projectToken = getProjectToken(projectTokenEnv);
   const client = makeNotionClient(projectToken, config.notionVersion);
@@ -253,6 +304,7 @@ export async function verifyScope(projectPageId, projectName, config, projectTok
   const workspaceClient = makeNotionClient(getWorkspaceToken(), config.notionVersion);
   const rootNode = buildProjectRootNode(projectName, config);
   const allowedChecks = await collectExpectedPageIds(projectPageId, rootNode, workspaceClient, [], [projectName]);
+  allowedChecks.push(...(await collectManagedProjectDocScopeChecks(projectPageId, projectName, config, workspaceClient)));
   const runbooksPage = await findChildPage(projectPageId, "Runbooks", workspaceClient);
   if (runbooksPage) {
     allowedChecks.push(...(await collectDescendantPageIds(
@@ -352,8 +404,8 @@ export async function verifyProject(projectName, config, projectTokenEnv) {
   }
 
   const failures = [];
-  await verifyExpectedTree(projectRoot.id, buildProjectRootNode(projectName, config), projectName, client, failures, [projectName]);
-  await verifyApprovedExtensions(projectRoot.id, projectName, client, failures);
+  await verifyExpectedTree(projectRoot.id, buildProjectRootNode(projectName, config), projectName, client, failures, [projectName], config);
+  await verifyApprovedExtensions(projectRoot.id, projectName, config, client, failures);
 
   if (projectTokenEnv) {
     failures.push(...(await verifyScope(projectRoot.id, projectName, config, projectTokenEnv)));

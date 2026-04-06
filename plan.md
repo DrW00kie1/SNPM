@@ -664,3 +664,61 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
   - `sprint-2-planning-sync`
   - `sprint-3-validation-sessions`
   - `v0.1.0-rc.1`
+
+## 2026-04-06 — Curated Managed-Doc Surface
+
+- [x] Record the managed-doc target-modeling rationale, curated family boundary, and verification scope in `research.md`.
+- [x] Add a new `doc-*` command family without widening `page-*`:
+  - `doc-create`
+  - `doc-adopt`
+  - `doc-pull`
+  - `doc-diff`
+  - `doc-push`
+- [x] Support project-scoped managed-doc paths:
+  - `Root`
+  - `Root > ...`
+- [x] Support workspace/template managed-doc paths:
+  - exact curated workspace-global pages
+  - `Templates > Project Templates` descendants
+- [x] Keep these roots reserved and outside `doc-*`:
+  - `Ops`
+  - `Planning`
+  - `Access`
+  - `Vendors`
+  - `Runbooks`
+  - `Incidents`
+- [x] Add a config-backed workspace managed-doc registry instead of hardcoded page ids in runtime logic.
+- [x] Reuse the current markdown engine, header/body split, canonical-source rewriting, newline normalization, and safety checks.
+- [x] Add `verify-workspace-docs` for curated workspace-global and template docs.
+- [x] Extend `verify-project` so non-reserved managed descendants under `Projects > <Project>` are allowed and verified.
+- [x] Extend `doctor` with a `projectDocs` surface summary and adoptable unmanaged project-doc reporting.
+- [x] Extend `recommend` with:
+  - `project-doc`
+  - `template-doc`
+  - `workspace-doc`
+- [x] Add automated coverage for:
+  - managed-doc target resolution
+  - create / adopt / pull / diff / push behavior
+  - dividerless adoption
+  - project verification changes
+  - workspace-doc verification
+  - recommend routing and reserved-root rejection
+- [x] Update:
+  - `README.md`
+  - `docs/operator-roadmap.md`
+  - `docs/github-testing-loop.md`
+  - `docs/live-notion-docs.md`
+  - `research.md`
+  - `plan.md`
+- [x] Live-validate on `SNPM` only:
+  - `doc-pull --project "SNPM" --path "Root"`
+  - `doc-pull --path "Templates > Project Templates"`
+  - `doc-pull --path "Runbooks > Notion Workspace Workflow"`
+  - one temporary project-doc create / diff / push loop with cleanup
+  - one curated workspace/template doc adopt / push loop with cleanup
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `verify-workspace-docs`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `recommend --intent project-doc ...`
+  - `recommend --intent template-doc ...`
+- [x] Confirm reserved-root guard checks fail clearly and point to the owning surface commands.
