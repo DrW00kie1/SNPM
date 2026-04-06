@@ -1836,3 +1836,57 @@ Product conclusion:
 - the product now explains recurring legacy states explicitly instead of relying on maintainer interpretation of raw `doctor` output
 - the next question is no longer "what new surface should be added"
 - the next question is whether this guidance layer is sufficient, or whether the next phase should add workflow-bundle shortcuts on top of the stabilized core band
+
+## 2026-04-06 — Branch Consolidation Around `main`
+
+Current branch inventory before cleanup:
+- local and remote both currently carry 10 branches:
+  - `main`
+  - `codex/core-ergonomics`
+  - `codex/core-normalization`
+  - `codex/development`
+  - `codex/doctor`
+  - `codex/migration-guidance`
+  - `codex/notion-doc-audit`
+  - `codex/rc-0.1.0`
+  - `codex/truth-routing`
+  - `codex/validation-bundle`
+
+Branch ancestry facts:
+- `codex/migration-guidance` at `4d2056e` is the current active tip
+- `main` at `6d3471a` is 12 commits behind `codex/migration-guidance` and 0 commits ahead
+- 8 branches are strict ancestors of `codex/migration-guidance`:
+  - `main`
+  - `codex/core-ergonomics`
+  - `codex/core-normalization`
+  - `codex/development`
+  - `codex/doctor`
+  - `codex/notion-doc-audit`
+  - `codex/rc-0.1.0`
+  - `codex/truth-routing`
+- `codex/validation-bundle` is the only true side branch:
+  - `codex/migration-guidance` has 7 commits not in `codex/validation-bundle`
+  - `codex/validation-bundle` has 2 commits not in `codex/migration-guidance`
+  - unique commits:
+    - `55763e0` `Add Chromium validation bundle automation`
+    - `73f2780` `Fix validation-bundle auth session flow`
+
+Remote and release facts:
+- `origin` still has all 10 branches before cleanup
+- there are no open pull requests depending on any current branch name
+- release tags remain the durable history anchors:
+  - `sprint-1-foundation`
+  - `sprint-2-planning-sync`
+  - `sprint-3-validation-sessions`
+  - `v0.1.0-rc.1`
+- because `v0.1.0-rc.1` points at `2ec9402`, `codex/rc-0.1.0` becomes redundant once `main` is promoted
+
+Chosen cleanup result:
+- promote `main` to the current active narrow-band baseline by fast-forwarding it to `codex/migration-guidance`
+- keep `codex/migration-guidance` as the active follow-on development line
+- keep `codex/validation-bundle` as paused experimental work
+- delete the 7 redundant strict-ancestor feature branches locally and on `origin`
+
+Chosen local cleanup handling:
+- discard the stray local worktree edits in `plan.md` and `research.md` before branch surgery
+- do not preserve those local changes in a stash or side branch because the chosen action is explicit discard
