@@ -50,6 +50,7 @@ Use the owning surface instead:
 ## Safe Update Rule
 
 Use `doc-*` only after the target is inside the curated family.
+Use the curated doc surface for operator and workflow documentation, not for fast-changing implementation notes or design work. Those stay repo-first.
 
 Safe examples:
 
@@ -78,6 +79,17 @@ SNPM manages only the body content below the standard divider:
 - rewrites `Canonical Source`
 - rewrites `Last Updated`
 - keeps markdown EOF handling stable
+
+For low-ceremony edits on supported operational surfaces, prefer the editor-backed commands:
+- `page-edit`
+- `runbook-edit`
+- `doc-edit`
+- `access-domain-edit`
+- `secret-record-edit`
+- `access-token-edit`
+
+Use `--explain` when you need the auth-mode, target-resolution, child-page, and normalization reasoning before apply.
+Use `--review-output <dir>` when you need review artifacts without making the repo the source of truth.
 
 If `doc-adopt` finds no managed divider, it wraps the current full page body under a new managed-doc header.
 

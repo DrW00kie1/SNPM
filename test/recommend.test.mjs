@@ -403,6 +403,27 @@ test("recommend routes generated outputs away from Notion", async () => {
   assert.equal(result.nextCommands[0].kind, "repo");
 });
 
+test("recommend routes implementation-oriented intents to the repo", async () => {
+  for (const intent of ["implementation-note", "design-spec", "task-breakdown", "investigation"]) {
+    const result = await recommendProjectUpdate({
+      config: makeConfig(),
+      projectName: "SNPM",
+      intent,
+      repoPath: `docs/${intent}.md`,
+      workspaceClient: makeFakeClient({
+        childrenMap: makeBaseChildrenMap(),
+        pageMap: makeBasePageMap(),
+      }),
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.recommendedHome, "repo");
+    assert.equal(result.surface, "implementation-truth");
+    assert.equal(result.repoPath, `docs/${intent}.md`);
+    assert.equal(result.nextCommands[0].kind, "repo");
+  }
+});
+
 test("recommend rejects unsupported intents clearly", async () => {
   await assert.rejects(
     recommendProjectUpdate({

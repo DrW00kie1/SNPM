@@ -11,11 +11,14 @@ Supported on `main`:
 - managed runbooks
 - managed Access records
 - curated managed docs for project root docs, curated template docs, and curated workspace-global docs
+- editor-backed operational edit loops
 - `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
+- `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, `access-token-edit`
 - `verify-workspace-docs`
 - `doctor`
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
+- repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
 - stdin/stdout ergonomics on the core band
 - EOF-stable managed-page round-trips
 
@@ -31,8 +34,10 @@ SNPM encodes:
 - approved-surface mutation only
 - project-token-safe paths
 - deterministic routing before mutation
+- explicit repo-first routing for fast-changing engineering detail
 - clear Notion-vs-repo ownership
 - stable markdown round-trips on supported surfaces
+- review artifacts and explain output before apply
 
 A generic connector gives raw page reach. SNPM gives a narrower tool that is safer to use repeatedly on a live workspace.
 
@@ -58,13 +63,14 @@ Those surfaces continue to use their own command families.
 
 ## Roadmap
 
-### Phase 0: Doc Adoption And Audit Coverage
-- use the new surface to standardize remaining live root/template/workspace docs that belong inside the curated boundary
-- extend guidance so unmanaged docs are easy to adopt safely
-- keep unsupported or structural pages out of scope rather than silently broadening reach
+### Phase 0: Operational Loop Ergonomics
+- keep Notion usage constrained to operational truth
+- use repo-first routing for engineering notes, specs, investigations, and task breakdowns
+- reduce small-edit ceremony with editor-backed operational commands
+- make auth mode, target resolution, child-page preservation, and normalization behavior explicit before apply
 
 ### Phase 1: Workflow Bundles
-- only after the current core band and curated docs stay stable under real use
+- only after the operational loop stays low-friction under real use
 - likely first bundles:
   - validation run lifecycle
   - release/build evidence capture
@@ -103,6 +109,7 @@ Judge the active line on:
 Failure signals:
 - repeated drift between repo docs and live Notion docs
 - teams bypassing SNPM because the safe path is slower than manual work
+- teams using managed docs for fast-changing implementation truth instead of repo-first paths
 - pressure to broaden into generic page editing instead of explicit surface modeling
 
 The live scorecard stays in `Projects > SNPM > Planning > Roadmap`.

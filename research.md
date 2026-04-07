@@ -2109,3 +2109,72 @@ Validation outcome:
 Residual edge case:
 - plain Windows backslash paths are still not byte-stable in Notion markdown bodies
 - current supported authoring guidance is to use forward slashes when a Windows-style repo path must stay literal in live docs, for example `C:/SNPM`
+
+## 2026-04-06 - Contour Operational Loop Follow-On
+
+Grounded repo state before implementation:
+- `recommend` already owns the Notion-vs-repo routing layer and currently supports:
+  - `planning`
+  - `runbook`
+  - `secret`
+  - `token`
+  - `project-doc`
+  - `template-doc`
+  - `workspace-doc`
+  - `repo-doc`
+  - `generated-output`
+- `doctor` already reports top-level `truthBoundaries`, but it does not yet distinguish fast-changing implementation detail as a first-class repo-owned category
+- supported operational mutation paths already exist for:
+  - planning pages via `page-*`
+  - curated docs via `doc-*`
+  - runbooks via `runbook-*`
+  - Access domains / secret records / access tokens via `access-*`
+- the current operator loop still requires pull/file/diff/push choreography for small edits because there are no editor-backed `*-edit` commands
+- current diff/push JSON output includes `targetPath`, `authMode`, and mutation state, but does not yet expose:
+  - `surface`
+  - `managedState`
+  - `preserveChildren`
+  - `normalizationsApplied`
+  - explicit explanation or review artifacts
+
+Product conclusion from the Contour feedback:
+- SNPM should lean harder into repo-first engineering truth and Notion-managed operational truth
+- the next work should reduce small-edit ceremony and make mutation behavior legible before apply
+- this slice should not broaden into generic page editing or relax child-page preservation
+
+Implementation outcome:
+- `recommend` now routes these implementation-oriented intents to the repo:
+  - `implementation-note`
+  - `design-spec`
+  - `task-breakdown`
+  - `investigation`
+- `doctor` now exposes fast-changing engineering detail as a repo-owned truth boundary
+- new editor-backed operational commands now exist for:
+  - planning pages
+  - runbooks
+  - curated docs
+  - Access domains, secret records, and access tokens
+- supported operational diff, push, and edit commands now expose:
+  - stable explanation output
+  - explicit target/auth/managed-state details via `--explain`
+  - repo-friendly review artifacts via `--review-output <dir>`
+
+Live validation outcome on SNPM:
+- `npm test` passed after the implementation with 143 tests
+- `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed and showed `implementation-truth` under `truthBoundaries`
+- `recommend --intent implementation-note --repo-path "notes/implementation.md"` returned `recommendedHome: "repo"`
+- `page-edit` completed a live apply plus immediate clean re-diff on `Planning > Roadmap`
+- `doc-edit` completed a live apply plus immediate clean re-diff on `Projects > SNPM`
+- `runbook-edit` completed a live apply plus immediate clean re-diff on `SNPM Operator Validation Runbook`
+- `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN` passed
+- `verify-workspace-docs` passed
+
+Real product gaps exposed by the pass:
+- SNPM still has no supported cleanup or archive path for temporary Access fixtures.
+  - effect: the new Access edit commands have automated coverage, but clean live SNPM validation is still blocked on the intentionally empty `Projects > SNPM > Access` surface unless a permanent validation fixture is accepted.
+- planning pages have no supported recovery path once the managed divider is missing.
+  - effect: an externally damaged planning page can no longer be repaired through `page-push`; this pass required a one-off internal recovery using the same page-markdown primitives SNPM uses under the hood.
+
+Product conclusion after validation:
+- the operational loop is materially faster and clearer on the supported surfaces
+- the remaining friction is now concentrated in recovery and cleanup paths, not in the core edit/diff/push loop

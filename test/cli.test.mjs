@@ -11,6 +11,8 @@ test("usage includes managed docs plus the existing surface commands", () => {
   assert.match(help, /--intent project-doc --path "Root > Overview"/);
   assert.match(help, /--intent template-doc --path "Templates > Project Templates > Overview"/);
   assert.match(help, /--intent workspace-doc --path "Runbooks > Notion Workspace Workflow"/);
+  assert.match(help, /--intent implementation-note --repo-path "notes\/implementation\.md"/);
+  assert.match(help, /--intent design-spec --repo-path "docs\/design\/spec\.md"/);
   assert.match(help, /--intent repo-doc --repo-path "docs\/path\.md"/);
   assert.match(help, /npm run verify-workspace-docs/);
   assert.match(help, /npm run doc-create/);
@@ -18,14 +20,20 @@ test("usage includes managed docs plus the existing surface commands", () => {
   assert.match(help, /npm run doc-pull/);
   assert.match(help, /npm run doc-diff/);
   assert.match(help, /npm run doc-push/);
+  assert.match(help, /npm run doc-edit/);
   assert.match(help, /npm run page-pull/);
   assert.match(help, /npm run page-diff/);
   assert.match(help, /npm run page-push/);
+  assert.match(help, /npm run page-edit/);
   assert.match(help, /npm run access-domain-create/);
+  assert.match(help, /npm run access-domain-edit/);
   assert.match(help, /npm run secret-record-create/);
+  assert.match(help, /npm run secret-record-edit/);
   assert.match(help, /npm run access-token-create/);
+  assert.match(help, /npm run access-token-edit/);
   assert.match(help, /npm run runbook-create/);
   assert.match(help, /npm run runbook-adopt/);
+  assert.match(help, /npm run runbook-edit/);
   assert.match(help, /npm run build-record-create/);
   assert.match(help, /npm run build-record-push/);
   assert.match(help, /npm run validation-sessions-init/);
@@ -42,6 +50,9 @@ test("usage includes managed docs plus the existing surface commands", () => {
   assert.match(help, /managed doc surface uses doc-\* commands/);
   assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
+  assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
+  assert.match(help, /support --explain/);
+  assert.match(help, /--review-output <dir>/);
 });
 
 test("parseArgs supports doctor and recommend aliases", () => {
@@ -68,21 +79,23 @@ test("parseArgs supports doctor and recommend aliases", () => {
 test("parseArgs supports doc subcommands", () => {
   const parsed = parseArgs([
     "doc",
-    "push",
+    "edit",
     "--project",
     "SNPM",
     "--path",
     "Root > Overview",
-    "--file",
-    "doc.md",
     "--apply",
+    "--explain",
+    "--review-output",
+    "review",
   ]);
 
-  assert.equal(parsed.command, "doc push");
+  assert.equal(parsed.command, "doc edit");
   assert.equal(parsed.options.project, "SNPM");
   assert.equal(parsed.options.path, "Root > Overview");
-  assert.equal(parsed.options.file, "doc.md");
   assert.equal(parsed.options.apply, true);
+  assert.equal(parsed.options.explain, true);
+  assert.equal(parsed.options["review-output"], "review");
 });
 
 test("parseArgs supports page subcommands and boolean apply flags", () => {

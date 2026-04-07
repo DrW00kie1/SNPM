@@ -33,6 +33,10 @@ const SUPPORTED_INTENTS = new Set([
   "project-doc",
   "template-doc",
   "workspace-doc",
+  "implementation-note",
+  "design-spec",
+  "task-breakdown",
+  "investigation",
   "repo-doc",
   "generated-output",
 ]);
@@ -691,15 +695,22 @@ function routeAccessRecord({
 }
 
 function routeRepoOwned({ diagnosis, intent, repoPath }) {
-  const reason = intent === "repo-doc"
-    ? "Code-coupled documentation belongs in the repo instead of being mirrored into Notion."
-    : "Machine-owned outputs and generated artifacts belong in the repo or build outputs, not in Notion.";
+  const reason = {
+    "implementation-note": "Fast-changing implementation notes belong in the repo instead of managed Notion pages.",
+    "design-spec": "Design specs belong in the repo where they can be reviewed alongside code and related artifacts.",
+    "task-breakdown": "Task breakdowns belong in the repo when they are tightly coupled to implementation detail and code review.",
+    investigation: "Investigations belong in the repo so evolving technical findings stay reviewable and versioned with code truth.",
+    "repo-doc": "Code-coupled documentation belongs in the repo instead of being mirrored into Notion.",
+    "generated-output": "Machine-owned outputs and generated artifacts belong in the repo or build outputs, not in Notion.",
+  }[intent];
 
   return createBaseResult({
     diagnosis,
     intent,
     recommendedHome: "repo",
-    surface: intent,
+    surface: ["implementation-note", "design-spec", "task-breakdown", "investigation"].includes(intent)
+      ? "implementation-truth"
+      : intent,
     reason,
     repoPath,
     nextCommands: [
@@ -724,7 +735,7 @@ export async function recommendProjectUpdate({
   diagnoseProjectImpl = diagnoseProject,
 }) {
   if (!SUPPORTED_INTENTS.has(intent)) {
-    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, project-doc, template-doc, workspace-doc, repo-doc, generated-output.`);
+    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, project-doc, template-doc, workspace-doc, implementation-note, design-spec, task-breakdown, investigation, repo-doc, generated-output.`);
   }
 
   const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);

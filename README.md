@@ -24,6 +24,7 @@ Supported narrow-band baseline on `main`:
 - planning-page sync for the four approved planning pages
 - managed runbooks
 - managed Access records
+ - low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, and `access-token-edit`
 - curated managed docs for:
   - project root docs
   - `Templates > Project Templates` and its non-reserved descendants
@@ -50,6 +51,8 @@ Project-scoped managed docs:
 - `Root`
 - `Root > ...` under non-reserved top-level names
 - planning pages remain on `page-*` as a compatibility surface
+
+Curated docs are for operator and workflow context. Fast-changing implementation notes, design specs, investigations, and task breakdowns stay repo-first.
 
 Workspace/template managed docs:
 - exact workspace-global pages:
@@ -105,6 +108,8 @@ npm run recommend -- --project "Project Name" --intent secret --domain "App & Ba
 npm run recommend -- --project "Project Name" --intent project-doc --path "Root > Overview" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run recommend -- --intent template-doc --path "Templates > Project Templates > Onboarding Notes"
 npm run recommend -- --intent workspace-doc --path "Runbooks > Notion Workspace Workflow"
+npm run recommend -- --project "Project Name" --intent implementation-note --repo-path "notes/implementation.md"
+npm run recommend -- --project "Project Name" --intent design-spec --repo-path "docs/design/spec.md"
 npm run recommend -- --intent repo-doc --repo-path "docs/operator-roadmap.md"
 ```
 
@@ -114,6 +119,7 @@ Planning-page sync remains available through `page-*`:
 npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output roadmap.md
 npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md
 npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md --apply
+npm run page-edit -- --project "Project Name" --page "Planning > Roadmap" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\planning
 ```
 
 Pipe-friendly planning-page loop:
@@ -131,6 +137,7 @@ npm run runbook-adopt -- --project "Project Name" --title "Legacy Runbook" --pro
 npm run runbook-pull -- --project "Project Name" --title "Release Smoke Test" --output runbook.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run runbook-diff -- --project "Project Name" --title "Release Smoke Test" --file runbook.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run runbook-push -- --project "Project Name" --title "Release Smoke Test" --file runbook.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run runbook-edit -- --project "Project Name" --title "Release Smoke Test" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\runbook
 ```
 
 Access workflow:
@@ -142,6 +149,7 @@ npm run secret-record-create -- --project "Project Name" --domain "App & Backend
 npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-edit -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\access
 ```
 
 Managed-doc workflow on `main`:
@@ -152,6 +160,7 @@ npm run doc-create -- --project "Project Name" --path "Root > Overview" --file o
 npm run doc-adopt -- --project "Project Name" --path "Root > Overview" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run doc-diff -- --project "Project Name" --path "Root > Overview" --file overview.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run doc-push -- --project "Project Name" --path "Root > Overview" --file overview.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run doc-edit -- --project "Project Name" --path "Root > Overview" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\docs
 ```
 
 Workspace/template doc examples:
@@ -202,6 +211,10 @@ Notion-primary:
 - live operator inventory
 
 Repo-primary:
+- implementation notes
+- design specs
+- task breakdowns
+- investigations
 - code-coupled docs
 - generated artifacts
 - machine-owned outputs

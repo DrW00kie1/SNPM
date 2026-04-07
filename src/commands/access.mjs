@@ -16,6 +16,7 @@ import {
   pushAccessTokenBody,
   pushSecretRecordBody,
 } from "../notion/project-pages.mjs";
+import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, writeCommandOutput } from "./io.mjs";
 
 export async function runAccessDomainCreate({
@@ -118,6 +119,39 @@ export async function runAccessDomainPush({
     projectName,
     projectTokenEnv,
     title,
+  });
+}
+
+export async function runAccessDomainEdit({
+  apply = false,
+  projectName,
+  projectTokenEnv,
+  title,
+  workspaceName = "infrastructure-hq",
+  editorCommand,
+  openEditorImpl,
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+
+  return runManagedEditLoop({
+    apply,
+    fileLabel: "access-domain.md",
+    editorCommand,
+    openEditorImpl,
+    pullImpl: () => pullAccessDomainBody({
+      config,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushAccessDomainBody({
+      apply: shouldApply,
+      config,
+      fileBodyMarkdown,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
   });
 }
 
@@ -234,6 +268,42 @@ export async function runSecretRecordPush({
   });
 }
 
+export async function runSecretRecordEdit({
+  apply = false,
+  domainTitle,
+  projectName,
+  projectTokenEnv,
+  title,
+  workspaceName = "infrastructure-hq",
+  editorCommand,
+  openEditorImpl,
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+
+  return runManagedEditLoop({
+    apply,
+    fileLabel: "secret-record.md",
+    editorCommand,
+    openEditorImpl,
+    pullImpl: () => pullSecretRecordBody({
+      config,
+      domainTitle,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushSecretRecordBody({
+      apply: shouldApply,
+      config,
+      domainTitle,
+      fileBodyMarkdown,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
+  });
+}
+
 export async function runAccessTokenCreate({
   apply = false,
   domainTitle,
@@ -344,5 +414,41 @@ export async function runAccessTokenPush({
     projectName,
     projectTokenEnv,
     title,
+  });
+}
+
+export async function runAccessTokenEdit({
+  apply = false,
+  domainTitle,
+  projectName,
+  projectTokenEnv,
+  title,
+  workspaceName = "infrastructure-hq",
+  editorCommand,
+  openEditorImpl,
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+
+  return runManagedEditLoop({
+    apply,
+    fileLabel: "access-token.md",
+    editorCommand,
+    openEditorImpl,
+    pullImpl: () => pullAccessTokenBody({
+      config,
+      domainTitle,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushAccessTokenBody({
+      apply: shouldApply,
+      config,
+      domainTitle,
+      fileBodyMarkdown,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
   });
 }

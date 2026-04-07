@@ -31,6 +31,17 @@ export function normalizeMarkdownNewlines(markdown) {
   return markdown.replace(/\r\n/g, "\n");
 }
 
+export const MANAGED_BODY_NORMALIZATIONS = [
+  "lf-newlines",
+  "single-final-newline",
+  "self-link-literal-paths",
+  "basename-auto-link-paths",
+  "workspace-separator-unescaping",
+  "windows-absolute-paths",
+  "escaped-angle-placeholders",
+  "escaped-square-placeholders",
+];
+
 function isRepoOrWorkspaceLiteralPath(text) {
   const candidate = (text || "").trim();
   if (!candidate) {
@@ -370,6 +381,13 @@ export async function diffApprovedPageBody({
     projectId: context.projectId,
     targetPath: context.targetPath,
     authMode: context.authMode,
+    authScope: "project-or-workspace",
+    managedState: "managed",
+    preserveChildren: true,
+    normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
+    warnings: [],
+    currentBodyMarkdown: context.bodyMarkdown,
+    nextBodyMarkdown: normalizedFileBody,
     hasDiff: diff.length > 0,
     diff,
   };
@@ -391,6 +409,13 @@ export async function pushApprovedPageBody({
       projectId: context.projectId,
       targetPath: context.targetPath,
       authMode: context.authMode,
+      authScope: "project-or-workspace",
+      managedState: "managed",
+      preserveChildren: true,
+      normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
+      warnings: [],
+      currentBodyMarkdown: context.bodyMarkdown,
+      nextBodyMarkdown: normalizedFileBody,
       hasDiff: diff.length > 0,
       diff,
       applied: false,
@@ -412,6 +437,13 @@ export async function pushApprovedPageBody({
     projectId: context.projectId,
     targetPath: context.targetPath,
     authMode: context.authMode,
+    authScope: "project-or-workspace",
+    managedState: "managed",
+    preserveChildren: true,
+    normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
+    warnings: [],
+    currentBodyMarkdown: context.bodyMarkdown,
+    nextBodyMarkdown: normalizedFileBody,
     hasDiff: true,
     diff,
     applied: true,

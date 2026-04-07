@@ -818,3 +818,66 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - Residual note:
   - plain Windows backslash paths are still not byte-stable in Notion markdown bodies
   - use forward slashes for Windows-style repo paths in live docs when the path should stay literal
+
+## 2026-04-06 — Contour Operational Loop
+
+- [x] Ground the current repo state in `research.md` before mutating code.
+- [x] Create a dedicated branch from `main` for the operational-loop slice.
+- [x] Extend `recommend` with repo-first implementation intents:
+  - `implementation-note`
+  - `design-spec`
+  - `task-breakdown`
+  - `investigation`
+- [x] Extend `doctor` truth boundaries so fast-changing engineering detail is explicitly repo-owned.
+- [x] Add editor-backed operational edit commands:
+  - `page-edit`
+  - `runbook-edit`
+  - `doc-edit`
+  - `access-domain-edit`
+  - `secret-record-edit`
+  - `access-token-edit`
+- [x] Keep the edit loop conservative:
+  - pull current managed body into a temp file
+  - open the operator editor
+  - show normalized diff on return
+  - mutate only when `--apply` is present
+  - keep current managed-header and target-guard behavior
+- [x] Extend supported operational diff/push/edit outputs with a stable explanation block:
+  - `surface`
+  - `targetPath`
+  - `authMode`
+  - `managedState`
+  - `preserveChildren`
+  - `normalizationsApplied`
+  - `warnings`
+- [x] Add `--explain` to supported operational diff/push/edit commands so the CLI can say:
+  - why the target resolved the way it did
+  - why project-token or workspace-token was chosen
+  - whether child pages are preserved
+  - which managed-body normalizations collapsed apparent drift
+- [x] Add `--review-output <dir>` to supported operational diff/push/edit commands and write:
+  - `current.md`
+  - `next.md`
+  - `diff.patch`
+  - `metadata.json`
+- [x] Keep child-page safety explicit:
+  - preserve child pages during body replacement
+  - emit exact create/adopt guidance for supported operational surfaces
+  - keep reserved-root guard messages explicit instead of broadening reach
+- [x] Update repo docs and live SNPM planning pages so the product boundary reads:
+  - repo-first for engineering truth
+  - SNPM-managed Notion for operational truth
+  - curated docs are for operator/workflow docs, not ad hoc implementation notes
+- [x] Re-run:
+  - `npm test`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `verify-workspace-docs`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] Live-validate on SNPM only:
+  - one planning-page edit through `page-edit`
+  - one runbook edit through `runbook-edit`
+  - one curated operator doc edit through `doc-edit`
+  - confirm `recommend --intent implementation-note` routes to the repo
+- Open gaps from the live pass:
+  - full live Access-edit validation remains blocked because `Projects > SNPM > Access` is intentionally empty and SNPM still has no cleanup/archive path for temporary fixtures
+  - planning pages still need a supported repair path for cases where the standard managed divider has already been removed

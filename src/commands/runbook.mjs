@@ -6,6 +6,7 @@ import {
   pullRunbookBody,
   pushRunbookBody,
 } from "../notion/project-pages.mjs";
+import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, writeCommandOutput } from "./io.mjs";
 
 export async function runRunbookCreate({
@@ -108,5 +109,38 @@ export async function runRunbookPush({
     projectName,
     projectTokenEnv,
     title,
+  });
+}
+
+export async function runRunbookEdit({
+  apply = false,
+  projectName,
+  projectTokenEnv,
+  title,
+  workspaceName = "infrastructure-hq",
+  editorCommand,
+  openEditorImpl,
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+
+  return runManagedEditLoop({
+    apply,
+    fileLabel: "runbook.md",
+    editorCommand,
+    openEditorImpl,
+    pullImpl: () => pullRunbookBody({
+      config,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushRunbookBody({
+      apply: shouldApply,
+      config,
+      fileBodyMarkdown,
+      projectName,
+      projectTokenEnv,
+      title,
+    }),
   });
 }

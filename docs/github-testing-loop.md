@@ -23,10 +23,17 @@ Stable baseline on `main`:
 - `doc-pull`
 - `doc-diff`
 - `doc-push`
+- `page-edit`
+- `runbook-edit`
+- `doc-edit`
+- `access-domain-edit`
+- `secret-record-edit`
+- `access-token-edit`
 - `verify-workspace-docs`
 - `doctor`
 - `recommend`
 - curated doc routing via `recommend --intent project-doc|template-doc|workspace-doc`
+- repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
 
 Still outside the active supported path:
 - build records
@@ -60,9 +67,13 @@ Read-heavy live checks:
 
 Trusted live mutation only:
 - `page-push --apply`
+- `page-edit --apply`
 - `runbook-* --apply`
+- `runbook-edit --apply`
 - Access `* --apply`
+- Access `*-edit --apply`
 - `doc-* --apply`
+- `doc-edit --apply`
 
 Every live mutation report should say exactly what page or record was touched.
 
@@ -72,6 +83,7 @@ Example SNPM-only checks:
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run recommend -- --project "SNPM" --intent project-doc --path "Root > Overview" --project-token-env SNPM_NOTION_TOKEN
+npm run recommend -- --project "SNPM" --intent implementation-note --repo-path "notes/implementation.md"
 npm run doc-pull -- --project "SNPM" --path "Root" --output - --project-token-env SNPM_NOTION_TOKEN
 npm run doc-pull -- --path "Templates > Project Templates" --output -
 npm run verify-workspace-docs

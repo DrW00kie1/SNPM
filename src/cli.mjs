@@ -4,16 +4,19 @@ import {
   runAccessDomainAdopt,
   runAccessDomainCreate,
   runAccessDomainDiff,
+  runAccessDomainEdit,
   runAccessDomainPull,
   runAccessDomainPush,
   runAccessTokenAdopt,
   runAccessTokenCreate,
   runAccessTokenDiff,
+  runAccessTokenEdit,
   runAccessTokenPull,
   runAccessTokenPush,
   runSecretRecordAdopt,
   runSecretRecordCreate,
   runSecretRecordDiff,
+  runSecretRecordEdit,
   runSecretRecordPull,
   runSecretRecordPush,
 } from "./commands/access.mjs";
@@ -28,17 +31,20 @@ import {
   runDocAdopt,
   runDocCreate,
   runDocDiff,
+  runDocEdit,
   runDocPull,
   runDocPush,
 } from "./commands/doc.mjs";
 import { runDoctor, runRecommend } from "./commands/doctor.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
-import { runPagePush } from "./commands/page-push.mjs";
+import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
+import { buildOperationalExplanation, buildOperationalPayload, inferDocSurface, writeReviewArtifacts } from "./commands/operational-output.mjs";
 import {
   runRunbookAdopt,
   runRunbookCreate,
   runRunbookDiff,
+  runRunbookEdit,
   runRunbookPull,
   runRunbookPush,
 } from "./commands/runbook.mjs";
@@ -55,7 +61,7 @@ import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
-const BOOLEAN_FLAGS = new Set(["apply", "bundle"]);
+const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain"]);
 
 export function usage() {
   return [
@@ -69,6 +75,10 @@ export function usage() {
     '  npm run recommend -- --project "Project Name" --intent project-doc --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run recommend -- --intent template-doc --path "Templates > Project Templates > Overview"',
     '  npm run recommend -- --intent workspace-doc --path "Runbooks > Notion Workspace Workflow"',
+    '  npm run recommend -- --project "Project Name" --intent implementation-note --repo-path "notes/implementation.md"',
+    '  npm run recommend -- --project "Project Name" --intent design-spec --repo-path "docs/design/spec.md"',
+    '  npm run recommend -- --project "Project Name" --intent task-breakdown --repo-path "docs/tasks.md"',
+    '  npm run recommend -- --project "Project Name" --intent investigation --repo-path "docs/investigation.md"',
     '  npm run recommend -- --project "Project Name" --intent repo-doc --repo-path "docs/path.md"',
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run verify-workspace-docs',
@@ -77,30 +87,36 @@ export function usage() {
     '  npm run doc-pull -- --project "Project Name" --path "Root > Overview" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run doc-diff -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run doc-push -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run doc-edit -- --project "Project Name" --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run doc-pull -- --path "Templates > Project Templates" --output <file|->',
     '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run page-edit -- --project "Project Name" --page "Planning > Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-domain-adopt -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-domain-pull -- --project "Project Name" --title "App & Backend" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run access-domain-diff -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run access-domain-push -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-domain-edit -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run secret-record-edit -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run access-token-edit -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run runbook-create -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-adopt -- --project "Project Name" --title "Existing Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run runbook-pull -- --project "Project Name" --title "Runbook Title" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run runbook-diff -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run runbook-push -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
+    '  npm run runbook-edit -- --project "Project Name" --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
     '  npm run build-record-create -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
     '  npm run build-record-pull -- --project "Project Name" --title "Build Record Title" --output build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run build-record-diff -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
@@ -120,6 +136,7 @@ export function usage() {
     "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
     "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
     "Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
+    "Implementation notes, design specs, task breakdowns, and investigations are repo-first intents and should not be stored as managed Notion docs.",
     "The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
     "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
     'Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
@@ -132,6 +149,7 @@ export function usage() {
     "verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
     "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+    "Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
     "",
     "Optional flags:",
     "  --workspace infrastructure-hq",
@@ -211,6 +229,45 @@ function printDiff(diff) {
   console.log("No body changes.");
 }
 
+function buildOperationalResponse({
+  command,
+  surface,
+  result,
+  explain = false,
+  reviewOutput = null,
+}) {
+  const explanation = buildOperationalExplanation({
+    surface,
+    targetPath: result.targetPath,
+    authMode: result.authMode,
+    authScope: result.authScope,
+    managedState: result.managedState,
+    preserveChildren: result.preserveChildren,
+    normalizationsApplied: result.normalizationsApplied || [],
+    warnings: result.warnings || [],
+    includeDetails: explain,
+  });
+
+  const reviewArtifacts = reviewOutput
+    ? writeReviewArtifacts({
+      reviewOutput,
+      command,
+      surface,
+      result,
+      explanation,
+    })
+    : null;
+
+  return buildOperationalPayload({
+    command,
+    surface,
+    result,
+    explain,
+    reviewArtifacts,
+    explanation,
+  });
+}
+
 function printSyncEntryResults(entries) {
   let printedAny = false;
 
@@ -280,9 +337,9 @@ async function main() {
 
   if (command === "recommend") {
     if (options.intent) {
-      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|repo-doc|generated-output>.");
+      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output>.");
       const result = await runRecommend({
-        projectName: intent === "template-doc" || intent === "workspace-doc"
+        projectName: ["template-doc", "workspace-doc"].includes(intent)
           ? options.project
           : requireOption(options, "project", 'Provide --project "Project Name".'),
         projectTokenEnv: options["project-token-env"],
@@ -299,7 +356,7 @@ async function main() {
         domainTitle: intent === "secret" || intent === "token"
           ? requireOption(options, "domain", 'Provide --domain "Access Domain Title".')
           : undefined,
-        repoPath: intent === "repo-doc" || intent === "generated-output"
+        repoPath: ["implementation-note", "design-spec", "task-breakdown", "investigation", "repo-doc", "generated-output"].includes(intent)
           ? requireOption(options, "repo-path", "Provide --repo-path <path>.")
           : undefined,
         workspaceName,
@@ -434,14 +491,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "doc-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -455,16 +511,33 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "doc-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "doc edit" || command === "doc-edit") {
+    const result = await runDocEdit({
+      apply: options.apply === true,
+      docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
+      projectName: options.project,
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "doc-edit",
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -493,14 +566,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "page-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: "planning",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -514,16 +586,33 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "page-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: "planning",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "page edit" || command === "page-edit") {
+    const result = await runPageEdit({
+      apply: options.apply === true,
+      pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "page-edit",
+      surface: "planning",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -597,14 +686,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "access-domain-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: "access-domain",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -618,16 +706,33 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "access-domain-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: "access-domain",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "access-domain edit" || command === "access-domain-edit") {
+    const result = await runAccessDomainEdit({
+      apply: options.apply === true,
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "access-domain-edit",
+      surface: "access-domain",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -705,14 +810,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: "secret-record",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -727,16 +831,34 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: "secret-record",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "secret-record edit" || command === "secret-record-edit") {
+    const result = await runSecretRecordEdit({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "secret-record-edit",
+      surface: "secret-record",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -814,14 +936,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: "access-token",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -836,16 +957,34 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: "access-token",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "access-token edit" || command === "access-token-edit") {
+    const result = await runAccessTokenEdit({
+      apply: options.apply === true,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "access-token-edit",
+      surface: "access-token",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -919,14 +1058,13 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "runbook-diff",
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-    }, null, 2));
+      surface: "runbooks",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 
@@ -940,16 +1078,33 @@ async function main() {
       workspaceName,
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildOperationalResponse({
       command: "runbook-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+      surface: "runbooks",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
+    return;
+  }
+
+  if (command === "runbook edit" || command === "runbook-edit") {
+    const result = await runRunbookEdit({
+      apply: options.apply === true,
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
+      workspaceName,
+      editorCommand: process.env.EDITOR,
+    });
+    printDiff(result.diff);
+    console.log(JSON.stringify(buildOperationalResponse({
+      command: "runbook-edit",
+      surface: "runbooks",
+      result,
+      explain: options.explain === true,
+      reviewOutput: options["review-output"],
+    }), null, 2));
     return;
   }
 

@@ -53,6 +53,11 @@ export function buildTruthBoundaries() {
       reason: "A small named set of workspace-global operator docs belong in Notion and stay constrained to the managed doc registry.",
     },
     {
+      surface: "implementation-truth",
+      recommendedHome: "repo",
+      reason: "Fast-changing implementation notes, design specs, investigations, and task breakdowns belong in the repo instead of managed Notion pages.",
+    },
+    {
       surface: "repo-doc",
       recommendedHome: "repo",
       reason: "Code-coupled documentation should stay in the repo and be linked from Notion rather than mirrored into it.",

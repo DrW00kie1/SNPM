@@ -145,6 +145,7 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
   assert.equal(result.projectTokenChecked, false);
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "planning" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "project-docs" && entry.recommendedHome === "notion"));
+  assert.ok(result.truthBoundaries.some((entry) => entry.surface === "implementation-truth" && entry.recommendedHome === "repo"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "repo-doc" && entry.recommendedHome === "repo"));
   assert.equal(result.issues.length, 0);
   assert.equal(result.surfaces.projectDocs.rootStatus, "managed");

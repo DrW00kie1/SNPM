@@ -6,6 +6,7 @@ import {
   pullDocBody,
   pushDocBody,
 } from "../notion/doc-pages.mjs";
+import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, writeCommandOutput } from "./io.mjs";
 
 export async function runDocCreate({
@@ -108,5 +109,38 @@ export async function runDocPush({
     fileBodyMarkdown,
     projectName,
     projectTokenEnv,
+  });
+}
+
+export async function runDocEdit({
+  apply = false,
+  docPath,
+  projectName,
+  projectTokenEnv,
+  workspaceName = "infrastructure-hq",
+  editorCommand,
+  openEditorImpl,
+}) {
+  const config = loadWorkspaceConfig(workspaceName);
+
+  return runManagedEditLoop({
+    apply,
+    fileLabel: "doc.md",
+    editorCommand,
+    openEditorImpl,
+    pullImpl: () => pullDocBody({
+      config,
+      docPath,
+      projectName,
+      projectTokenEnv,
+    }),
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushDocBody({
+      apply: shouldApply,
+      config,
+      docPath,
+      fileBodyMarkdown,
+      projectName,
+      projectTokenEnv,
+    }),
   });
 }
