@@ -268,6 +268,7 @@ test("diffDocBody ignores managed-doc normalization artifacts for paths and plac
         "Sensitive: no",
         "---",
         "Path: docs/[live-notion-docs.md](http://live-notion-docs.md)",
+        "Repo root: C:\\SNPM",
         "Workspace: Templates \\> Project Templates",
         "Placeholder: \\<PROJECT_NAME\\>",
         "Token: \\[PROJECT_TOKEN_ENV\\]",
@@ -280,6 +281,7 @@ test("diffDocBody ignores managed-doc normalization artifacts for paths and plac
     docPath: "Root > Overview",
     fileBodyMarkdown: [
       "Path: docs/live-notion-docs.md",
+      "Repo root: C:/SNPM",
       "Workspace: Templates > Project Templates",
       "Placeholder: <PROJECT_NAME>",
       "Token: [PROJECT_TOKEN_ENV]",

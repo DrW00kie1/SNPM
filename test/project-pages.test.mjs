@@ -275,6 +275,7 @@ test("diffRunbookBody ignores managed-page normalization artifacts for paths and
         "Sensitive: no",
         "---",
         "Path: docs/[operator-roadmap.md](http://operator-roadmap.md)",
+        "Repo root: C:\\SNPM",
         "Workspace: Templates \\> Project Templates",
         "Placeholder: \\<PROJECT_NAME\\>",
       ].join("\n"),
@@ -283,7 +284,7 @@ test("diffRunbookBody ignores managed-page normalization artifacts for paths and
 
   const result = await diffRunbookBody({
     config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
-    fileBodyMarkdown: "Path: docs/operator-roadmap.md\nWorkspace: Templates > Project Templates\nPlaceholder: <PROJECT_NAME>\n",
+    fileBodyMarkdown: "Path: docs/operator-roadmap.md\nRepo root: C:/SNPM\nWorkspace: Templates > Project Templates\nPlaceholder: <PROJECT_NAME>\n",
     projectName: "SNPM",
     title: "Managed Runbook",
     resolveClient: fixture.resolveClient,

@@ -104,6 +104,9 @@ test("canonicalizeManagedBodyMarkdown rewrites only the known equivalent authori
     "Split path: docs/[live-notion-docs.md](http://live-notion-docs.md)",
     "Workspace: [Templates > Project Templates](Templates > Project Templates)",
     "Escaped workspace path: Planning \\> Roadmap",
+    "Drive root: C:\\SNPM",
+    "Nested drive path: C:\\Users\\Sean\\repo",
+    "Space path: C:\\Program Files\\Git\\bin",
     "Angle: \\<PROJECT_NAME\\>",
     "Square: \\[PROJECT_TOKEN_ENV\\]",
     "Link: [Live Docs](docs/live-notion-docs.md)",
@@ -111,10 +114,11 @@ test("canonicalizeManagedBodyMarkdown rewrites only the known equivalent authori
     "<details>",
     "<summary>Detail</summary>",
     "</details>",
-    "Inline code: `[docs/live-notion-docs.md](docs/live-notion-docs.md)` and `\\<PROJECT_NAME\\>`",
+    "Inline code: `[docs/live-notion-docs.md](docs/live-notion-docs.md)` and `\\<PROJECT_NAME\\>` and `C:\\SNPM`",
     "```md",
     "[docs/live-notion-docs.md](docs/live-notion-docs.md)",
     "\\<PROJECT_NAME\\>",
+    "C:\\SNPM",
     "```",
   ].join("\n");
 
@@ -124,13 +128,16 @@ test("canonicalizeManagedBodyMarkdown rewrites only the known equivalent authori
   assert.match(result, /Split path: docs\/live-notion-docs\.md/);
   assert.match(result, /Workspace: Templates > Project Templates/);
   assert.match(result, /Escaped workspace path: Planning > Roadmap/);
+  assert.match(result, /Drive root: C:\/SNPM/);
+  assert.match(result, /Nested drive path: C:\/Users\/Sean\/repo/);
+  assert.match(result, /Space path: C:\/Program Files\/Git\/bin/);
   assert.match(result, /Angle: <PROJECT_NAME>/);
   assert.match(result, /Square: \[PROJECT_TOKEN_ENV\]/);
   assert.match(result, /Link: \[Live Docs\]\(docs\/live-notion-docs\.md\)/);
   assert.match(result, /URL: \[https:\/\/example\.com\]\(https:\/\/example\.com\)/);
   assert.match(result, /<details>\n<summary>Detail<\/summary>\n<\/details>/);
-  assert.match(result, /Inline code: `\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)` and `\\<PROJECT_NAME\\>`/);
-  assert.match(result, /```md\n\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)\n\\<PROJECT_NAME\\>\n```/);
+  assert.match(result, /Inline code: `\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)` and `\\<PROJECT_NAME\\>` and `C:\\SNPM`/);
+  assert.match(result, /```md\n\[docs\/live-notion-docs\.md\]\(docs\/live-notion-docs\.md\)\n\\<PROJECT_NAME\\>\nC:\\SNPM\n```/);
 });
 
 test("diffMarkdownBodies returns a unified diff only when content changes", () => {
@@ -146,8 +153,8 @@ test("diffMarkdownBodies returns a unified diff only when content changes", () =
 
 test("diffMarkdownBodies treats equivalent markdown normalization artifacts as unchanged", () => {
   const diff = diffMarkdownBodies(
-    "Path: [docs/live-notion-docs.md](docs/live-notion-docs.md)\nSplit path: docs/[live-notion-docs.md](http://live-notion-docs.md)\nWorkspace: Planning \\> Roadmap\nAngle: \\<PROJECT_NAME\\>\nSquare: \\[PROJECT_TOKEN_ENV\\]\n",
-    "Path: docs/live-notion-docs.md\nSplit path: docs/live-notion-docs.md\nWorkspace: Planning > Roadmap\nAngle: <PROJECT_NAME>\nSquare: [PROJECT_TOKEN_ENV]\n",
+    "Path: [docs/live-notion-docs.md](docs/live-notion-docs.md)\nSplit path: docs/[live-notion-docs.md](http://live-notion-docs.md)\nWorkspace: Planning \\> Roadmap\nDrive root: C:\\SNPM\nNested drive path: C:\\Users\\Sean\\repo\nSpace path: C:\\Program Files\\Git\\bin\nAngle: \\<PROJECT_NAME\\>\nSquare: \\[PROJECT_TOKEN_ENV\\]\n",
+    "Path: docs/live-notion-docs.md\nSplit path: docs/live-notion-docs.md\nWorkspace: Planning > Roadmap\nDrive root: C:/SNPM\nNested drive path: C:/Users/Sean/repo\nSpace path: C:/Program Files/Git/bin\nAngle: <PROJECT_NAME>\nSquare: [PROJECT_TOKEN_ENV]\n",
   );
 
   assert.equal(diff, "");

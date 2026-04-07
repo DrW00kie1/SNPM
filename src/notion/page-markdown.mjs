@@ -88,6 +88,19 @@ function canonicalizeEscapedWorkspaceSeparators(text) {
   return text.replace(/ \\> /g, " > ");
 }
 
+function canonicalizeWindowsAbsolutePaths(text) {
+  return text.replace(
+    /(^|[\s(>:"'])([A-Za-z]):\\((?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]+)/g,
+    (match, prefix, driveLetter, remainder, offset, source) => {
+      if (prefix === "(" && offset > 0 && source[offset - 1] === "]") {
+        return match;
+      }
+      const normalizedRemainder = remainder.replace(/\\/g, "/");
+      return `${prefix}${driveLetter}:/${normalizedRemainder}`;
+    },
+  );
+}
+
 function canonicalizeEscapedPlaceholders(text) {
   return text
     .replace(/\\<([^>\n]+)\\>/g, (match, placeholderText) => (
@@ -101,8 +114,10 @@ function canonicalizeEscapedPlaceholders(text) {
 function canonicalizeMarkdownSegment(text) {
   return canonicalizeEscapedPlaceholders(
     canonicalizeEscapedWorkspaceSeparators(
-      canonicalizeAutoLinkedFileNames(
-        canonicalizeSelfLinks(text),
+      canonicalizeWindowsAbsolutePaths(
+        canonicalizeAutoLinkedFileNames(
+          canonicalizeSelfLinks(text),
+        ),
       ),
     ),
   );
