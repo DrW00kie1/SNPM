@@ -802,3 +802,19 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - Residual note:
   - plain Windows backslash paths are still not byte-stable in Notion markdown bodies
   - use forward slashes for Windows-style repo paths in live docs when the path should stay literal
+
+## 2026-04-06 — Promote Markdown Stability To `main`
+
+- [x] Fast-forward `main` to `f7f3546` from `codex/markdown-stability`.
+- [x] Push `main` to `origin`.
+- [x] Update `research.md` and `plan.md` so the markdown-stability slice is described as promoted to `main`.
+- [x] Update the SNPM planning pages so they say the fix is on `main`, not branch-only.
+- [x] Re-run:
+  - `npm test`
+  - `verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+  - `verify-workspace-docs`
+  - `doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN`
+- [x] Delete local and remote `codex/markdown-stability` after the promotion and doc alignment are complete.
+- Residual note:
+  - plain Windows backslash paths are still not byte-stable in Notion markdown bodies
+  - use forward slashes for Windows-style repo paths in live docs when the path should stay literal

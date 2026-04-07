@@ -2070,11 +2070,11 @@ Product conclusion from the pass:
 - the main rough edge is authoring-shape normalization rather than target resolution or mutation safety
 - curated live docs should now be part of the normal promotion checklist so they do not lag the repo again
 
-## 2026-04-06 - Managed Markdown Stability Follow-On
+## 2026-04-06 - Managed Markdown Stability Promotion
 
-Current implementation target:
-- stabilize managed markdown round-trips across all managed SNPM page surfaces
-- keep the fix in the shared markdown comparison layer rather than per-command special cases
+Promotion result:
+- managed markdown round-trip stability is now part of `main`
+- the implementation stays in the shared markdown comparison layer rather than per-command special cases
 
 Confirmed shared hook points before implementation:
 - `src/notion/page-markdown.mjs` owns the common body normalization used by planning pages
