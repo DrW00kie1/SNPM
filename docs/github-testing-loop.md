@@ -50,7 +50,7 @@ git clone https://github.com/DrW00kie1/SNPM.git
 Set-Location SNPM
 git checkout main
 npm test
-node src/cli.mjs help
+node src/cli.mjs --help
 ```
 
 ## Safe Live Validation

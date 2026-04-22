@@ -190,7 +190,7 @@ Default repo checks:
 
 ```bash
 npm test
-node src/cli.mjs help
+node src/cli.mjs --help
 ```
 
 Safe live SNPM checks:

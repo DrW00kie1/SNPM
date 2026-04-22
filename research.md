@@ -2178,3 +2178,142 @@ Real product gaps exposed by the pass:
 Product conclusion after validation:
 - the operational loop is materially faster and clearer on the supported surfaces
 - the remaining friction is now concentrated in recovery and cleanup paths, not in the core edit/diff/push loop
+
+## 2026-04-07 - Contour Project Token Scope Preflight Failure
+
+Repo state before investigation:
+- `AGENTS.md` was already modified and `agents_ver2.md` was already untracked in `C:\SNPM`; both were treated as user-owned and left untouched
+- `CONTOUR_NOTION_TOKEN` is present in the local shell environment
+
+Current shipped contract still matches this failure mode:
+- `docs/project-token-setup.md` still documents project-token setup as a manual Notion UI flow:
+  - create the project-scoped integration
+  - share it to `Projects > <Project Name>`
+  - then run `verify-project`
+- `verifyScope(...)` in `src/notion/project-service.mjs` uses the workspace token to enumerate every allowed page under the project root, then uses the project token to probe each allowed page and reports `Project token could not read allowed page ...` on any read failure
+- `doctor(...)` in `src/notion/doctor.mjs` still inventories the project with the workspace token, and when `--project-token-env` is provided it adds a separate `surfaces.projectTokenScope` check rather than switching the whole diagnostic run to the project token
+
+Live repro from `C:\SNPM` on `2026-04-07`:
+- `npm run verify-project -- --name "Contour" --project-token-env CONTOUR_NOTION_TOKEN` failed for every allowed page under `Projects > Contour`, including:
+  - `Contour`
+  - `Contour > Planning`
+  - `Contour > Planning > Roadmap`
+  - `Contour > Planning > Current Cycle`
+  - `Contour > Planning > Backlog`
+  - `Contour > Planning > Decision Log`
+  - `Contour > Overview`
+  - `Contour > Runbooks`
+  - `Contour > Access`
+  - the existing `Access` descendants such as `App & Backend`, `DigitalOcean`, and `Google Workspace`
+- `npm run doctor -- --project "Contour" --project-token-env CONTOUR_NOTION_TOKEN` returned:
+  - `authMode: "workspace-token"` for the surface scan
+  - `projectTokenChecked: true`
+  - `surfaces.projectTokenScope.ok: false`
+  - the same complete project-token failure list as `verify-project`
+- `doctor` could still inspect the live subtree with the workspace token and reported:
+  - `projectDocs.rootStatus: "managed"`
+  - `runbooks.present: true`
+  - `access.present: true`
+  - `access.domainCount: 7`
+  - `access.managedRecordCount: 13`
+
+Conclusion:
+- this is a Notion sharing or token-selection problem, not evidence of an SNPM mutation bug
+- the project token cannot read even `Projects > Contour` itself, which is consistent with:
+  - the integration behind `CONTOUR_NOTION_TOKEN` not being shared to `Projects > Contour`, or
+  - `CONTOUR_NOTION_TOKEN` pointing at a different token or integration than the one that was shared
+- no Notion mutation was attempted during this investigation
+
+Safe next step:
+- in the Notion UI, share the specific integration behind `CONTOUR_NOTION_TOKEN` to `Projects > Contour` only
+- do not broaden that integration to workspace-global surfaces such as `Home`, `Access Index`, top-level `Runbooks`, or top-level `Vendors`
+- after sharing, rerun:
+  - `npm run verify-project -- --name "Contour" --project-token-env CONTOUR_NOTION_TOKEN`
+  - `npm run doctor -- --project "Contour" --project-token-env CONTOUR_NOTION_TOKEN`
+- if those still fail after the share, verify that the environment variable still matches the exact shared integration token before attempting any `page-*` or `doc-*` mutation
+
+Retry result later on `2026-04-07` after the connection was restored:
+- `npm run verify-project -- --name "Contour" --project-token-env CONTOUR_NOTION_TOKEN` passed with `ok: true`
+- `npm run doctor -- --project "Contour" --project-token-env CONTOUR_NOTION_TOKEN` passed with:
+  - `projectTokenChecked: true`
+  - `surfaces.projectTokenScope.ok: true`
+  - no issues
+- the current live Contour project state observed by `doctor` is:
+  - `Projects > Contour` root doc is managed
+  - `Runbooks` is present and currently empty
+  - `Access` is present with `7` managed domains and `13` managed records
+  - optional `Ops > Builds` is not initialized
+  - optional `Ops > Validation > Validation Sessions` is not initialized
+
+Current conclusion:
+- the missing token access was transient or corrected outside the repo
+- SNPM preflight is now clear for the approved Contour project-owned mutation flow
+
+## 2026-04-22 - Conventional CLI Help Baseline
+
+Repo state before implementation:
+- `AGENTS.md` is already modified, `plan.md` and `research.md` already contain prior task-local notes, and `agents_ver2.md` is still untracked
+- those unrelated changes remain user-owned and should stay untouched outside the approved local working-memory updates for this task
+
+Current CLI help behavior in `src/cli.mjs`:
+- `usage()` is a single monolithic global help string
+- `main()` prints help only when the parsed command is empty, `help`, or the literal command string `--help`
+- `parseArgs()` treats any `--...` token as an option that needs either a boolean-flag exemption or a value
+- `BOOLEAN_FLAGS` currently includes only `apply`, `bundle`, and `explain`
+
+Observed process behavior from `C:\SNPM` on `2026-04-22`:
+- `node src/cli.mjs` prints help and exits `0`
+- `node src/cli.mjs help` prints help but exits `1`
+- `node src/cli.mjs --help` fails with `Missing value for --help`
+- `node src/cli.mjs verify-project --help` fails with `Missing value for --help`
+
+Implementation direction chosen for this slice:
+- detect `--help` and `-h` before normal argument parsing so help bypasses required-option validation and command execution
+- support:
+  - global help via empty argv, `help`, `--help`, and `-h`
+  - command help via `<command> --help`, `<command> -h`, and `help <command>`
+- keep backward compatibility for the existing `help` alias
+- keep the CLI plain-text and repo-local only; no Notion mutation or live workspace validation is needed for this slice
+- refactor help into a shared command-help registry so:
+  - global help can list the supported command surface
+  - exact command help pages can render summary, usage, aliases, required flags, optional flags, and examples from one source of truth
+
+Implementation result:
+- added `src/cli-help.mjs` as the shared help registry and renderer for:
+  - global help
+  - command-scoped help
+  - help-target alias resolution
+- updated `src/cli.mjs` so help is resolved before `parseArgs()` runs
+- kept the existing `help` alias while adding conventional `--help` and `-h` handling
+- preserved the normal command-execution path when help is not requested
+
+Shipped behavior after implementation:
+- `node src/cli.mjs`
+  - prints global help
+  - exits `0`
+- `node src/cli.mjs help`
+  - prints global help
+  - now exits `0` instead of `1`
+- `node src/cli.mjs --help`
+  - prints global help
+  - exits `0`
+- `node src/cli.mjs verify-project --help`
+  - prints command help
+  - exits `0`
+  - does not require `--name`
+- `node src/cli.mjs page push -h`
+  - prints command help
+  - exits `0`
+- `node src/cli.mjs help page-push`
+  - resolves the hyphenated alias to `page push`
+  - prints command help
+  - exits `0`
+- `node src/cli.mjs fake-command --help`
+  - prints `Unknown command: fake-command` plus global help
+  - exits `1`
+
+Validation result:
+- `npm test` passed with `154` tests after adding:
+  - help-target resolution coverage
+  - alias normalization coverage
+  - process-level CLI tests for global help, command help, help-with-extra-flags, and unknown-command help

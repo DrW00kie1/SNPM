@@ -1,0 +1,1493 @@
+const OPT_WORKSPACE = "--workspace infrastructure-hq";
+const OPT_PROJECT = '--project "Project Name"';
+const OPT_PROJECT_TOKEN = "--project-token-env PROJECT_NAME_NOTION_TOKEN";
+const OPT_APPLY = "--apply";
+const OPT_EXPLAIN = "--explain";
+const OPT_REVIEW_OUTPUT = "--review-output <dir>";
+const OPT_BUNDLE = "--bundle";
+const HELP_TOKENS = new Set(["--help", "-h"]);
+
+function createCommandSpec({
+  canonical,
+  aliases = [],
+  summary,
+  usageLines,
+  requiredFlags = [],
+  optionalFlags = [],
+  examples = [],
+  notes = [],
+}) {
+  const normalizedCanonical = normalizeCommandName(canonical);
+  const hyphenAlias = normalizedCanonical.includes(" ")
+    ? normalizedCanonical.replace(/\s+/g, "-")
+    : null;
+
+  return {
+    canonical: normalizedCanonical,
+    aliases: [...new Set([hyphenAlias, ...aliases].filter(Boolean).map(normalizeCommandName))],
+    summary,
+    usageLines,
+    requiredFlags,
+    optionalFlags,
+    examples,
+    notes,
+  };
+}
+
+function compoundFamilySpecs({ family, subcommands }) {
+  return subcommands.map((subcommand) => createCommandSpec({
+    canonical: `${family} ${subcommand.name}`,
+    aliases: subcommand.aliases || [],
+    summary: subcommand.summary,
+    usageLines: subcommand.usageLines,
+    requiredFlags: subcommand.requiredFlags,
+    optionalFlags: subcommand.optionalFlags,
+    examples: subcommand.examples,
+    notes: subcommand.notes,
+  }));
+}
+
+const SINGLE_COMMAND_SPECS = [
+  createCommandSpec({
+    canonical: "create-project",
+    aliases: ["create"],
+    summary: "Bootstrap a new project subtree in Notion.",
+    usageLines: [
+      'node src/cli.mjs create-project --name "Project Name" [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      '--name "Project Name"',
+    ],
+    optionalFlags: [
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      'node src/cli.mjs create-project --name "Contour"',
+      'npm run create-project -- --name "Contour"',
+    ],
+    notes: [
+      "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
+    ],
+  }),
+  createCommandSpec({
+    canonical: "doctor",
+    summary: "Run the read-only project health scan and managed-surface inventory.",
+    usageLines: [
+      'node src/cli.mjs doctor --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      'node src/cli.mjs doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    ],
+    notes: [
+      "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
+    ],
+  }),
+  createCommandSpec({
+    canonical: "recommend",
+    summary: "Return the read-only project scan or an intent-specific Notion-vs-repo routing answer.",
+    usageLines: [
+      'node src/cli.mjs recommend --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent planning --page "Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent runbook --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent secret --domain "App & Backend" --title "Record Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent project-doc --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --intent template-doc --path "Templates > Project Templates > Overview" [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --intent workspace-doc --path "Runbooks > Notion Workspace Workflow" [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent implementation-note --repo-path "notes/implementation.md" [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      '--project "Project Name" for the read-only scan and project-backed intents',
+      '--intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output> for routed recommendations',
+      '--page "Roadmap" for the planning intent',
+      '--path "<doc path>" for project-doc, template-doc, and workspace-doc intents',
+      '--title "Title" for runbook, secret, and token intents',
+      '--domain "Access Domain Title" for secret and token intents',
+      "--repo-path <path> for repo-owned intents",
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      'node src/cli.mjs recommend --project "SNPM" --intent planning --page "Roadmap" --project-token-env SNPM_NOTION_TOKEN',
+      'node src/cli.mjs recommend --project "SNPM" --intent implementation-note --repo-path "notes/implementation.md"',
+      'npm run recommend -- --project "SNPM" --intent project-doc --path "Root > Overview" --project-token-env SNPM_NOTION_TOKEN',
+    ],
+    notes: [
+      "Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
+      "Implementation notes, design specs, task breakdowns, and investigations are repo-first intents and should not be stored as managed Notion docs.",
+    ],
+  }),
+  createCommandSpec({
+    canonical: "verify-project",
+    aliases: ["verify"],
+    summary: "Verify the project subtree shape and optional project-token scope.",
+    usageLines: [
+      'node src/cli.mjs verify-project --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      '--name "Project Name"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      'node src/cli.mjs verify-project --name "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    ],
+  }),
+  createCommandSpec({
+    canonical: "verify-workspace-docs",
+    summary: "Verify the curated workspace and template doc registry with the workspace token.",
+    usageLines: [
+      "node src/cli.mjs verify-workspace-docs [--workspace infrastructure-hq]",
+    ],
+    optionalFlags: [
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs verify-workspace-docs",
+      "npm run verify-workspace-docs",
+    ],
+    notes: [
+      "verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
+    ],
+  }),
+];
+
+const COMPOUND_COMMAND_SPECS = [
+  ...compoundFamilySpecs({
+    family: "doc",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed doc or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs doc create --path "<doc path>" --file <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc create --project "SNPM" --path "Root > Overview" --file overview.md',
+          'npm run doc-create -- --project "SNPM" --path "Root > Overview" --file overview.md --apply',
+        ],
+        notes: [
+          "Project docs require --project; template and workspace docs do not.",
+          "The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing curated doc into the managed doc format.",
+        usageLines: [
+          'node src/cli.mjs doc adopt --path "<doc path>" [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc adopt --project "SNPM" --path "Root > Overview"',
+          'npm run doc-adopt -- --project "SNPM" --path "Root > Overview" --apply',
+        ],
+        notes: [
+          "Project docs require --project; template and workspace docs do not.",
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed doc to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs doc pull --path "<doc path>" --output <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc pull --project "SNPM" --path "Root > Overview" --output -',
+          'npm run doc-pull -- --path "Templates > Project Templates" --output template-root.md',
+        ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed doc against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs doc diff --path "<doc path>" --file <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc diff --project "SNPM" --path "Root > Overview" --file overview.md --explain',
+          'npm run doc-diff -- --project "SNPM" --path "Root > Overview" --file overview.md --review-output review',
+        ],
+        notes: [
+          "Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply managed doc body updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs doc push --path "<doc path>" --file <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc push --project "SNPM" --path "Root > Overview" --file overview.md',
+          'npm run doc-push -- --project "SNPM" --path "Root > Overview" --file overview.md --apply',
+        ],
+        notes: [
+          "Project docs require --project; template and workspace docs do not.",
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open a managed doc in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs doc edit --path "<doc path>" [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          '--path "<doc path>"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs doc edit --project "SNPM" --path "Root > Overview"',
+          'npm run doc-edit -- --project "SNPM" --path "Root > Overview" --apply',
+        ],
+        notes: [
+          "Project docs require --project; template and workspace docs do not.",
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "page",
+    subcommands: [
+      {
+        name: "pull",
+        summary: "Pull an approved planning page to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs page pull --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--page "Planning > <Page Name>"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs page pull --project "SNPM" --page "Planning > Roadmap" --output -',
+          'npm run page-pull -- --project "SNPM" --page "Planning > Backlog" --output backlog.md',
+        ],
+        notes: [
+          "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff an approved planning page against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs page diff --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--page "Planning > <Page Name>"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs page diff --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --explain',
+          'npm run page-diff -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --review-output review',
+        ],
+        notes: [
+          "Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply managed planning-page body updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs page push --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--page "Planning > <Page Name>"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs page push --project "SNPM" --page "Planning > Roadmap" --file roadmap.md',
+          'npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --apply',
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open a planning page in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs page edit --project "Project Name" --page "Planning > Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--page "Planning > <Page Name>"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs page edit --project "SNPM" --page "Planning > Roadmap"',
+          'npm run page-edit -- --project "SNPM" --page "Planning > Roadmap" --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "access-domain",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed Access domain page or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-domain create --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain create --project "SNPM" --title "App & Backend" --file access-domain.md',
+          'npm run access-domain-create -- --project "SNPM" --title "App & Backend" --file access-domain.md --apply',
+        ],
+        notes: [
+          "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing Access domain page into the managed format.",
+        usageLines: [
+          'node src/cli.mjs access-domain adopt --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain adopt --project "SNPM" --title "App & Backend"',
+          'npm run access-domain-adopt -- --project "SNPM" --title "App & Backend" --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed Access domain page to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs access-domain pull --project "Project Name" --title "App & Backend" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain pull --project "SNPM" --title "App & Backend" --output -',
+          'npm run access-domain-pull -- --project "SNPM" --title "App & Backend" --output access-domain.md',
+        ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff an Access domain page against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-domain diff --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain diff --project "SNPM" --title "App & Backend" --file access-domain.md --explain',
+          'npm run access-domain-diff -- --project "SNPM" --title "App & Backend" --file access-domain.md --review-output review',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply Access domain updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-domain push --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain push --project "SNPM" --title "App & Backend" --file access-domain.md',
+          'npm run access-domain-push -- --project "SNPM" --title "App & Backend" --file access-domain.md --apply',
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open an Access domain page in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs access-domain edit --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Access Domain Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-domain edit --project "SNPM" --title "App & Backend"',
+          'npm run access-domain-edit -- --project "SNPM" --title "App & Backend" --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "secret-record",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed project secret record or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs secret-record create --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record create --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md',
+          'npm run secret-record-create -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --apply',
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing project secret record into the managed format.",
+        usageLines: [
+          'node src/cli.mjs secret-record adopt --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record adopt --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY"',
+          'npm run secret-record-adopt -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed project secret record to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record pull --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output -',
+          'npm run secret-record-pull -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret.md',
+        ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed project secret record against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs secret-record diff --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record diff --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --explain',
+          'npm run secret-record-diff -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --review-output review',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply project secret-record updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs secret-record push --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record push --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md',
+          'npm run secret-record-push -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --apply',
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open a project secret record in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs secret-record edit --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record edit --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY"',
+          'npm run secret-record-edit -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "access-token",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed project access-token record or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-token create --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token create --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md',
+          'npm run access-token-create -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --apply',
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing project access-token record into the managed format.",
+        usageLines: [
+          'node src/cli.mjs access-token adopt --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token adopt --project "SNPM" --domain "App & Backend" --title "Project Token"',
+          'npm run access-token-adopt -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed project access-token record to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token pull --project "SNPM" --domain "App & Backend" --title "Project Token" --output -',
+          'npm run access-token-pull -- --project "SNPM" --domain "App & Backend" --title "Project Token" --output token.md',
+        ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed project access-token record against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-token diff --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token diff --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --explain',
+          'npm run access-token-diff -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --review-output review',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply project access-token updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs access-token push --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token push --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md',
+          'npm run access-token-push -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --apply',
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open a project access-token record in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs access-token edit --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token edit --project "SNPM" --domain "App & Backend" --title "Project Token"',
+          'npm run access-token-edit -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "runbook",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed runbook page or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs runbook create --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook create --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md',
+          'npm run runbook-create -- --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md --apply',
+        ],
+        notes: [
+          "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing runbook page into the managed format.",
+        usageLines: [
+          'node src/cli.mjs runbook adopt --project "Project Name" --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook adopt --project "SNPM" --title "SNPM Operator Validation Runbook"',
+          'npm run runbook-adopt -- --project "SNPM" --title "SNPM Operator Validation Runbook" --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed runbook to a file or stream the markdown body to stdout.",
+        usageLines: [
+          'node src/cli.mjs runbook pull --project "Project Name" --title "Runbook Title" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+          "--output <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook pull --project "SNPM" --title "SNPM Operator Validation Runbook" --output -',
+          'npm run runbook-pull -- --project "SNPM" --title "SNPM Operator Validation Runbook" --output runbook.md',
+        ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed runbook against a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs runbook diff --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook diff --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md --explain',
+          'npm run runbook-diff -- --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md --review-output review',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply managed runbook updates from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs runbook push --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+          "--file <file|->",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook push --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md',
+          'npm run runbook-push -- --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md --apply',
+        ],
+      },
+      {
+        name: "edit",
+        summary: "Open a runbook in the editor-backed review loop.",
+        usageLines: [
+          'node src/cli.mjs runbook edit --project "Project Name" --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Runbook Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_EXPLAIN,
+          OPT_REVIEW_OUTPUT,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs runbook edit --project "SNPM" --title "SNPM Operator Validation Runbook"',
+          'npm run runbook-edit -- --project "SNPM" --title "SNPM Operator Validation Runbook" --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "build-record",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed build record or preview the body diff from a local markdown file.",
+        usageLines: [
+          'node src/cli.mjs build-record create --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Build Record Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs build-record create --project "SNPM" --title "Validation Build" --file build-record.md',
+          'npm run build-record-create -- --project "SNPM" --title "Validation Build" --file build-record.md --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed build record to a local file.",
+        usageLines: [
+          'node src/cli.mjs build-record pull --project "Project Name" --title "Build Record Title" --output <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Build Record Title"',
+          "--output <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs build-record pull --project "SNPM" --title "Validation Build" --output build-record.md',
+          'npm run build-record-pull -- --project "SNPM" --title "Validation Build" --output build-record.md',
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed build record against a local file.",
+        usageLines: [
+          'node src/cli.mjs build-record diff --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Build Record Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs build-record diff --project "SNPM" --title "Validation Build" --file build-record.md',
+          'npm run build-record-diff -- --project "SNPM" --title "Validation Build" --file build-record.md',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply managed build-record updates from a local file.",
+        usageLines: [
+          'node src/cli.mjs build-record push --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Build Record Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs build-record push --project "SNPM" --title "Validation Build" --file build-record.md',
+          'npm run build-record-push -- --project "SNPM" --title "Validation Build" --file build-record.md --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "validation-sessions",
+    subcommands: [
+      {
+        name: "init",
+        summary: "Initialize the optional Validation Sessions surface for a project.",
+        usageLines: [
+          'node src/cli.mjs validation-sessions init --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-sessions init --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+          'npm run validation-sessions-init -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --apply',
+        ],
+        notes: [
+          "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
+        ],
+      },
+      {
+        name: "verify",
+        summary: "Verify the optional Validation Sessions surface, with optional bundle checks.",
+        usageLines: [
+          'node src/cli.mjs validation-sessions verify --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--bundle] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_BUNDLE,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-sessions verify --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+          'npm run validation-sessions-verify -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --bundle',
+        ],
+        notes: [
+          "Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "validation-session",
+    subcommands: [
+      {
+        name: "create",
+        summary: "Create a managed validation-session report or preview the body diff from a local file.",
+        usageLines: [
+          'node src/cli.mjs validation-session create --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Session Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-session create --project "SNPM" --title "Regression Pass 1" --file session.md',
+          'npm run validation-session-create -- --project "SNPM" --title "Regression Pass 1" --file session.md --apply',
+        ],
+      },
+      {
+        name: "adopt",
+        summary: "Adopt an existing validation-session page into the managed format.",
+        usageLines: [
+          'node src/cli.mjs validation-session adopt --project "Project Name" --title "Session Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Session Title"',
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-session adopt --project "SNPM" --title "Regression Pass 1"',
+          'npm run validation-session-adopt -- --project "SNPM" --title "Regression Pass 1" --apply',
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull a managed validation-session report to a local file.",
+        usageLines: [
+          'node src/cli.mjs validation-session pull --project "Project Name" --title "Session Title" --output <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Session Title"',
+          "--output <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-session pull --project "SNPM" --title "Regression Pass 1" --output session.md',
+          'npm run validation-session-pull -- --project "SNPM" --title "Regression Pass 1" --output session.md',
+        ],
+      },
+      {
+        name: "diff",
+        summary: "Diff a managed validation-session report against a local file.",
+        usageLines: [
+          'node src/cli.mjs validation-session diff --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Session Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-session diff --project "SNPM" --title "Regression Pass 1" --file session.md',
+          'npm run validation-session-diff -- --project "SNPM" --title "Regression Pass 1" --file session.md',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Preview or apply managed validation-session updates from a local file.",
+        usageLines: [
+          'node src/cli.mjs validation-session push --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--title "Session Title"',
+          "--file <file>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs validation-session push --project "SNPM" --title "Regression Pass 1" --file session.md',
+          'npm run validation-session-push -- --project "SNPM" --title "Regression Pass 1" --file session.md --apply',
+        ],
+      },
+    ],
+  }),
+  ...compoundFamilySpecs({
+    family: "sync",
+    subcommands: [
+      {
+        name: "check",
+        summary: "Check the manifest-backed validation-session sync state without mutating Notion or local files.",
+        usageLines: [
+          'node src/cli.mjs sync check --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          "--manifest <path>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs sync check --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+          'npm run sync-check -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+        ],
+        notes: [
+          "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+        ],
+      },
+      {
+        name: "pull",
+        summary: "Pull the manifest-backed validation-session files from Notion to the repo.",
+        usageLines: [
+          'node src/cli.mjs sync pull --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          "--manifest <path>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs sync pull --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+          'npm run sync-pull -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
+        ],
+      },
+      {
+        name: "push",
+        summary: "Push the manifest-backed validation-session files from the repo to Notion.",
+        usageLines: [
+          'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+        ],
+        requiredFlags: [
+          "--manifest <path>",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs sync push --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+          'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
+        ],
+      },
+    ],
+  }),
+];
+
+const COMMAND_SPECS = [...SINGLE_COMMAND_SPECS, ...COMPOUND_COMMAND_SPECS];
+
+const COMMAND_SPEC_INDEX = new Map();
+for (const spec of COMMAND_SPECS) {
+  COMMAND_SPEC_INDEX.set(spec.canonical, spec);
+  for (const alias of spec.aliases) {
+    COMMAND_SPEC_INDEX.set(alias, spec);
+  }
+}
+
+const GLOBAL_COMMAND_GROUPS = [
+  {
+    title: "Core Commands:",
+    entries: [
+      ["create-project", "Bootstrap a new project subtree in Notion."],
+      ["doctor", "Run the read-only project health scan."],
+      ["recommend", "Run the read-only scan or route an intent to Notion vs repo."],
+      ["verify-project", "Verify project structure and optional project-token scope."],
+      ["verify-workspace-docs", "Verify curated workspace and template docs."],
+    ],
+  },
+  {
+    title: "Managed Docs And Planning:",
+    entries: [
+      ["doc <create|adopt|pull|diff|push|edit>", "Curated project, template, and workspace docs."],
+      ["page <pull|diff|push|edit>", "Approved planning pages only."],
+    ],
+  },
+  {
+    title: "Project Operations:",
+    entries: [
+      ["access-domain <create|adopt|pull|diff|push|edit>", "Managed Access domain pages."],
+      ["secret-record <create|adopt|pull|diff|push|edit>", "Managed secret records under an Access domain."],
+      ["access-token <create|adopt|pull|diff|push|edit>", "Managed access-token records under an Access domain."],
+      ["runbook <create|adopt|pull|diff|push|edit>", "Managed project runbooks."],
+      ["build-record <create|pull|diff|push>", "Managed project build records."],
+    ],
+  },
+  {
+    title: "Validation And Sync:",
+    entries: [
+      ["validation-sessions <init|verify>", "Initialize or verify the Validation Sessions surface."],
+      ["validation-session <create|adopt|pull|diff|push>", "Managed validation-session reports."],
+      ["sync <check|pull|push>", "Manifest-backed validation-session sync."],
+    ],
+  },
+];
+
+function formatSection(title, lines) {
+  if (!lines || lines.length === 0) {
+    return [];
+  }
+
+  return [title, ...lines.map((line) => `  ${line}`), ""];
+}
+
+function formatOverviewEntry(label, summary) {
+  return `${label.padEnd(50)} ${summary}`;
+}
+
+function extractCommandTokens(tokens) {
+  const commandTokens = [];
+  let index = 0;
+
+  while (index < tokens.length && !tokens[index].startsWith("--") && commandTokens.length < 2) {
+    commandTokens.push(tokens[index]);
+    index += 1;
+  }
+
+  return commandTokens;
+}
+
+function isHelpToken(token) {
+  return HELP_TOKENS.has(token);
+}
+
+export function normalizeCommandName(command) {
+  return command.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function findCommandHelp(command) {
+  return COMMAND_SPEC_INDEX.get(normalizeCommandName(command)) || null;
+}
+
+export function commandUsage(command) {
+  const spec = findCommandHelp(command);
+  if (!spec) {
+    return null;
+  }
+
+  const lines = [
+    `Command: ${spec.canonical}`,
+    "",
+    ...formatSection("Summary:", [spec.summary]),
+    ...formatSection("Usage:", spec.usageLines),
+    ...formatSection("Aliases:", spec.aliases),
+    ...formatSection("Required Flags:", spec.requiredFlags),
+    ...formatSection("Optional Flags:", spec.optionalFlags),
+    ...formatSection("Examples:", spec.examples),
+    ...formatSection("Notes:", spec.notes),
+    'See `node src/cli.mjs --help` for the full command surface.',
+  ];
+
+  return lines.join("\n");
+}
+
+export function usage() {
+  const lines = [
+    "Usage:",
+    "  node src/cli.mjs <command> [options]",
+    "  node src/cli.mjs --help",
+    "  node src/cli.mjs help <command>",
+    "",
+    "Use `node src/cli.mjs <command> --help` or `node src/cli.mjs help <command>` for exact flags and examples.",
+    "",
+  ];
+
+  for (const group of GLOBAL_COMMAND_GROUPS) {
+    lines.push(group.title);
+    lines.push(...group.entries.map(([label, summary]) => `  ${formatOverviewEntry(label, summary)}`));
+    lines.push("");
+  }
+
+  lines.push(
+    "Examples:",
+    "  node src/cli.mjs verify-project --help",
+    "  node src/cli.mjs page push -h",
+    '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--apply]',
+    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--apply]',
+    "",
+    "Notes:",
+    "  Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
+    "  Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
+    "  Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
+    "  Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
+    "  Implementation notes, design specs, task breakdowns, and investigations are repo-first intents and should not be stored as managed Notion docs.",
+    "  The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
+    "  Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
+    '  Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
+    '  Workspace-scoped doc paths are limited to the curated exact pages plus "Templates > Project Templates" and descendants under it.',
+    "  Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
+    "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
+    "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
+    "  Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
+    "  Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+    "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
+    "  For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
+    "  When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+    "  Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
+    "",
+    "Global Options:",
+    `  ${OPT_WORKSPACE}`,
+    `  ${OPT_PROJECT_TOKEN}`,
+    `  ${OPT_APPLY}`,
+    "",
+    "Environment:",
+    "  Workspace token: NOTION_TOKEN or INFRASTRUCTURE_HQ_NOTION_TOKEN",
+  );
+
+  return lines.join("\n");
+}
+
+export function resolveHelpRequest(argv) {
+  if (argv.length === 0) {
+    return { type: "global" };
+  }
+
+  if (argv[0] === "help") {
+    const targetTokens = extractCommandTokens(argv.slice(1).filter((token) => !isHelpToken(token)));
+    if (targetTokens.length === 0) {
+      return { type: "global" };
+    }
+
+    const command = normalizeCommandName(targetTokens.join(" "));
+    const spec = findCommandHelp(command);
+    if (spec) {
+      return { type: "command", command: spec.canonical };
+    }
+
+    return { type: "unknown", command };
+  }
+
+  if (isHelpToken(argv[0])) {
+    return { type: "global" };
+  }
+
+  if (!argv.some(isHelpToken)) {
+    return null;
+  }
+
+  const targetTokens = extractCommandTokens(argv.filter((token) => !isHelpToken(token)));
+  if (targetTokens.length === 0) {
+    return { type: "global" };
+  }
+
+  const command = normalizeCommandName(targetTokens.join(" "));
+  const spec = findCommandHelp(command);
+  if (spec) {
+    return { type: "command", command: spec.canonical };
+  }
+
+  return { type: "unknown", command };
+}

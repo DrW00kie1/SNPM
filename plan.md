@@ -881,3 +881,55 @@ Stand up SNPM as the canonical Infrastructure HQ Notion automation repo while pr
 - Open gaps from the live pass:
   - full live Access-edit validation remains blocked because `Projects > SNPM > Access` is intentionally empty and SNPM still has no cleanup/archive path for temporary fixtures
   - planning pages still need a supported repair path for cases where the standard managed divider has already been removed
+
+## 2026-04-07 - Contour Project Token Recovery
+
+- [x] Re-read the current repo state plus the relevant SNPM docs and code paths.
+- [x] Record the current findings in `research.md`.
+- [x] Reproduce the reported preflight failure from `C:\SNPM` with:
+  - `npm run verify-project -- --name "Contour" --project-token-env CONTOUR_NOTION_TOKEN`
+  - `npm run doctor -- --project "Contour" --project-token-env CONTOUR_NOTION_TOKEN`
+- [x] Confirm that the current failure is project-token scope or sharing related rather than a repo-side Notion mutation defect.
+- [ ] Required Notion follow-up before any implementation work:
+  - share the integration behind `CONTOUR_NOTION_TOKEN` to `Projects > Contour`
+  - keep the share scoped to the project root rather than workspace-global surfaces
+- [x] Re-run the required SNPM preflight gates after the manual share or connection recovery:
+  - `verify-project`
+  - `doctor`
+- [ ] If the preflight gates pass, resume the previously approved Contour closeout on the intended project-owned Notion surfaces:
+  - target path: `Projects > Contour`
+  - target subpaths: the approved planning pages plus the curated project-doc surfaces involved in the six-page closeout
+  - intended SNPM command families: `page-*` for planning pages and `doc-*` for curated project docs
+- [ ] If the preflight gates still fail after the share, investigate token mismatch or wrong integration ownership before any live mutation.
+
+Status:
+- `verify-project` now passes for `Contour`
+- `doctor` now passes for `Contour`
+- the approved closeout flow is unblocked from the SNPM preflight side
+
+## 2026-04-22 - Conventional CLI Help Surface
+
+- [x] Re-read the current CLI entrypoint, help text, tests, and docs examples before changing behavior.
+- [x] Record the repo-local findings in `research.md`.
+- [x] Refactor CLI help into a shared registry that can render:
+  - global help
+  - exact command help for the currently dispatched command surface
+- [x] Add early help-request detection ahead of normal option parsing so:
+  - `--help` and `-h` work at the top level
+  - `<command> --help` and `<command> -h` work for subcommands
+  - `help <command>` remains supported
+  - explicit help exits `0` and suppresses required-option validation plus command execution
+- [x] Keep unknown-command behavior strict:
+  - unknown command without help remains an error
+  - unknown command with help prints the error plus global help and exits `1`
+- [x] Extend CLI tests with:
+  - help-target resolution and alias normalization coverage
+  - process-level exit-code and stdout/stderr checks for the conventional help forms
+- [x] Update repo docs to prefer `node src/cli.mjs --help` over bare `help`.
+- [x] Run the repo validation needed for this slice:
+  - `npm test`
+
+Status:
+- `node src/cli.mjs help`, `node src/cli.mjs --help`, and `node src/cli.mjs -h` now print global help and exit `0`
+- `node src/cli.mjs verify-project --help`, `node src/cli.mjs page push -h`, and `node src/cli.mjs help page-push` now print command-scoped help and exit `0`
+- unknown-command help requests such as `node src/cli.mjs fake-command --help` now print the error plus global help and exit `1`

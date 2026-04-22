@@ -1,51 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-import { parseArgs, usage } from "../src/cli.mjs";
+import {
+  findCommandHelp,
+  parseArgs,
+  resolveHelpRequest,
+  usage,
+} from "../src/cli.mjs";
 
-test("usage includes managed docs plus the existing surface commands", () => {
+const CLI_PATH = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+
+function runCli(args) {
+  return spawnSync(process.execPath, [CLI_PATH, ...args], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+  });
+}
+
+test("usage includes the conventional CLI synopsis and command families", () => {
   const help = usage();
-  assert.match(help, /npm run doctor/);
-  assert.match(help, /npm run recommend/);
-  assert.match(help, /--intent planning --page "Roadmap"/);
-  assert.match(help, /--intent project-doc --path "Root > Overview"/);
-  assert.match(help, /--intent template-doc --path "Templates > Project Templates > Overview"/);
-  assert.match(help, /--intent workspace-doc --path "Runbooks > Notion Workspace Workflow"/);
-  assert.match(help, /--intent implementation-note --repo-path "notes\/implementation\.md"/);
-  assert.match(help, /--intent design-spec --repo-path "docs\/design\/spec\.md"/);
-  assert.match(help, /--intent repo-doc --repo-path "docs\/path\.md"/);
-  assert.match(help, /npm run verify-workspace-docs/);
-  assert.match(help, /npm run doc-create/);
-  assert.match(help, /npm run doc-adopt/);
-  assert.match(help, /npm run doc-pull/);
-  assert.match(help, /npm run doc-diff/);
-  assert.match(help, /npm run doc-push/);
-  assert.match(help, /npm run doc-edit/);
-  assert.match(help, /npm run page-pull/);
-  assert.match(help, /npm run page-diff/);
-  assert.match(help, /npm run page-push/);
-  assert.match(help, /npm run page-edit/);
-  assert.match(help, /npm run access-domain-create/);
-  assert.match(help, /npm run access-domain-edit/);
-  assert.match(help, /npm run secret-record-create/);
-  assert.match(help, /npm run secret-record-edit/);
-  assert.match(help, /npm run access-token-create/);
-  assert.match(help, /npm run access-token-edit/);
-  assert.match(help, /npm run runbook-create/);
-  assert.match(help, /npm run runbook-adopt/);
-  assert.match(help, /npm run runbook-edit/);
-  assert.match(help, /npm run build-record-create/);
-  assert.match(help, /npm run build-record-push/);
-  assert.match(help, /npm run validation-sessions-init/);
-  assert.match(help, /npm run validation-sessions-verify/);
-  assert.match(help, /validation-sessions-verify -- --project "Project Name".*\[--bundle\]/);
-  assert.match(help, /npm run validation-session-create/);
-  assert.match(help, /npm run validation-session-push/);
-  assert.match(help, /npm run sync-check/);
-  assert.match(help, /npm run sync-pull/);
-  assert.match(help, /npm run sync-push/);
-  assert.match(help, /--output <file\|->/);
-  assert.match(help, /--file <file\|->/);
+  assert.match(help, /node src\/cli\.mjs <command> \[options\]/);
+  assert.match(help, /node src\/cli\.mjs --help/);
+  assert.match(help, /node src\/cli\.mjs help <command>/);
+  assert.match(help, /create-project/);
+  assert.match(help, /doc <create\|adopt\|pull\|diff\|push\|edit>/);
+  assert.match(help, /page <pull\|diff\|push\|edit>/);
+  assert.match(help, /access-domain <create\|adopt\|pull\|diff\|push\|edit>/);
+  assert.match(help, /validation-sessions <init\|verify>/);
+  assert.match(help, /sync <check\|pull\|push>/);
   assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
   assert.match(help, /managed doc surface uses doc-\* commands/);
   assert.match(help, /browser\/UI automation remains paused on codex\/validation-bundle/);
@@ -53,6 +38,30 @@ test("usage includes managed docs plus the existing surface commands", () => {
   assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
   assert.match(help, /support --explain/);
   assert.match(help, /--review-output <dir>/);
+});
+
+test("help registry resolves command aliases to the canonical command", () => {
+  assert.equal(findCommandHelp("page-push")?.canonical, "page push");
+  assert.equal(findCommandHelp("page push")?.canonical, "page push");
+  assert.equal(findCommandHelp("verify")?.canonical, "verify-project");
+});
+
+test("resolveHelpRequest supports global, command, and unknown help targets", () => {
+  assert.deepEqual(resolveHelpRequest([]), { type: "global" });
+  assert.deepEqual(resolveHelpRequest(["--help"]), { type: "global" });
+  assert.deepEqual(resolveHelpRequest(["help"]), { type: "global" });
+  assert.deepEqual(resolveHelpRequest(["verify-project", "--help"]), {
+    type: "command",
+    command: "verify-project",
+  });
+  assert.deepEqual(resolveHelpRequest(["help", "page-push"]), {
+    type: "command",
+    command: "page push",
+  });
+  assert.deepEqual(resolveHelpRequest(["fake-command", "--help"]), {
+    type: "unknown",
+    command: "fake-command",
+  });
 });
 
 test("parseArgs supports doctor and recommend aliases", () => {
@@ -251,4 +260,71 @@ test("parseArgs supports sync subcommands", () => {
   assert.equal(parsed.options.manifest, "C:\\tall-man-training\\snpm.sync.json");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
   assert.equal(parsed.options.apply, true);
+});
+
+test("cli with no args prints global help and exits successfully", () => {
+  const result = runCli([]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /node src\/cli\.mjs <command> \[options\]/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli help alias prints global help and exits successfully", () => {
+  const result = runCli(["help"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /node src\/cli\.mjs --help/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli --help prints global help and exits successfully", () => {
+  const result = runCli(["--help"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Core Commands:/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli -h prints global help and exits successfully", () => {
+  const result = runCli(["-h"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Managed Docs And Planning:/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli subcommand --help prints command help and bypasses option validation", () => {
+  const result = runCli(["verify-project", "--help"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: verify-project/);
+  assert.match(result.stdout, /--name "Project Name"/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli subcommand -h supports spaced commands", () => {
+  const result = runCli(["page", "push", "-h"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: page push/);
+  assert.match(result.stdout, /--page "Planning > <Page Name>"/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli help command resolves hyphenated command aliases", () => {
+  const result = runCli(["help", "page-push"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: page push/);
+  assert.match(result.stdout, /Aliases:\n  page-push/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli help suppresses required option validation when extra flags are present", () => {
+  const result = runCli(["verify-project", "--help", "--name", "SNPM"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: verify-project/);
+  assert.doesNotMatch(result.stdout, /"ok":/);
+  assert.equal(result.stderr, "");
+});
+
+test("cli unknown command help prints the error plus global help and exits non-zero", () => {
+  const result = runCli(["fake-command", "--help"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown command: fake-command/);
+  assert.match(result.stdout, /node src\/cli\.mjs <command> \[options\]/);
 });

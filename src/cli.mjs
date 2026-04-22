@@ -1,6 +1,12 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  commandUsage,
+  findCommandHelp,
+  resolveHelpRequest,
+  usage,
+} from "./cli-help.mjs";
+import {
   runAccessDomainAdopt,
   runAccessDomainCreate,
   runAccessDomainDiff,
@@ -62,111 +68,15 @@ import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
 const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain"]);
+export {
+  commandUsage,
+  findCommandHelp,
+  resolveHelpRequest,
+  usage,
+} from "./cli-help.mjs";
 
-export function usage() {
-  return [
-    "Usage:",
-    '  npm run create-project -- --name "Project Name"',
-    '  npm run doctor -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --project "Project Name" --intent planning --page "Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --project "Project Name" --intent runbook --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --project "Project Name" --intent secret --domain "App & Backend" --title "Record Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --project "Project Name" --intent project-doc --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run recommend -- --intent template-doc --path "Templates > Project Templates > Overview"',
-    '  npm run recommend -- --intent workspace-doc --path "Runbooks > Notion Workspace Workflow"',
-    '  npm run recommend -- --project "Project Name" --intent implementation-note --repo-path "notes/implementation.md"',
-    '  npm run recommend -- --project "Project Name" --intent design-spec --repo-path "docs/design/spec.md"',
-    '  npm run recommend -- --project "Project Name" --intent task-breakdown --repo-path "docs/tasks.md"',
-    '  npm run recommend -- --project "Project Name" --intent investigation --repo-path "docs/investigation.md"',
-    '  npm run recommend -- --project "Project Name" --intent repo-doc --repo-path "docs/path.md"',
-    '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run verify-workspace-docs',
-    '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run doc-adopt -- --project "Project Name" --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run doc-pull -- --project "Project Name" --path "Root > Overview" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run doc-diff -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run doc-push -- --project "Project Name" --path "Root > Overview" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run doc-edit -- --project "Project Name" --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run doc-pull -- --path "Templates > Project Templates" --output <file|->',
-    '  npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run page-edit -- --project "Project Name" --page "Planning > Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-domain-adopt -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-domain-pull -- --project "Project Name" --title "App & Backend" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-domain-diff -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-domain-push -- --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-domain-edit -- --project "Project Name" --title "App & Backend" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run secret-record-edit -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run access-token-edit -- --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run runbook-create -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run runbook-adopt -- --project "Project Name" --title "Existing Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run runbook-pull -- --project "Project Name" --title "Runbook Title" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run runbook-diff -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run runbook-push -- --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run runbook-edit -- --project "Project Name" --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>]',
-    '  npm run build-record-create -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run build-record-pull -- --project "Project Name" --title "Build Record Title" --output build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run build-record-diff -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run build-record-push -- --project "Project Name" --title "Build Record Title" --file build-record.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run validation-sessions-init -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run validation-sessions-verify -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--bundle]',
-    '  npm run validation-session-create -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run validation-session-adopt -- --project "Project Name" --title "Existing Session Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run validation-session-pull -- --project "Project Name" --title "Session Title" --output validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run validation-session-diff -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run validation-session-push -- --project "Project Name" --title "Session Title" --file validation-session.md [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run sync-check -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
-    '  npm run sync-pull -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    '  npm run sync-push -- --manifest C:\\path\\to\\snpm.sync.json [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply]',
-    "",
-    "Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
-    "Bootstrap only needs the workspace token. Project-token verification stays optional until a repo-local Notion integration exists.",
-    "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
-    "Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
-    "Implementation notes, design specs, task breakdowns, and investigations are repo-first intents and should not be stored as managed Notion docs.",
-    "The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
-    "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
-    'Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
-    'Workspace-scoped doc paths are limited to the curated exact pages plus "Templates > Project Templates" and descendants under it.',
-    "Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
-    "Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
-    "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
-    "Validation-session bundle verification is docs-and-verify only; browser/UI automation remains paused on codex/validation-bundle.",
-    "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
-    "verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
-    "For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
-    "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
-    "Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
-    "",
-    "Optional flags:",
-    "  --workspace infrastructure-hq",
-    "  --project-token-env PROJECT_NAME_NOTION_TOKEN",
-    "  --apply",
-    "",
-    "Environment:",
-    "  Workspace token: NOTION_TOKEN or INFRASTRUCTURE_HQ_NOTION_TOKEN",
-  ].join("\n");
-}
-
-function printUsage() {
-  console.log(
-    [
-      usage(),
-    ].join("\n"),
-  );
+function printUsage(command = null) {
+  console.log(command ? commandUsage(command) : usage());
 }
 
 function writeStructuredOutput(payload, { stderr = false } = {}) {
@@ -296,10 +206,23 @@ function printSyncEntryResults(entries) {
 }
 
 async function main() {
-  const { command, options } = parseArgs(process.argv.slice(2));
-  if (!command || command === "--help" || command === "help") {
+  const argv = process.argv.slice(2);
+  const helpRequest = resolveHelpRequest(argv);
+  if (helpRequest) {
+    if (helpRequest.type === "unknown") {
+      console.error(`Unknown command: ${helpRequest.command}`);
+      printUsage();
+      process.exitCode = 1;
+      return;
+    }
+
+    printUsage(helpRequest.command);
+    return;
+  }
+
+  const { command, options } = parseArgs(argv);
+  if (!command) {
     printUsage();
-    process.exitCode = command ? 1 : 0;
     return;
   }
 
