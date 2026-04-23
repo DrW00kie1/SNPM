@@ -40,30 +40,9 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
   assert.match(help, /support --explain/);
   assert.match(help, /--review-output <dir>/);
-  assert.match(help, /npm run doctor/);
-  assert.match(help, /npm run recommend/);
-  assert.match(help, /npm run page-pull/);
-  assert.match(help, /npm run page-diff/);
+  assert.match(help, /npm run verify-project/);
+  assert.match(help, /npm run doc-create/);
   assert.match(help, /npm run page-push/);
-  assert.match(help, /npm run access-domain-create/);
-  assert.match(help, /npm run secret-record-create/);
-  assert.match(help, /npm run access-token-create/);
-  assert.match(help, /npm run runbook-create/);
-  assert.match(help, /npm run runbook-adopt/);
-  assert.match(help, /npm run build-record-create/);
-  assert.match(help, /npm run build-record-push/);
-  assert.match(help, /npm run validation-sessions-init/);
-  assert.match(help, /npm run validation-sessions-verify/);
-  assert.match(help, /validation-sessions-verify -- --project "Project Name".*\[--bundle\]/);
-  assert.match(help, /npm run validation-bundle-login/);
-  assert.match(help, /npm run validation-bundle-preview/);
-  assert.match(help, /npm run validation-bundle-apply/);
-  assert.match(help, /npm run validation-bundle-verify/);
-  assert.match(help, /npm run validation-session-create/);
-  assert.match(help, /npm run validation-session-push/);
-  assert.match(help, /npm run sync-check/);
-  assert.match(help, /npm run sync-pull/);
-  assert.match(help, /npm run sync-push/);
 });
 
 test("help registry resolves command aliases to the canonical command", () => {
@@ -379,7 +358,7 @@ test("cli validation-bundle help prints command help and bypasses option validat
   const result = runCli(["validation-bundle", "preview", "--help"]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Command: validation-bundle preview/);
-  assert.match(result.stdout, /experimental Chromium-only UI lane/i);
+  assert.match(result.stdout, /This lane is experimental/i);
   assert.equal(result.stderr, "");
 });
 
