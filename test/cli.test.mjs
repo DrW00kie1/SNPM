@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -35,6 +35,22 @@ function runCli(args, options = {}) {
   });
 }
 
+function commandText(command) {
+  return [
+    command.summary,
+    ...command.usageLines,
+    ...command.requiredFlags,
+    ...command.optionalFlags,
+    ...command.examples,
+    ...command.notes,
+  ].join("\n");
+}
+
+function assertNoManifestV2MutationClaims(text) {
+  assert.doesNotMatch(text, /\bmanifest v2\b[^.]*\b(?:pull|push|apply)\b/i);
+  assert.doesNotMatch(text, /\b(?:pull|push|apply)\b[^.]*\bmanifest v2\b/i);
+}
+
 test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /node src\/cli\.mjs <command> \[options\]/);
@@ -50,6 +66,8 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /validation-sessions <init\|verify>/);
   assert.match(help, /validation-bundle <login\|preview\|apply\|verify>/);
   assert.match(help, /sync <check\|pull\|push>/);
+  assert.match(help, /v2 mixed-surface support is check-only/);
+  assert.match(help, /sync pull and sync push remain manifest v1 validation-session operations/);
   assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
   assert.match(help, /managed doc surface uses doc-\* commands/);
   assert.match(help, /Validation-session bundle verification remains the API-visible check/);
@@ -131,6 +149,64 @@ test("capabilities command help and npm script are registered", () => {
   assert.equal(spec?.mutationMode, "read-only");
   assert.equal(packageJson.scripts.capabilities, "node src/cli.mjs capabilities");
   assert.deepEqual(parsedJson, capabilities);
+});
+
+test("sync check help and capabilities document manifest v2 as check-only", () => {
+  const result = runCli(["sync", "check", "--help"]);
+  const capabilities = buildCapabilityMap();
+  const syncCheckCapability = capabilities.commands.find((command) => command.canonical === "sync check");
+  const syncPullCapability = capabilities.commands.find((command) => command.canonical === "sync pull");
+  const syncPushCapability = capabilities.commands.find((command) => command.canonical === "sync push");
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /Command: sync check/);
+  assert.match(result.stdout, /manifest v2 mixed-surface manifests in check-only mode/);
+  assert.match(result.stdout, /planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions/);
+  assertNoManifestV2MutationClaims(result.stdout);
+
+  assert.ok(syncCheckCapability);
+  assert.ok(syncPullCapability);
+  assert.ok(syncPushCapability);
+
+  const syncCheckText = commandText(syncCheckCapability);
+  assert.match(syncCheckText, /manifest v2 mixed-surface manifests in check-only mode/);
+  assert.match(syncCheckText, /planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions/);
+  assertNoManifestV2MutationClaims(syncCheckText);
+
+  assert.match(commandText(syncPullCapability), /manifest v1 validation-session/);
+  assert.match(commandText(syncPullCapability), /Manifest v2 mixed-surface manifests are check-only/);
+  assert.match(commandText(syncPushCapability), /manifest v1 validation-session/);
+  assert.match(commandText(syncPushCapability), /Manifest v2 mixed-surface manifests are check-only/);
+});
+
+test("sync pull and push reject manifest v2 before mutation work", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-sync-v2-"));
+  try {
+    const manifestPath = path.join(tempDir, "snpm.sync.json");
+    writeFileSync(manifestPath, JSON.stringify({
+      version: 2,
+      workspace: "infrastructure-hq",
+      project: "SNPM",
+      entries: [{
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "notion/roadmap.md",
+      }],
+    }), "utf8");
+
+    const pull = runCli(["sync", "pull", "--manifest", manifestPath]);
+    const push = runCli(["sync", "push", "--manifest", manifestPath]);
+
+    assert.equal(pull.status, 1);
+    assert.match(pull.stderr, /Manifest version 2 is check-only/i);
+    assert.match(pull.stderr, /sync check/i);
+    assert.equal(push.status, 1);
+    assert.match(push.stderr, /Manifest version 2 is check-only/i);
+    assert.match(push.stderr, /sync check/i);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("plan-change and journal list command help and npm scripts are registered", () => {

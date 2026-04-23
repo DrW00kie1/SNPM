@@ -28,10 +28,14 @@ Supported on `main`:
 - local redacted mutation journal entries for applied changes
 - EOF-stable managed-page round-trips
 
+Current `codex/manifest-v2-check` branch addition:
+- manifest v2 `sync check` for read-only mixed-surface drift detection
+
 Still outside the stable supported line:
 - build records
 - validation sessions
-- manifest-backed sync
+- generalized manifest pull/push and batch apply
+- validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
 ## Why SNPM Beats A Generic Connector
@@ -87,12 +91,17 @@ Those surfaces continue to use their own command families.
   - `New Validation Session`
 
 ### Phase 2: Workflow Bundles
-- only after the operational loop and the experimental validation-session UI lane stay low-friction under real use
-- likely first bundles:
-  - validation run lifecycle
-  - release/build evidence capture
-  - project secret management
-  - runbook standardization
+- use manifest v2 check-only support as the first safe workflow-bundle primitive
+- compare mixed approved surfaces before designing generalized writes
+- keep v2 entries explicit:
+  - `planning-page`
+  - `project-doc`
+  - `template-doc`
+  - `workspace-doc`
+  - `runbook`
+  - `validation-session`
+- defer generalized `sync pull`, `sync push`, batch apply, create, and adopt until metadata and recovery semantics are designed
+- keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
 ### Phase 3: Harden Cross-Repo Consumption
 - keep pinned install/use from other repos straightforward
@@ -111,6 +120,8 @@ Keep these boundaries:
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
+- manifest v2 is check-only; mutation stays on the owning command family
+- validation-session v1 sync is not a precedent for generalized mixed-surface push
 - UI automation stays narrow, explicit, Chromium-only, and non-default
 
 ## Success Criteria

@@ -254,8 +254,10 @@ function printSyncEntryResults(entries) {
   let printedAny = false;
 
   for (const entry of entries) {
+    const target = entry.title || entry.target || entry.pagePath || entry.docPath || "(unknown target)";
+
     if (entry.failure) {
-      console.log(`[${entry.kind}] ${entry.title} (${entry.file})`);
+      console.log(`[${entry.kind}] ${target} (${entry.file})`);
       console.log(`Error: ${entry.failure}`);
       console.log("");
       printedAny = true;
@@ -266,7 +268,7 @@ function printSyncEntryResults(entries) {
       continue;
     }
 
-    console.log(`[${entry.kind}] ${entry.title} (${entry.file})`);
+    console.log(`[${entry.kind}] ${target} (${entry.file})`);
     console.log(entry.diff.trimEnd());
     console.log("");
     printedAny = true;

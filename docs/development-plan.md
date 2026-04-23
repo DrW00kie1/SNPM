@@ -112,18 +112,25 @@ Purpose: move from one-page operations to planned documentation bundles while ke
 ### Sprint 3.1: Generalized Manifest V2
 
 Goal:
-- extend manifest-backed sync beyond validation sessions
+- extend manifest-backed checking beyond validation sessions without adding new mutation semantics
 
 Deliverables:
 - typed manifest entries for managed docs, planning pages, runbooks, and validation sessions
 - manifest validation that rejects unsupported surfaces and path escapes
 - `sync check` support for all approved manifest entry types
+- clear separation from the existing validation-session v1 artifact sync lane
 
 Exit criteria:
 - a project can describe a deterministic documentation bundle in one manifest without using arbitrary page IDs
 
 Feature goals covered:
 - generalized manifest sync
+
+Status:
+- active `codex/manifest-v2-check` scope is check-only
+- supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
+- each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
+- `sync pull` and `sync push` remain v1 validation-session artifact-sync commands until generalized sidecar metadata, stale checks, and batch-apply semantics are designed
 
 ### Sprint 3.2: Manifest Pull And Push
 
@@ -134,6 +141,7 @@ Deliverables:
 - `sync pull` and `sync push` for the generalized manifest
 - per-entry preview output and failure isolation
 - project-token-safe execution where applicable
+- reuse or extend the managed-page sidecar metadata model before allowing mixed-surface writes
 
 Exit criteria:
 - an LLM can pull, edit, diff, and push a typed documentation bundle without hand-sequencing every page command

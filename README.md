@@ -14,6 +14,7 @@ GitHub remote:
 Current branch reality:
 - active stable baseline: `main`
 - promotion trace branch: `codex/managed-doc-surface`
+- active feature branch: `codex/manifest-v2-check` adds manifest v2 check-only mixed-surface support
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -41,10 +42,14 @@ Supported narrow-band baseline on `main`:
 - stdin/stdout ergonomics on the core band
 - EOF-stable round-trips on managed planning, runbook, Access, and build-record pages
 
+Current `codex/manifest-v2-check` branch addition:
+- check-only manifest v2 mixed-surface comparison through `sync check`
+
 Present in the repo but outside the current supported line:
 - build records
 - validation sessions
-- manifest-backed sync
+- v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
+- generalized manifest pull/push and batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -125,6 +130,14 @@ npm run plan-change -- --targets-file plan-targets.json --project "Project Name"
 npm run journal-list -- --limit 20
 ```
 
+Manifest v2 check-only mixed-surface sync:
+
+```bash
+npm run sync-check -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Manifest v2 supports read-only comparison for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session` entries. It does not support generalized pull, push, create, adopt, or batch apply; use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family for mutation.
+
 Planning-page sync remains available through `page-*`:
 
 ```bash
@@ -196,6 +209,8 @@ npm run validation-bundle-verify -- --project "Project Name" --project-token-env
 
 Use that Chromium-only lane only when the surrounding Notion UI bundle matters. The stable default remains `validation-sessions-verify --bundle` for the API-visible checks plus manual UI setup where needed.
 
+Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need `sync-check`, `sync-pull`, or `sync-push`; use v2 when the goal is read-only drift detection across mixed approved surfaces.
+
 The file produced by `page-pull`, `runbook-pull`, Access pull commands, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
 - `--file -` reads markdown from stdin
@@ -251,14 +266,16 @@ Hybrid only when justified:
 
 ## Current Direction
 
-Near-term direction on `main`:
+Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
+- use manifest v2 `sync check` to preflight mixed-surface documentation bundles before any generalized pull/push design
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 
 Broader direction:
 - keep the narrow band usable and safe
 - expand doc adoption and verification before broader workflow bundles
+- keep v1 validation-session artifact sync separate from v2 mixed-surface check-only manifests
 - return to workflow bundles only after the core band and curated docs are stable under real use
 - keep Chromium UI automation narrow and explicitly experimental while the API-visible validation-session flow stays the default operator path
 
@@ -289,6 +306,6 @@ Do not copy SNPM scripts, workspace ids, or config into another repo.
 - [migration guidance](./docs/migration-guidance.md)
 - [validation sessions](./docs/validation-sessions.md)
 - [validation-session UI bundle](./docs/validation-session-ui-bundle.md)
-- [validation-session sync](./docs/validation-session-sync.md)
+- [manifest and validation-session sync](./docs/validation-session-sync.md)
 - [live Notion doc update guidance](./docs/live-notion-docs.md)
 - [new thread handoff](./docs/new-thread-handoff.md)

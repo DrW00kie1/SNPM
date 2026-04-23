@@ -1551,7 +1551,7 @@ const COMPOUND_COMMAND_SPECS = [
     subcommands: [
       {
         name: "check",
-        summary: "Check the manifest-backed validation-session sync state without mutating Notion or local files.",
+        summary: "Check manifest-backed sync state without mutating Notion or local files.",
         usageLines: [
           'node src/cli.mjs sync check --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
@@ -1567,12 +1567,13 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run sync-check -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
         ],
         notes: [
-          "Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+          "sync check supports validation-session v1 manifests and manifest v2 mixed-surface manifests in check-only mode.",
+          "Manifest v2 check entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
         ],
       },
       {
         name: "pull",
-        summary: "Pull the manifest-backed validation-session files from Notion to the repo.",
+        summary: "Pull the manifest v1 validation-session files from Notion to the repo.",
         usageLines: [
           'node src/cli.mjs sync pull --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
@@ -1588,10 +1589,14 @@ const COMPOUND_COMMAND_SPECS = [
           'node src/cli.mjs sync pull --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
           'npm run sync-pull -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
         ],
+        notes: [
+          "sync pull preserves manifest v1 validation-session behavior.",
+          "Manifest v2 mixed-surface manifests are check-only; use sync check for v2 manifests.",
+        ],
       },
       {
         name: "push",
-        summary: "Push the manifest-backed validation-session files from the repo to Notion.",
+        summary: "Push the manifest v1 validation-session files from the repo to Notion.",
         usageLines: [
           'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
@@ -1606,6 +1611,10 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs sync push --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
           'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
+        ],
+        notes: [
+          "sync push preserves manifest v1 validation-session behavior.",
+          "Manifest v2 mixed-surface manifests are check-only; use sync check for v2 manifests.",
         ],
       },
     ],
@@ -1659,7 +1668,7 @@ const GLOBAL_COMMAND_GROUPS = [
       ["validation-sessions <init|verify>", "Initialize or verify the Validation Sessions surface."],
       ["validation-bundle <login|preview|apply|verify>", "Experimental Chromium-only UI bundle commands."],
       ["validation-session <create|adopt|pull|diff|push>", "Managed validation-session reports."],
-      ["sync <check|pull|push>", "Manifest-backed validation-session sync."],
+      ["sync <check|pull|push>", "Manifest-backed sync; v2 mixed-surface support is check-only."],
     ],
   },
 ];
@@ -1799,7 +1808,7 @@ export function usage() {
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
-    "  Manifest sync is limited to repo-backed validation-session files listed in snpm.sync.json.",
+    "  Manifest v2 mixed-surface support is check-only through sync check. sync pull and sync push remain manifest v1 validation-session operations.",
     "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "  For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
