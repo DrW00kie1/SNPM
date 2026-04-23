@@ -69,7 +69,13 @@ function makePageFixture({
 
       if (method === "GET" && /^pages\/[^/]+$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length);
-        return { id: pageId, icon: pageMeta[pageId]?.icon || null };
+        return {
+          id: pageId,
+          icon: pageMeta[pageId]?.icon || null,
+          last_edited_time: pageMeta[pageId]?.last_edited_time || "2026-04-23T20:00:00.000Z",
+          archived: pageMeta[pageId]?.archived === true,
+          in_trash: pageMeta[pageId]?.in_trash === true,
+        };
       }
 
       throw new Error(`Unexpected request: ${method} ${apiPath}`);
@@ -233,6 +239,7 @@ test("secret-record pull and push work on managed secret pages", async () => {
     config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
     domainTitle: "App & Backend",
     fileBodyMarkdown: "## Secret Record\n- Secret Name: GEMINI_API_KEY\n- System: Gemini\n",
+    metadata: pulled.metadata,
     projectName: "SNPM",
     title: "GEMINI_API_KEY",
     resolveClient: fixture.resolveClient,
@@ -281,6 +288,7 @@ test("access-token pull and push work on managed token pages", async () => {
     config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
     domainTitle: "App & Backend",
     fileBodyMarkdown: "## Token Record\n- Token Name: SNPM_NOTION_TOKEN\n- System: Notion\n",
+    metadata: pulled.metadata,
     projectName: "SNPM",
     title: "SNPM_NOTION_TOKEN",
     resolveClient: fixture.resolveClient,

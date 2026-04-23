@@ -95,7 +95,13 @@ function makeFixture({
 
       if (method === "GET" && /^pages\/[^/]+$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length);
-        return { id: pageId, icon: pageMeta[pageId]?.icon || null };
+        return {
+          id: pageId,
+          icon: pageMeta[pageId]?.icon || null,
+          last_edited_time: pageMeta[pageId]?.last_edited_time || "2026-04-23T20:00:00.000Z",
+          archived: pageMeta[pageId]?.archived === true,
+          in_trash: pageMeta[pageId]?.in_trash === true,
+        };
       }
 
       throw new Error(`Unexpected request: ${method} ${apiPath}`);
@@ -209,6 +215,7 @@ test("pullDocBody and pushDocBody use the managed body for an existing workspace
     config: makeConfig(),
     docPath: "Runbooks > Notion Workspace Workflow",
     fileBodyMarkdown: "## Steps\n- Updated\n",
+    metadata: pulled.metadata,
     resolveClient: fixture.resolveClient,
     syncClient: fixture.syncClient,
     timestamp: "04-06-2026 11:00:00",

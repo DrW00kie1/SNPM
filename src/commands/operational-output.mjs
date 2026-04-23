@@ -152,6 +152,7 @@ export function buildOperationalPayload({
     ...("projectId" in result ? { projectId: result.projectId } : {}),
     ...("timestamp" in result ? { timestamp: result.timestamp } : {}),
     ...(reviewArtifacts ? { reviewOutput: reviewArtifacts } : {}),
+    ...(result.journal ? { journal: result.journal } : {}),
     explanation,
   };
 }

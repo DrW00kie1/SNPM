@@ -1,5 +1,3 @@
-import { readFileSync, writeFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   adoptValidationSession,
@@ -10,6 +8,7 @@ import {
   pushValidationSessionFile,
   verifyValidationSessionsSurface,
 } from "../notion/validation-sessions.mjs";
+import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
 
 export async function runValidationSessionsInit({
   apply = false,
@@ -50,7 +49,7 @@ export async function runValidationSessionCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileMarkdown = readFileSync(filePath, "utf8");
+  const fileMarkdown = await readCommandInput(filePath);
 
   return createValidationSession({
     apply,
@@ -80,6 +79,7 @@ export async function runValidationSessionAdopt({
 }
 
 export async function runValidationSessionPull({
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -92,15 +92,22 @@ export async function runValidationSessionPull({
     projectName,
     projectTokenEnv,
     title,
+    workspaceName,
   });
 
-  writeFileSync(outputPath, result.fileMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.fileMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    metadata: result.metadata,
+    ...metadataResult,
+    ...outputResult,
   };
 }
 
@@ -112,7 +119,7 @@ export async function runValidationSessionDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileMarkdown = readFileSync(filePath, "utf8");
+  const fileMarkdown = await readCommandInput(filePath);
 
   return diffValidationSessionFile({
     config,
@@ -126,20 +133,26 @@ export async function runValidationSessionDiff({
 export async function runValidationSessionPush({
   apply = false,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileMarkdown = readFileSync(filePath, "utf8");
+  const fileMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushValidationSessionFile({
     apply,
     config,
     fileMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    workspaceName,
   });
 }

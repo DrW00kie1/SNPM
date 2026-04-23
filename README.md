@@ -24,11 +24,15 @@ Supported narrow-band baseline on `main`:
 - planning-page sync for the four approved planning pages
 - managed runbooks
 - managed Access records
- - low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, and `access-token-edit`
+- low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, and `access-token-edit`
 - curated managed docs for:
   - project root docs
   - `Templates > Project Templates` and its non-reserved descendants
   - a small named set of workspace-global docs
+- `capabilities` for LLM-readable command discovery
+- read-only `plan-change` for deterministic routing before mutation
+- strict pull metadata sidecars and stale-write protection for managed apply paths
+- local redacted mutation journal entries for applied mutations
 - `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
 - `verify-workspace-docs`
 - `doctor`
@@ -113,12 +117,20 @@ npm run recommend -- --project "Project Name" --intent design-spec --repo-path "
 npm run recommend -- --intent repo-doc --repo-path "docs/operator-roadmap.md"
 ```
 
+Discover the CLI surface and inspect a proposed change plan:
+
+```bash
+npm run capabilities
+npm run plan-change -- --targets-file plan-targets.json --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run journal-list -- --limit 20
+```
+
 Planning-page sync remains available through `page-*`:
 
 ```bash
-npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output roadmap.md
+npm run page-pull -- --project "Project Name" --page "Planning > Roadmap" --output roadmap.md --metadata-output roadmap.meta.json
 npm run page-diff -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md
-npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md --apply
+npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file roadmap.md --metadata roadmap.meta.json --apply
 npm run page-edit -- --project "Project Name" --page "Planning > Roadmap" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\planning
 ```
 
@@ -184,10 +196,14 @@ npm run validation-bundle-verify -- --project "Project Name" --project-token-env
 
 Use that Chromium-only lane only when the surrounding Notion UI bundle matters. The stable default remains `validation-sessions-verify --bundle` for the API-visible checks plus manual UI setup where needed.
 
-The file produced by `page-pull`, `runbook-pull`, Access pull commands, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
+The file produced by `page-pull`, `runbook-pull`, Access pull commands, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
 - `--file -` reads markdown from stdin
 - structured success metadata goes to stderr when stdout is used for body output
+- file pulls write `<output>.snpm-meta.json` by default; use `--metadata-output <path>` to override
+- `--apply` push reads `<file>.snpm-meta.json` by default; use `--metadata <path>` to override
+- `--file - --apply` requires explicit `--metadata <path>`
+- applied Notion mutations append redacted operational entries to `%LOCALAPPDATA%\SNPM\journal.ndjson` unless `SNPM_JOURNAL_PATH` overrides it
 
 ## Testing
 
@@ -246,7 +262,7 @@ Broader direction:
 - return to workflow bundles only after the core band and curated docs are stable under real use
 - keep Chromium UI automation narrow and explicitly experimental while the API-visible validation-session flow stays the default operator path
 
-The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md).
+The supporting detail lives in [operator roadmap](./docs/operator-roadmap.md), with sprint sequencing in [development plan](./docs/development-plan.md).
 
 ## Use From Another Repo Or Codex Thread
 
@@ -262,6 +278,7 @@ Do not copy SNPM scripts, workspace ids, or config into another repo.
 ## Docs
 
 - [operator roadmap](./docs/operator-roadmap.md)
+- [development plan](./docs/development-plan.md)
 - [GitHub testing loop](./docs/github-testing-loop.md)
 - [fresh project usage](./docs/fresh-project-usage.md)
 - [workspace overview](./docs/workspace-overview.md)

@@ -80,7 +80,13 @@ function makePageFixture({
 
       if (method === "GET" && /^pages\/[^/]+$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length);
-        return { id: pageId, icon: pageMeta[pageId]?.icon || null };
+        return {
+          id: pageId,
+          icon: pageMeta[pageId]?.icon || null,
+          last_edited_time: pageMeta[pageId]?.last_edited_time || "2026-04-23T20:00:00.000Z",
+          archived: pageMeta[pageId]?.archived === true,
+          in_trash: pageMeta[pageId]?.in_trash === true,
+        };
       }
 
       throw new Error(`Unexpected request: ${method} ${apiPath}`);
@@ -360,6 +366,7 @@ test("build-record pull and push work on managed pages", async () => {
     apply: true,
     config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
     fileBodyMarkdown: "## Build Summary\n- Updated body\n",
+    metadata: pulled.metadata,
     projectName: "SNPM",
     title: "Validation Build",
     resolveClient: fixture.resolveClient,

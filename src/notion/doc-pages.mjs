@@ -1,6 +1,12 @@
 import { getProjectToken, getWorkspaceToken, nowTimestamp } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
 import {
+  assertLivePageMetadataStable,
+  assertPullPageMetadataFreshFromNotion,
+  buildPullPageMetadata,
+  fetchLivePageMetadata,
+} from "./page-metadata.mjs";
+import {
   buildManagedPageMarkdown,
   choosePageSyncAuth,
   diffMarkdownBodies,
@@ -151,7 +157,13 @@ async function resolveDocContext({
     getProjectTokenImpl,
   });
 
+  const initialLiveMetadata = await fetchLivePageMetadata(target.pageId, surfaceClient);
   const markdown = await fetchPageMarkdown(target.pageId, target.targetPath, surfaceClient);
+  const liveMetadata = assertLivePageMetadataStable({
+    before: initialLiveMetadata,
+    after: await fetchLivePageMetadata(target.pageId, surfaceClient),
+    targetPath: target.targetPath,
+  });
   const managedParts = splitManagedPageMarkdownIfPresent(markdown);
   if (!managedParts) {
     throw docSurfaceError(target.targetPath, 'Use "doc-adopt" first.');
@@ -163,6 +175,7 @@ async function resolveDocContext({
     authMode,
     client: surfaceClient,
     markdown,
+    liveMetadata,
     headerMarkdown: managedParts.headerMarkdown,
     bodyMarkdown: managedParts.bodyMarkdown,
   };
@@ -368,12 +381,23 @@ export async function adoptDoc({
 
 export async function pullDocBody(options) {
   const context = await resolveDocContext(options);
+  const metadata = buildPullPageMetadata({
+    commandFamily: "doc",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId || undefined,
+    authMode: context.authMode,
+    lastEditedTime: context.liveMetadata.lastEditedTime,
+  });
   return {
     pageId: context.pageId,
     projectId: context.projectId || null,
     targetPath: context.targetPath,
     authMode: context.authMode,
     bodyMarkdown: context.bodyMarkdown,
+    liveMetadata: context.liveMetadata,
+    metadata,
   };
 }
 
@@ -402,6 +426,7 @@ export async function diffDocBody({ fileBodyMarkdown, ...options }) {
 export async function pushDocBody({
   fileBodyMarkdown,
   apply = false,
+  metadata,
   timestamp = nowTimestamp(),
   ...options
 }) {
@@ -429,6 +454,16 @@ export async function pushDocBody({
     };
   }
 
+  const validatedMetadata = await assertPullPageMetadataFreshFromNotion({
+    metadata,
+    client: context.client,
+    commandFamily: "doc",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId || undefined,
+  });
+
   const replacementMarkdown = buildManagedPageMarkdown({
     headerMarkdown: context.headerMarkdown,
     bodyMarkdown: normalizedFileBody,
@@ -447,6 +482,7 @@ export async function pushDocBody({
     preserveChildren: true,
     normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
     warnings: [],
+    metadata: validatedMetadata,
     currentBodyMarkdown: context.bodyMarkdown,
     nextBodyMarkdown: normalizedFileBody,
     hasDiff: true,

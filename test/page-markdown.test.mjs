@@ -194,8 +194,16 @@ test("fetchPageMarkdown and replacePageMarkdown wrap the markdown endpoints safe
 
 test("loadResolvedPageContext resolves auth and returns managed header/body parts", async () => {
   const syncClient = {
-    async request() {
-      return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+    async request(method, apiPath) {
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
+        return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+      return {
+        id: "roadmap",
+        last_edited_time: "2026-04-23T20:00:00.000Z",
+        archived: false,
+        in_trash: false,
+      };
     },
   };
 
@@ -230,8 +238,16 @@ test("pullApprovedPageBody rejects unsupported markdown payloads", async () => {
         },
       },
       syncClient: {
-        async request() {
-          return { markdown: SAMPLE_MARKDOWN, truncated: true, unknown_block_ids: [] };
+        async request(method, apiPath) {
+          if (method === "GET" && apiPath.endsWith("/markdown")) {
+            return { markdown: SAMPLE_MARKDOWN, truncated: true, unknown_block_ids: [] };
+          }
+          return {
+            id: "roadmap",
+            last_edited_time: "2026-04-23T20:00:00.000Z",
+            archived: false,
+            in_trash: false,
+          };
         },
       },
     }),
@@ -249,7 +265,15 @@ test("diffApprovedPageBody ignores EOF-only missing newline drift", async () => 
     },
   };
   const syncClient = {
-    async request() {
+    async request(method, apiPath) {
+      if (method === "GET" && !apiPath.endsWith("/markdown")) {
+        return {
+          id: "roadmap",
+          last_edited_time: "2026-04-23T20:00:00.000Z",
+          archived: false,
+          in_trash: false,
+        };
+      }
       return {
         markdown: [
           "Purpose: Sample page",
@@ -293,8 +317,16 @@ test("pushApprovedPageBody rewrites the managed header before replace_content", 
   const syncClient = {
     async request(method, apiPath, body) {
       requests.push({ method, apiPath, body });
-      if (method === "GET") {
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
         return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+      if (method === "GET") {
+        return {
+          id: "backlog",
+          last_edited_time: "2026-04-23T20:00:00.000Z",
+          archived: false,
+          in_trash: false,
+        };
       }
       return { markdown: body.replace_content.new_str, truncated: false, unknown_block_ids: [] };
     },
@@ -306,6 +338,17 @@ test("pushApprovedPageBody rewrites the managed header before replace_content", 
     config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
     fileBodyMarkdown: "## Current Phase\n- Updated bullet\n",
     apply: true,
+    metadata: {
+      schema: "snpm.pull-metadata.v1",
+      commandFamily: "page",
+      workspaceName: "infrastructure-hq",
+      targetPath: "Projects > SNPM > Planning > Backlog",
+      pageId: "backlog",
+      projectId: "project-root",
+      authMode: "project-token",
+      lastEditedTime: "2026-04-23T20:00:00.000Z",
+      pulledAt: "2026-04-23T20:01:00.000Z",
+    },
     timestamp: "03-29-2026 10:00:00",
     resolveClient,
     syncClient,
@@ -320,4 +363,246 @@ test("pushApprovedPageBody rewrites the managed header before replace_content", 
     /Canonical Source: Projects \\> SNPM \\> Planning \\> Backlog/,
   );
   assert.match(patchRequest.body.replace_content.new_str, /Last Updated: 03-29-2026 10:00:00/);
+});
+
+test("loadResolvedPageContext rejects pull-time metadata drift with retry guidance", async () => {
+  let pageMetadataReads = 0;
+  const syncClient = {
+    async request(method, apiPath) {
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
+        return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+
+      pageMetadataReads += 1;
+      return {
+        id: "roadmap",
+        last_edited_time: pageMetadataReads === 1
+          ? "2026-04-23T20:00:00.000Z"
+          : "2026-04-23T20:05:00.000Z",
+        archived: false,
+        in_trash: false,
+      };
+    },
+  };
+
+  await assert.rejects(
+    () => loadResolvedPageContext({
+      target: {
+        pageId: "roadmap",
+        projectId: "project-root",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+      },
+      config: { notionVersion: "2026-03-11" },
+      syncClient,
+    }),
+    /Retry the pull/,
+  );
+});
+
+test("pushApprovedPageBody rejects stale apply metadata before mutation", async () => {
+  const requests = [];
+  let pageMetadataReads = 0;
+  const syncClient = {
+    async request(method, apiPath, body) {
+      requests.push({ method, apiPath, body });
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
+        return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+      if (method === "GET") {
+        pageMetadataReads += 1;
+        return {
+          id: "backlog",
+          last_edited_time: pageMetadataReads < 3
+            ? "2026-04-23T20:00:00.000Z"
+            : "2026-04-23T20:05:00.000Z",
+          archived: false,
+          in_trash: false,
+        };
+      }
+      return { markdown: body.replace_content.new_str, truncated: false, unknown_block_ids: [] };
+    },
+  };
+
+  await assert.rejects(
+    () => pushApprovedPageBody({
+      projectName: "SNPM",
+      pagePath: "Planning > Backlog",
+      config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+      fileBodyMarkdown: "## Current Phase\n- Updated bullet\n",
+      apply: true,
+      metadata: {
+        schema: "snpm.pull-metadata.v1",
+        commandFamily: "page",
+        workspaceName: "infrastructure-hq",
+        targetPath: "Projects > SNPM > Planning > Backlog",
+        pageId: "backlog",
+        projectId: "project-root",
+        lastEditedTime: "2026-04-23T20:00:00.000Z",
+        pulledAt: "2026-04-23T20:01:00.000Z",
+      },
+      resolveClient: {
+        async getChildren(pageId) {
+          if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+          if (pageId === "project-root") return [{ type: "child_page", id: "planning", child_page: { title: "Planning" } }];
+          if (pageId === "planning") return [{ type: "child_page", id: "backlog", child_page: { title: "Backlog" } }];
+          return [];
+        },
+      },
+      syncClient,
+    }),
+    /Stale metadata/,
+  );
+
+  assert.equal(requests.some((request) => request.method === "PATCH"), false);
+});
+
+test("pushApprovedPageBody requires apply metadata before mutation", async () => {
+  const requests = [];
+  const syncClient = {
+    async request(method, apiPath, body) {
+      requests.push({ method, apiPath, body });
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
+        return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+      if (method === "GET") {
+        return {
+          id: "backlog",
+          last_edited_time: "2026-04-23T20:00:00.000Z",
+          archived: false,
+          in_trash: false,
+        };
+      }
+      return { markdown: body.replace_content.new_str, truncated: false, unknown_block_ids: [] };
+    },
+  };
+
+  await assert.rejects(
+    () => pushApprovedPageBody({
+      projectName: "SNPM",
+      pagePath: "Planning > Backlog",
+      config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+      fileBodyMarkdown: "## Current Phase\n- Updated bullet\n",
+      apply: true,
+      resolveClient: {
+        async getChildren(pageId) {
+          if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+          if (pageId === "project-root") return [{ type: "child_page", id: "planning", child_page: { title: "Planning" } }];
+          if (pageId === "planning") return [{ type: "child_page", id: "backlog", child_page: { title: "Backlog" } }];
+          return [];
+        },
+      },
+      syncClient,
+    }),
+    /Metadata sidecar must be a JSON object/,
+  );
+
+  assert.equal(requests.some((request) => request.method === "PATCH"), false);
+});
+
+test("pushApprovedPageBody rejects target mismatch before mutation", async () => {
+  const requests = [];
+  const syncClient = {
+    async request(method, apiPath, body) {
+      requests.push({ method, apiPath, body });
+      if (method === "GET" && apiPath.endsWith("/markdown")) {
+        return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+      }
+      if (method === "GET") {
+        return {
+          id: "backlog",
+          last_edited_time: "2026-04-23T20:00:00.000Z",
+          archived: false,
+          in_trash: false,
+        };
+      }
+      return { markdown: body.replace_content.new_str, truncated: false, unknown_block_ids: [] };
+    },
+  };
+
+  await assert.rejects(
+    () => pushApprovedPageBody({
+      projectName: "SNPM",
+      pagePath: "Planning > Backlog",
+      config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+      fileBodyMarkdown: "## Current Phase\n- Updated bullet\n",
+      apply: true,
+      metadata: {
+        schema: "snpm.pull-metadata.v1",
+        commandFamily: "page",
+        workspaceName: "infrastructure-hq",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        pageId: "backlog",
+        projectId: "project-root",
+        lastEditedTime: "2026-04-23T20:00:00.000Z",
+        pulledAt: "2026-04-23T20:01:00.000Z",
+      },
+      resolveClient: {
+        async getChildren(pageId) {
+          if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+          if (pageId === "project-root") return [{ type: "child_page", id: "planning", child_page: { title: "Planning" } }];
+          if (pageId === "planning") return [{ type: "child_page", id: "backlog", child_page: { title: "Backlog" } }];
+          return [];
+        },
+      },
+      syncClient,
+    }),
+    /targetPath mismatch/,
+  );
+
+  assert.equal(requests.some((request) => request.method === "PATCH"), false);
+});
+
+test("pushApprovedPageBody rejects archived and trashed pages before mutation", async () => {
+  for (const fieldName of ["archived", "in_trash"]) {
+    const requests = [];
+    const syncClient = {
+      async request(method, apiPath, body) {
+        requests.push({ method, apiPath, body });
+        if (method === "GET" && apiPath.endsWith("/markdown")) {
+          return { markdown: SAMPLE_MARKDOWN, truncated: false, unknown_block_ids: [] };
+        }
+        if (method === "GET") {
+          return {
+            id: "backlog",
+            last_edited_time: "2026-04-23T20:00:00.000Z",
+            archived: fieldName === "archived",
+            in_trash: fieldName === "in_trash",
+          };
+        }
+        return { markdown: body.replace_content.new_str, truncated: false, unknown_block_ids: [] };
+      },
+    };
+
+    await assert.rejects(
+      () => pushApprovedPageBody({
+        projectName: "SNPM",
+        pagePath: "Planning > Backlog",
+        config: { notionVersion: "2026-03-11", workspace: { projectsPageId: "projects" } },
+        fileBodyMarkdown: "## Current Phase\n- Updated bullet\n",
+        apply: true,
+        metadata: {
+          schema: "snpm.pull-metadata.v1",
+          commandFamily: "page",
+          workspaceName: "infrastructure-hq",
+          targetPath: "Projects > SNPM > Planning > Backlog",
+          pageId: "backlog",
+          projectId: "project-root",
+          lastEditedTime: "2026-04-23T20:00:00.000Z",
+          pulledAt: "2026-04-23T20:01:00.000Z",
+        },
+        resolveClient: {
+          async getChildren(pageId) {
+            if (pageId === "projects") return [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }];
+            if (pageId === "project-root") return [{ type: "child_page", id: "planning", child_page: { title: "Planning" } }];
+            if (pageId === "planning") return [{ type: "child_page", id: "backlog", child_page: { title: "Backlog" } }];
+            return [];
+          },
+        },
+        syncClient,
+      }),
+      /archived or in trash/,
+    );
+
+    assert.equal(requests.some((request) => request.method === "PATCH"), false);
+  }
 });

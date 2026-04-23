@@ -7,7 +7,7 @@ import {
   pushRunbookBody,
 } from "../notion/project-pages.mjs";
 import { runManagedEditLoop } from "./editing.mjs";
-import { readCommandInput, writeCommandOutput } from "./io.mjs";
+import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
 
 export async function runRunbookCreate({
   apply = false,
@@ -48,6 +48,7 @@ export async function runRunbookAdopt({
 }
 
 export async function runRunbookPull({
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -60,14 +61,22 @@ export async function runRunbookPull({
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "runbook",
+    workspaceName,
   });
 
   const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
+    metadata: result.metadata,
+    ...metadataResult,
     ...outputResult,
   };
 }
@@ -94,6 +103,7 @@ export async function runRunbookDiff({
 export async function runRunbookPush({
   apply = false,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
@@ -101,14 +111,20 @@ export async function runRunbookPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushRunbookBody({
     apply,
     config,
     fileBodyMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "runbook",
+    workspaceName,
   });
 }
 
@@ -133,14 +149,19 @@ export async function runRunbookEdit({
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "runbook",
+      workspaceName,
     }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushRunbookBody({
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushRunbookBody({
       apply: shouldApply,
       config,
       fileBodyMarkdown,
+      metadata,
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "runbook",
+      workspaceName,
     }),
   });
 }

@@ -1,6 +1,12 @@
 import { getProjectToken, getWorkspaceToken, nowTimestamp } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
 import {
+  assertLivePageMetadataStable,
+  assertPullPageMetadataFreshFromNotion,
+  buildPullPageMetadata,
+  fetchLivePageMetadata,
+} from "./page-metadata.mjs";
+import {
   buildManagedPageMarkdown,
   choosePageSyncAuth,
   diffMarkdownBodies,
@@ -179,7 +185,13 @@ async function loadManagedSurfaceContext({
   });
 
   const target = await targetResolver(projectName, title, config, workspaceClient);
+  const initialLiveMetadata = await fetchLivePageMetadata(target.pageId, surfaceClient);
   const markdown = await fetchPageMarkdown(target.pageId, target.targetPath, surfaceClient);
+  const liveMetadata = assertLivePageMetadataStable({
+    before: initialLiveMetadata,
+    after: await fetchLivePageMetadata(target.pageId, surfaceClient),
+    targetPath: target.targetPath,
+  });
   const managedParts = splitManagedPageMarkdownIfPresent(markdown);
 
   if (!managedParts) {
@@ -191,6 +203,7 @@ async function loadManagedSurfaceContext({
     authMode,
     client: surfaceClient,
     markdown,
+    liveMetadata,
     headerMarkdown: managedParts.headerMarkdown,
     bodyMarkdown: managedParts.bodyMarkdown,
   };
@@ -198,12 +211,23 @@ async function loadManagedSurfaceContext({
 
 async function pullManagedSurfaceBody(options) {
   const context = await loadManagedSurfaceContext(options);
+  const metadata = buildPullPageMetadata({
+    commandFamily: options.commandFamily || "managed-page",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId,
+    authMode: context.authMode,
+    lastEditedTime: context.liveMetadata.lastEditedTime,
+  });
   return {
     pageId: context.pageId,
     projectId: context.projectId,
     targetPath: context.targetPath,
     authMode: context.authMode,
     bodyMarkdown: context.bodyMarkdown,
+    liveMetadata: context.liveMetadata,
+    metadata,
   };
 }
 
@@ -235,6 +259,9 @@ async function diffManagedSurfaceBody({
 async function pushManagedSurfaceBody({
   fileBodyMarkdown,
   apply = false,
+  metadata,
+  commandFamily = "managed-page",
+  workspaceName = "infrastructure-hq",
   timestamp = nowTimestamp(),
   ...options
 }) {
@@ -262,6 +289,16 @@ async function pushManagedSurfaceBody({
     };
   }
 
+  const validatedMetadata = await assertPullPageMetadataFreshFromNotion({
+    metadata,
+    client: context.client,
+    commandFamily,
+    workspaceName,
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId,
+  });
+
   const replacementMarkdown = buildManagedPageMarkdown({
     headerMarkdown: context.headerMarkdown,
     bodyMarkdown: normalizedFileBody,
@@ -281,6 +318,7 @@ async function pushManagedSurfaceBody({
     preserveChildren: true,
     normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
     warnings: [],
+    metadata: validatedMetadata,
     currentBodyMarkdown: context.bodyMarkdown,
     nextBodyMarkdown: normalizedFileBody,
     hasDiff: true,

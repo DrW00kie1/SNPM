@@ -4,6 +4,8 @@ const OPT_PROJECT_TOKEN = "--project-token-env PROJECT_NAME_NOTION_TOKEN";
 const OPT_APPLY = "--apply";
 const OPT_EXPLAIN = "--explain";
 const OPT_REVIEW_OUTPUT = "--review-output <dir>";
+const OPT_METADATA_OUTPUT = "--metadata-output <path>";
+const OPT_METADATA = "--metadata <path>";
 const OPT_BUNDLE = "--bundle";
 const HELP_TOKENS = new Set(["--help", "-h"]);
 
@@ -16,11 +18,21 @@ function createCommandSpec({
   optionalFlags = [],
   examples = [],
   notes = [],
+  surface,
+  authScope,
+  mutationMode,
+  stability,
 }) {
   const normalizedCanonical = normalizeCommandName(canonical);
   const hyphenAlias = normalizedCanonical.includes(" ")
     ? normalizedCanonical.replace(/\s+/g, "-")
     : null;
+  const metadata = inferCommandMetadata(normalizedCanonical, {
+    surface,
+    authScope,
+    mutationMode,
+    stability,
+  });
 
   return {
     canonical: normalizedCanonical,
@@ -31,6 +43,7 @@ function createCommandSpec({
     optionalFlags,
     examples,
     notes,
+    ...metadata,
   };
 }
 
@@ -44,7 +57,116 @@ function compoundFamilySpecs({ family, subcommands }) {
     optionalFlags: subcommand.optionalFlags,
     examples: subcommand.examples,
     notes: subcommand.notes,
+    surface: subcommand.surface,
+    authScope: subcommand.authScope,
+    mutationMode: subcommand.mutationMode,
+    stability: subcommand.stability,
   }));
+}
+
+function commandRoot(canonical) {
+  return canonical.split(" ")[0];
+}
+
+function commandVerb(canonical) {
+  const parts = canonical.split(" ");
+  return parts.length > 1 ? parts[1] : parts[0];
+}
+
+function inferCommandSurface(canonical) {
+  const root = commandRoot(canonical);
+  const surfaces = {
+    "access-domain": "access",
+    "access-token": "access",
+    "build-record": "builds",
+    capabilities: "cli",
+    "create-project": "project-bootstrap",
+    doc: "managed-docs",
+    doctor: "project-health",
+    journal: "mutation-journal",
+    page: "planning",
+    "plan-change": "planning",
+    recommend: "routing",
+    runbook: "runbooks",
+    "secret-record": "access",
+    sync: "manifest-sync",
+    "validation-bundle": "validation-bundle",
+    "validation-session": "validation-sessions",
+    "validation-sessions": "validation-sessions",
+    "verify-project": "project-verification",
+    "verify-workspace-docs": "workspace-doc-verification",
+  };
+
+  return surfaces[root] || root;
+}
+
+function inferAuthScope(canonical) {
+  const root = commandRoot(canonical);
+
+  if (root === "capabilities") {
+    return "none";
+  }
+
+  if (root === "journal") {
+    return "local-filesystem";
+  }
+
+  if (canonical === "validation-bundle login") {
+    return "local-browser-session";
+  }
+
+  if (root === "create-project" || root === "verify-workspace-docs") {
+    return "workspace-token";
+  }
+
+  if (root === "doc") {
+    return "workspace-or-project-token";
+  }
+
+  if (root === "sync") {
+    return "project-token";
+  }
+
+  return "project-token-optional";
+}
+
+function inferMutationMode(canonical) {
+  const root = commandRoot(canonical);
+  const verb = commandVerb(canonical);
+  const readOnlyVerbs = new Set(["capabilities", "check", "diff", "doctor", "help", "list", "plan-change", "preview", "pull", "recommend", "verify", "verify-project", "verify-workspace-docs"]);
+
+  if (canonical === "validation-bundle login") {
+    return "local-session";
+  }
+
+  if (root === "create-project") {
+    return "live-mutation";
+  }
+
+  if (readOnlyVerbs.has(verb)) {
+    return "read-only";
+  }
+
+  return "apply-gated";
+}
+
+function inferStability(canonical) {
+  const root = commandRoot(canonical);
+
+  if (root === "validation-bundle") {
+    return "experimental";
+  }
+
+  return "stable";
+}
+
+function inferCommandMetadata(canonical, overrides = {}) {
+  return {
+    surface: overrides.surface || inferCommandSurface(canonical),
+    authScope: overrides.authScope || inferAuthScope(canonical),
+    mutationMode: overrides.mutationMode || inferMutationMode(canonical),
+    stability: overrides.stability || inferStability(canonical),
+  };
 }
 
 const SINGLE_COMMAND_SPECS = [
@@ -162,9 +284,73 @@ const SINGLE_COMMAND_SPECS = [
       "verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     ],
   }),
+  createCommandSpec({
+    canonical: "capabilities",
+    summary: "Print the registry-derived CLI capability map as JSON.",
+    usageLines: [
+      "node src/cli.mjs capabilities",
+    ],
+    examples: [
+      "node src/cli.mjs capabilities",
+      "npm run capabilities",
+    ],
+    notes: [
+      "The capability map is generated from the same registry that powers CLI help.",
+      "Worker A exports the builder; runtime dispatch is a main-rollout integration point.",
+    ],
+  }),
+  createCommandSpec({
+    canonical: "plan-change",
+    summary: "Return JSON routing recommendations for a proposed multi-surface plan change.",
+    usageLines: [
+      'node src/cli.mjs plan-change --targets-file <path|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      "--targets-file <path|->",
+    ],
+    optionalFlags: [
+      OPT_PROJECT,
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs plan-change --targets-file plan-targets.json",
+      'npm run plan-change -- --targets-file - --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    ],
+    notes: [
+      "Input must be a JSON object with goal and targets fields; the command prints JSON only.",
+      "This is a read-only routing surface built on recommend; it does not apply Notion mutations.",
+    ],
+  }),
 ];
 
 const COMPOUND_COMMAND_SPECS = [
+  ...compoundFamilySpecs({
+    family: "journal",
+    subcommands: [
+      {
+        name: "list",
+        summary: "Print recent local mutation journal entries as JSON.",
+        usageLines: [
+          "node src/cli.mjs journal list [--limit 20]",
+        ],
+        optionalFlags: [
+          "--limit <positive integer>",
+        ],
+        examples: [
+          "node src/cli.mjs journal list --limit 10",
+          "npm run journal-list -- --limit 10",
+        ],
+        notes: [
+          "Reads the local mutation journal only; it does not contact Notion.",
+          "The command prints JSON only and returns an empty entries array when no journal exists.",
+        ],
+        authScope: "local-filesystem",
+        mutationMode: "read-only",
+        stability: "stable",
+      },
+    ],
+  }),
   ...compoundFamilySpecs({
     family: "doc",
     subcommands: [
@@ -220,7 +406,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed doc to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs doc pull --path "<doc path>" --output <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs doc pull --path "<doc path>" --output <file|-> [--metadata-output <path>] [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           '--path "<doc path>"',
@@ -229,6 +415,7 @@ const COMPOUND_COMMAND_SPECS = [
         optionalFlags: [
           OPT_PROJECT,
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -237,6 +424,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -268,7 +456,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply managed doc body updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs doc push --path "<doc path>" --file <file|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs doc push --path "<doc path>" --file <file|-> [--metadata <path>] [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           '--path "<doc path>"',
@@ -277,6 +465,7 @@ const COMPOUND_COMMAND_SPECS = [
         optionalFlags: [
           OPT_PROJECT,
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -288,6 +477,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "Project docs require --project; template and workspace docs do not.",
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -324,7 +514,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull an approved planning page to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs page pull --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs page pull --project "Project Name" --page "Planning > Roadmap" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -333,6 +523,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -342,6 +533,7 @@ const COMPOUND_COMMAND_SPECS = [
         notes: [
           "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -373,7 +565,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply managed planning-page body updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs page push --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs page push --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -382,6 +574,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -390,6 +583,9 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs page push --project "SNPM" --page "Planning > Roadmap" --file roadmap.md',
           'npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -467,7 +663,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed Access domain page to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs access-domain pull --project "Project Name" --title "App & Backend" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-domain pull --project "Project Name" --title "App & Backend" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -476,6 +672,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -484,6 +681,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -512,7 +710,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply Access domain updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs access-domain push --project "Project Name" --title "App & Backend" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-domain push --project "Project Name" --title "App & Backend" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -521,6 +719,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -529,6 +728,9 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs access-domain push --project "SNPM" --title "App & Backend" --file access-domain.md',
           'npm run access-domain-push -- --project "SNPM" --title "App & Backend" --file access-domain.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -605,7 +807,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed project secret record to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -615,6 +817,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -623,6 +826,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -652,7 +856,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply project secret-record updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs secret-record push --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs secret-record push --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -662,6 +866,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -670,6 +875,9 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs secret-record push --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md',
           'npm run secret-record-push -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -747,7 +955,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed project access-token record to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -757,6 +965,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -765,6 +974,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -794,7 +1004,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply project access-token updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs access-token push --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-token push --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -804,6 +1014,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -812,6 +1023,9 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs access-token push --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md',
           'npm run access-token-push -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -890,7 +1104,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed runbook to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs runbook pull --project "Project Name" --title "Runbook Title" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs runbook pull --project "Project Name" --title "Runbook Title" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -899,6 +1113,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
@@ -907,6 +1122,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
         ],
       },
       {
@@ -935,7 +1151,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply managed runbook updates from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs runbook push --project "Project Name" --title "Runbook Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
+          'node src/cli.mjs runbook push --project "Project Name" --title "Runbook Title" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -944,6 +1160,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_EXPLAIN,
           OPT_REVIEW_OUTPUT,
@@ -952,6 +1169,9 @@ const COMPOUND_COMMAND_SPECS = [
         examples: [
           'node src/cli.mjs runbook push --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md',
           'npm run runbook-push -- --project "SNPM" --title "SNPM Operator Validation Runbook" --file runbook.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
       {
@@ -985,12 +1205,12 @@ const COMPOUND_COMMAND_SPECS = [
         name: "create",
         summary: "Create a managed build record or preview the body diff from a local markdown file.",
         usageLines: [
-          'node src/cli.mjs build-record create --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs build-record create --project "Project Name" --title "Build Record Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Build Record Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
@@ -1006,32 +1226,37 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed build record to a local file.",
         usageLines: [
-          'node src/cli.mjs build-record pull --project "Project Name" --title "Build Record Title" --output <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs build-record pull --project "Project Name" --title "Build Record Title" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Build Record Title"',
-          "--output <file>",
+          "--output <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs build-record pull --project "SNPM" --title "Validation Build" --output build-record.md',
           'npm run build-record-pull -- --project "SNPM" --title "Validation Build" --output build-record.md',
         ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
+        ],
       },
       {
         name: "diff",
         summary: "Diff a managed build record against a local file.",
         usageLines: [
-          'node src/cli.mjs build-record diff --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs build-record diff --project "Project Name" --title "Build Record Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Build Record Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
@@ -1046,21 +1271,25 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply managed build-record updates from a local file.",
         usageLines: [
-          'node src/cli.mjs build-record push --project "Project Name" --title "Build Record Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs build-record push --project "Project Name" --title "Build Record Title" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Build Record Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs build-record push --project "SNPM" --title "Validation Build" --file build-record.md',
           'npm run build-record-push -- --project "SNPM" --title "Validation Build" --file build-record.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
     ],
@@ -1208,12 +1437,12 @@ const COMPOUND_COMMAND_SPECS = [
         name: "create",
         summary: "Create a managed validation-session report or preview the body diff from a local file.",
         usageLines: [
-          'node src/cli.mjs validation-session create --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs validation-session create --project "Project Name" --title "Session Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Session Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
@@ -1249,32 +1478,37 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull a managed validation-session report to a local file.",
         usageLines: [
-          'node src/cli.mjs validation-session pull --project "Project Name" --title "Session Title" --output <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs validation-session pull --project "Project Name" --title "Session Title" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Session Title"',
-          "--output <file>",
+          "--output <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs validation-session pull --project "SNPM" --title "Regression Pass 1" --output session.md',
           'npm run validation-session-pull -- --project "SNPM" --title "Regression Pass 1" --output session.md',
         ],
+        notes: [
+          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
+        ],
       },
       {
         name: "diff",
         summary: "Diff a managed validation-session report against a local file.",
         usageLines: [
-          'node src/cli.mjs validation-session diff --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs validation-session diff --project "Project Name" --title "Session Title" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Session Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
@@ -1289,21 +1523,25 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Preview or apply managed validation-session updates from a local file.",
         usageLines: [
-          'node src/cli.mjs validation-session push --project "Project Name" --title "Session Title" --file <file> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs validation-session push --project "Project Name" --title "Session Title" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--title "Session Title"',
-          "--file <file>",
+          "--file <file|->",
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_METADATA,
           OPT_APPLY,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs validation-session push --project "SNPM" --title "Regression Pass 1" --file session.md',
           'npm run validation-session-push -- --project "SNPM" --title "Regression Pass 1" --file session.md --apply',
+        ],
+        notes: [
+          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
         ],
       },
     ],
@@ -1393,6 +1631,8 @@ const GLOBAL_COMMAND_GROUPS = [
       ["recommend", "Run the read-only scan or route an intent to Notion vs repo."],
       ["verify-project", "Verify project structure and optional project-token scope."],
       ["verify-workspace-docs", "Verify curated workspace and template docs."],
+      ["capabilities", "Print the registry-derived CLI capability map as JSON."],
+      ["plan-change", "Return JSON routing recommendations for a proposed plan change."],
     ],
   },
   {
@@ -1410,6 +1650,7 @@ const GLOBAL_COMMAND_GROUPS = [
       ["access-token <create|adopt|pull|diff|push|edit>", "Managed access-token records under an Access domain."],
       ["runbook <create|adopt|pull|diff|push|edit>", "Managed project runbooks."],
       ["build-record <create|pull|diff|push>", "Managed project build records."],
+      ["journal <list>", "Read recent local mutation journal entries as JSON."],
     ],
   },
   {
@@ -1459,6 +1700,44 @@ export function findCommandHelp(command) {
   return COMMAND_SPEC_INDEX.get(normalizeCommandName(command)) || null;
 }
 
+function commandCapability(spec) {
+  return {
+    canonical: spec.canonical,
+    aliases: [...spec.aliases],
+    summary: spec.summary,
+    usageLines: [...spec.usageLines],
+    requiredFlags: [...spec.requiredFlags],
+    optionalFlags: [...spec.optionalFlags],
+    examples: [...spec.examples],
+    notes: [...spec.notes],
+    surface: spec.surface,
+    authScope: spec.authScope,
+    mutationMode: spec.mutationMode,
+    stability: spec.stability,
+  };
+}
+
+export function buildCapabilityMap() {
+  const commands = COMMAND_SPECS.map(commandCapability);
+
+  return {
+    schemaVersion: 1,
+    commandGroups: GLOBAL_COMMAND_GROUPS.map((group) => ({
+      title: group.title.replace(/:$/, ""),
+      entries: group.entries.map(([label, summary]) => ({
+        label,
+        summary,
+      })),
+    })),
+    canonicalCommands: commands.map((command) => command.canonical),
+    commands,
+  };
+}
+
+export function capabilityJson() {
+  return `${JSON.stringify(buildCapabilityMap(), null, 2)}\n`;
+}
+
 export function commandUsage(command) {
   const spec = findCommandHelp(command);
   if (!spec) {
@@ -1504,7 +1783,7 @@ export function usage() {
     "  node src/cli.mjs page push -h",
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--apply]',
-    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--apply]',
+    '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--metadata <path>] [--apply]',
     "",
     "Notes:",
     "  Run from the SNPM checkout (for example C:\\SNPM), even when the active Codex thread is attached to a different repo.",
@@ -1525,6 +1804,9 @@ export function usage() {
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "  For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",
     "  When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+    "  Pull commands write <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
+    "  Apply push commands read <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
+    "  Applied mutations append redacted operational entries to the local mutation journal.",
     "  Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
     "",
     "Global Options:",

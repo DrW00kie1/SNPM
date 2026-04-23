@@ -55,7 +55,13 @@ function makeValidationFixture({
 
       if (method === "GET" && /^pages\/[^/]+$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length);
-        return { id: pageId, icon: pageMeta[pageId]?.icon || null };
+        return {
+          id: pageId,
+          icon: pageMeta[pageId]?.icon || null,
+          last_edited_time: pageMeta[pageId]?.last_edited_time || "2026-04-23T20:00:00.000Z",
+          archived: pageMeta[pageId]?.archived === true,
+          in_trash: pageMeta[pageId]?.in_trash === true,
+        };
       }
 
       if (method === "PATCH" && /^pages\/[^/]+$/.test(apiPath)) {
@@ -442,6 +448,7 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
     fileMarkdown: pulled.fileMarkdown
       .replace("Session State: Passed", "Session State: Failed")
       .replace("- [ ] Launch app", "- [x] Launch app"),
+    metadata: pulled.metadata,
     resolveClient: fixture.resolveClient,
     syncClient: fixture.syncClient,
     timestamp: "03-29-2026 11:30:00",

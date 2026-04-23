@@ -82,6 +82,7 @@ export async function runManagedEditLoop({
     const result = await pushImpl({
       apply,
       fileBodyMarkdown: editedBodyMarkdown,
+      metadata: current.metadata,
     });
 
     return {

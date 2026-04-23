@@ -1,5 +1,3 @@
-import { readFileSync, writeFileSync } from "node:fs";
-
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   createBuildRecord,
@@ -7,6 +5,7 @@ import {
   pullBuildRecordBody,
   pushBuildRecordBody,
 } from "../notion/project-pages.mjs";
+import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
 
 export async function runBuildRecordCreate({
   apply = false,
@@ -17,7 +16,7 @@ export async function runBuildRecordCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return createBuildRecord({
     apply,
@@ -30,6 +29,7 @@ export async function runBuildRecordCreate({
 }
 
 export async function runBuildRecordPull({
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -42,15 +42,23 @@ export async function runBuildRecordPull({
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "build-record",
+    workspaceName,
   });
 
-  writeFileSync(outputPath, result.bodyMarkdown, "utf8");
+  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
-    outputPath,
+    metadata: result.metadata,
+    ...metadataResult,
+    ...outputResult,
   };
 }
 
@@ -62,7 +70,7 @@ export async function runBuildRecordDiff({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
 
   return diffBuildRecordBody({
     config,
@@ -76,20 +84,27 @@ export async function runBuildRecordDiff({
 export async function runBuildRecordPush({
   apply = false,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = readFileSync(filePath, "utf8");
+  const fileBodyMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushBuildRecordBody({
     apply,
     config,
     fileBodyMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "build-record",
+    workspaceName,
   });
 }

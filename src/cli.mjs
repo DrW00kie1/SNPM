@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  capabilityJson,
   commandUsage,
   findCommandHelp,
   resolveHelpRequest,
@@ -63,6 +64,12 @@ import {
   runValidationSessionsInit,
   runValidationSessionsVerify,
 } from "./commands/validation-session.mjs";
+import { planChange } from "./commands/plan-change.mjs";
+import { readCommandInput } from "./commands/io.mjs";
+import {
+  readMutationJournalEntries,
+  tryRecordMutationJournalEntry,
+} from "./commands/mutation-journal.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
@@ -88,6 +95,65 @@ function printUsage(command = null) {
 function writeStructuredOutput(payload, { stderr = false } = {}) {
   const stream = stderr ? process.stderr : process.stdout;
   stream.write(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function withMutationJournal(result, { command, surface }) {
+  if (!result || result.applied !== true) {
+    return result;
+  }
+
+  const recorded = tryRecordMutationJournalEntry({ command, surface, result });
+  if (recorded.ok) {
+    return {
+      ...result,
+      journal: {
+        path: recorded.journalPath,
+      },
+    };
+  }
+
+  return {
+    ...result,
+    warnings: [
+      ...(Array.isArray(result.warnings) ? result.warnings : []),
+      recorded.warning,
+    ],
+  };
+}
+
+export { withMutationJournal };
+
+function finalizeMutationResult(result, { command, surface }) {
+  return withMutationJournal(result, { command, surface });
+}
+
+function buildSimpleMutationPayload({ command, result, extra = {} }) {
+  return {
+    ok: true,
+    command,
+    applied: result.applied,
+    hasDiff: result.hasDiff,
+    targetPath: result.targetPath,
+    authMode: result.authMode,
+    ...("pageId" in result ? { pageId: result.pageId } : {}),
+    ...("databaseId" in result ? { databaseId: result.databaseId } : {}),
+    ...("dataSourceId" in result ? { dataSourceId: result.dataSourceId } : {}),
+    ...("timestamp" in result ? { timestamp: result.timestamp } : {}),
+    ...extra,
+    ...(result.journal ? { journal: result.journal } : {}),
+    ...(Array.isArray(result.warnings) && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
+  };
+}
+
+function parsePositiveInteger(value, defaultValue) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error("--limit must be a positive integer.");
+  }
+  return parsed;
 }
 
 export function parseArgs(argv) {
@@ -232,7 +298,47 @@ async function main() {
     return;
   }
 
+  if (command === "capabilities") {
+    process.stdout.write(capabilityJson());
+    return;
+  }
+
   const workspaceName = options.workspace || "infrastructure-hq";
+
+  if (command === "journal list" || command === "journal-list") {
+    console.log(JSON.stringify({
+      ok: true,
+      command: "journal-list",
+      entries: readMutationJournalEntries({
+        limit: parsePositiveInteger(options.limit, 20),
+      }),
+    }, null, 2));
+    return;
+  }
+
+  if (command === "plan-change") {
+    const rawInput = await readCommandInput(requireOption(options, "targets-file", "Provide --targets-file <path|->."));
+    let parsedInput;
+    try {
+      parsedInput = JSON.parse(rawInput);
+    } catch (error) {
+      throw new Error(`plan-change targets file is not valid JSON: ${error.message}`);
+    }
+
+    const result = await planChange({
+      ...parsedInput,
+      ...(options.project ? { projectName: options.project } : {}),
+      ...(options["project-token-env"] ? { projectTokenEnv: options["project-token-env"] } : {}),
+      ...(workspaceName ? { workspaceName } : {}),
+    }, {
+      recommendImpl: runRecommend,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (command === "create-project" || command === "create") {
     const projectName = requireOption(options, "name", 'Provide --name "Project Name".');
@@ -351,53 +457,42 @@ async function main() {
   }
 
   if (command === "doc create" || command === "doc-create") {
-    const result = await runDocCreate({
+    const result = finalizeMutationResult(await runDocCreate({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
       docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
       projectName: options.project,
       projectTokenEnv: options["project-token-env"],
       workspaceName,
+    }), {
+      command: "doc-create",
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "doc-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "doc-create", result }), null, 2));
     return;
   }
 
   if (command === "doc adopt" || command === "doc-adopt") {
-    const result = await runDocAdopt({
+    const result = finalizeMutationResult(await runDocAdopt({
       apply: options.apply === true,
       docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
       projectName: options.project,
       projectTokenEnv: options["project-token-env"],
       workspaceName,
+    }), {
+      command: "doc-adopt",
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
     });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "doc-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "doc-adopt", result }), null, 2));
     return;
   }
 
   if (command === "doc pull" || command === "doc-pull") {
     const result = await runDocPull({
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
       projectName: options.project,
       projectTokenEnv: options["project-token-env"],
@@ -431,13 +526,17 @@ async function main() {
   }
 
   if (command === "doc push" || command === "doc-push") {
-    const result = await runDocPush({
+    const result = finalizeMutationResult(await runDocPush({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
       projectName: options.project,
       projectTokenEnv: options["project-token-env"],
       workspaceName,
+    }), {
+      command: "doc-push",
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
     });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
@@ -451,13 +550,16 @@ async function main() {
   }
 
   if (command === "doc edit" || command === "doc-edit") {
-    const result = await runDocEdit({
+    const result = finalizeMutationResult(await runDocEdit({
       apply: options.apply === true,
       docPath: requireOption(options, "path", 'Provide --path "<doc path>".'),
       projectName: options.project,
       projectTokenEnv: options["project-token-env"],
       workspaceName,
       editorCommand: process.env.EDITOR,
+    }), {
+      command: "doc-edit",
+      surface: inferDocSurface({ projectName: options.project, docPath: options.path }),
     });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
@@ -473,6 +575,7 @@ async function main() {
   if (command === "page pull" || command === "page-pull") {
     const result = await runPagePull({
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
@@ -506,14 +609,15 @@ async function main() {
   }
 
   if (command === "page push" || command === "page-push") {
-    const result = await runPagePush({
+    const result = finalizeMutationResult(await runPagePush({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
-    });
+    }), { command: "page-push", surface: "planning" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "page-push",
@@ -526,14 +630,14 @@ async function main() {
   }
 
   if (command === "page edit" || command === "page-edit") {
-    const result = await runPageEdit({
+    const result = finalizeMutationResult(await runPageEdit({
       apply: options.apply === true,
       pagePath: requireOption(options, "page", 'Provide --page "Planning > <Page Name>".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
       editorCommand: process.env.EDITOR,
-    });
+    }), { command: "page-edit", surface: "planning" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "page-edit",
@@ -546,53 +650,36 @@ async function main() {
   }
 
   if (command === "access-domain create" || command === "access-domain-create") {
-    const result = await runAccessDomainCreate({
+    const result = finalizeMutationResult(await runAccessDomainCreate({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
       workspaceName,
-    });
+    }), { command: "access-domain-create", surface: "access-domain" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "access-domain-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-domain-create", result }), null, 2));
     return;
   }
 
   if (command === "access-domain adopt" || command === "access-domain-adopt") {
-    const result = await runAccessDomainAdopt({
+    const result = finalizeMutationResult(await runAccessDomainAdopt({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
       workspaceName,
-    });
+    }), { command: "access-domain-adopt", surface: "access-domain" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "access-domain-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-domain-adopt", result }), null, 2));
     return;
   }
 
   if (command === "access-domain pull" || command === "access-domain-pull") {
     const result = await runAccessDomainPull({
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
@@ -626,14 +713,15 @@ async function main() {
   }
 
   if (command === "access-domain push" || command === "access-domain-push") {
-    const result = await runAccessDomainPush({
+    const result = finalizeMutationResult(await runAccessDomainPush({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
       workspaceName,
-    });
+    }), { command: "access-domain-push", surface: "access-domain" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-domain-push",
@@ -646,14 +734,14 @@ async function main() {
   }
 
   if (command === "access-domain edit" || command === "access-domain-edit") {
-    const result = await runAccessDomainEdit({
+    const result = finalizeMutationResult(await runAccessDomainEdit({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Access Domain Title".'),
       workspaceName,
       editorCommand: process.env.EDITOR,
-    });
+    }), { command: "access-domain-edit", surface: "access-domain" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-domain-edit",
@@ -666,7 +754,7 @@ async function main() {
   }
 
   if (command === "secret-record create" || command === "secret-record-create") {
-    const result = await runSecretRecordCreate({
+    const result = finalizeMutationResult(await runSecretRecordCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       filePath: requireOption(options, "file", "Provide --file <path|->."),
@@ -674,41 +762,23 @@ async function main() {
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "secret-record-create", surface: "secret-record" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "secret-record-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-create", result }), null, 2));
     return;
   }
 
   if (command === "secret-record adopt" || command === "secret-record-adopt") {
-    const result = await runSecretRecordAdopt({
+    const result = finalizeMutationResult(await runSecretRecordAdopt({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "secret-record-adopt", surface: "secret-record" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "secret-record-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-adopt", result }), null, 2));
     return;
   }
 
@@ -716,6 +786,7 @@ async function main() {
     const result = await runSecretRecordPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -750,15 +821,16 @@ async function main() {
   }
 
   if (command === "secret-record push" || command === "secret-record-push") {
-    const result = await runSecretRecordPush({
+    const result = finalizeMutationResult(await runSecretRecordPush({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "secret-record-push", surface: "secret-record" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-push",
@@ -771,7 +843,7 @@ async function main() {
   }
 
   if (command === "secret-record edit" || command === "secret-record-edit") {
-    const result = await runSecretRecordEdit({
+    const result = finalizeMutationResult(await runSecretRecordEdit({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
@@ -779,7 +851,7 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
       editorCommand: process.env.EDITOR,
-    });
+    }), { command: "secret-record-edit", surface: "secret-record" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-edit",
@@ -792,7 +864,7 @@ async function main() {
   }
 
   if (command === "access-token create" || command === "access-token-create") {
-    const result = await runAccessTokenCreate({
+    const result = finalizeMutationResult(await runAccessTokenCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       filePath: requireOption(options, "file", "Provide --file <path|->."),
@@ -800,41 +872,23 @@ async function main() {
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "access-token-create", surface: "access-token" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "access-token-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-create", result }), null, 2));
     return;
   }
 
   if (command === "access-token adopt" || command === "access-token-adopt") {
-    const result = await runAccessTokenAdopt({
+    const result = finalizeMutationResult(await runAccessTokenAdopt({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "access-token-adopt", surface: "access-token" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "access-token-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-adopt", result }), null, 2));
     return;
   }
 
@@ -842,6 +896,7 @@ async function main() {
     const result = await runAccessTokenPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -876,15 +931,16 @@ async function main() {
   }
 
   if (command === "access-token push" || command === "access-token-push") {
-    const result = await runAccessTokenPush({
+    const result = finalizeMutationResult(await runAccessTokenPush({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
-    });
+    }), { command: "access-token-push", surface: "access-token" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-push",
@@ -897,7 +953,7 @@ async function main() {
   }
 
   if (command === "access-token edit" || command === "access-token-edit") {
-    const result = await runAccessTokenEdit({
+    const result = finalizeMutationResult(await runAccessTokenEdit({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
@@ -905,7 +961,7 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
       editorCommand: process.env.EDITOR,
-    });
+    }), { command: "access-token-edit", surface: "access-token" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-edit",
@@ -918,53 +974,36 @@ async function main() {
   }
 
   if (command === "runbook create" || command === "runbook-create") {
-    const result = await runRunbookCreate({
+    const result = finalizeMutationResult(await runRunbookCreate({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
       workspaceName,
-    });
+    }), { command: "runbook-create", surface: "runbooks" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "runbook-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "runbook-create", result }), null, 2));
     return;
   }
 
   if (command === "runbook adopt" || command === "runbook-adopt") {
-    const result = await runRunbookAdopt({
+    const result = finalizeMutationResult(await runRunbookAdopt({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
       workspaceName,
-    });
+    }), { command: "runbook-adopt", surface: "runbooks" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "runbook-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "runbook-adopt", result }), null, 2));
     return;
   }
 
   if (command === "runbook pull" || command === "runbook-pull") {
     const result = await runRunbookPull({
       outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
@@ -998,14 +1037,15 @@ async function main() {
   }
 
   if (command === "runbook push" || command === "runbook-push") {
-    const result = await runRunbookPush({
+    const result = finalizeMutationResult(await runRunbookPush({
       apply: options.apply === true,
       filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
       workspaceName,
-    });
+    }), { command: "runbook-push", surface: "runbooks" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "runbook-push",
@@ -1018,14 +1058,14 @@ async function main() {
   }
 
   if (command === "runbook edit" || command === "runbook-edit") {
-    const result = await runRunbookEdit({
+    const result = finalizeMutationResult(await runRunbookEdit({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Runbook Title".'),
       workspaceName,
       editorCommand: process.env.EDITOR,
-    });
+    }), { command: "runbook-edit", surface: "runbooks" });
     printDiff(result.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "runbook-edit",
@@ -1038,49 +1078,46 @@ async function main() {
   }
 
   if (command === "build-record create" || command === "build-record-create") {
-    const result = await runBuildRecordCreate({
+    const result = finalizeMutationResult(await runBuildRecordCreate({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Build Record Title".'),
       workspaceName,
-    });
+    }), { command: "build-record-create", surface: "build-record" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildSimpleMutationPayload({
       command: "build-record-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-      needsContainer: result.needsContainer,
-      containerCreated: result.containerCreated,
-    }, null, 2));
+      result,
+      extra: {
+        needsContainer: result.needsContainer,
+        containerCreated: result.containerCreated,
+      },
+    }), null, 2));
     return;
   }
 
   if (command === "build-record pull" || command === "build-record-pull") {
     const result = await runBuildRecordPull({
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Build Record Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "build-record-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "build-record diff" || command === "build-record-diff") {
     const result = await runBuildRecordDiff({
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Build Record Title".'),
@@ -1099,48 +1136,36 @@ async function main() {
   }
 
   if (command === "build-record push" || command === "build-record-push") {
-    const result = await runBuildRecordPush({
+    const result = finalizeMutationResult(await runBuildRecordPush({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Build Record Title".'),
       workspaceName,
-    });
+    }), { command: "build-record-push", surface: "build-record" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "build-record-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "build-record-push", result }), null, 2));
     return;
   }
 
   if (command === "validation-sessions init" || command === "validation-sessions-init") {
-    const result = await runValidationSessionsInit({
+    const result = finalizeMutationResult(await runValidationSessionsInit({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
-    });
+    }), { command: "validation-sessions-init", surface: "validation-sessions" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildSimpleMutationPayload({
       command: "validation-sessions-init",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      databaseId: result.databaseId,
-      dataSourceId: result.dataSourceId,
-      createdDatabase: result.createdDatabase,
-      nextStep: result.nextStep,
-    }, null, 2));
+      result,
+      extra: {
+        createdDatabase: result.createdDatabase,
+        nextStep: result.nextStep,
+      },
+    }), null, 2));
     return;
   }
 
@@ -1191,12 +1216,16 @@ async function main() {
   }
 
   if (command === "validation-bundle apply" || command === "validation-bundle-apply") {
-    const result = await runValidationBundleApply({
+    const bundleApplyResult = await runValidationBundleApply({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       workspaceName,
     });
+    const result = finalizeMutationResult({
+      ...bundleApplyResult,
+      applied: options.apply === true && bundleApplyResult.ok !== false,
+    }, { command: "validation-bundle-apply", surface: "validation-bundle" });
     console.log(JSON.stringify(result, null, 2));
     if (!result.ok) {
       process.exitCode = 1;
@@ -1218,71 +1247,64 @@ async function main() {
   }
 
   if (command === "validation-session create" || command === "validation-session-create") {
-    const result = await runValidationSessionCreate({
+    const result = finalizeMutationResult(await runValidationSessionCreate({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Session Title".'),
       workspaceName,
-    });
+    }), { command: "validation-session-create", surface: "validation-session" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildSimpleMutationPayload({
       command: "validation-session-create",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-      nextStep: result.nextStep,
-    }, null, 2));
+      result,
+      extra: {
+        nextStep: result.nextStep,
+      },
+    }), null, 2));
     return;
   }
 
   if (command === "validation-session adopt" || command === "validation-session-adopt") {
-    const result = await runValidationSessionAdopt({
+    const result = finalizeMutationResult(await runValidationSessionAdopt({
       apply: options.apply === true,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Session Title".'),
       workspaceName,
-    });
+    }), { command: "validation-session-adopt", surface: "validation-session" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
+    console.log(JSON.stringify(buildSimpleMutationPayload({
       command: "validation-session-adopt",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-      nextStep: result.nextStep,
-    }, null, 2));
+      result,
+      extra: {
+        nextStep: result.nextStep,
+      },
+    }), null, 2));
     return;
   }
 
   if (command === "validation-session pull" || command === "validation-session-pull") {
     const result = await runValidationSessionPull({
-      outputPath: requireOption(options, "output", "Provide --output <file>."),
+      outputPath: requireOption(options, "output", "Provide --output <file|->."),
+      metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Session Title".'),
       workspaceName,
     });
-    console.log(JSON.stringify({
+    writeStructuredOutput({
       ok: true,
       command: "validation-session-pull",
       ...result,
-    }, null, 2));
+    }, { stderr: result.wroteToStdout === true });
     return;
   }
 
   if (command === "validation-session diff" || command === "validation-session-diff") {
     const result = await runValidationSessionDiff({
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Session Title".'),
@@ -1301,25 +1323,17 @@ async function main() {
   }
 
   if (command === "validation-session push" || command === "validation-session-push") {
-    const result = await runValidationSessionPush({
+    const result = finalizeMutationResult(await runValidationSessionPush({
       apply: options.apply === true,
-      filePath: requireOption(options, "file", "Provide --file <path>."),
+      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      metadataPath: options.metadata,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Session Title".'),
       workspaceName,
-    });
+    }), { command: "validation-session-push", surface: "validation-session" });
     printDiff(result.diff);
-    console.log(JSON.stringify({
-      ok: true,
-      command: "validation-session-push",
-      applied: result.applied,
-      hasDiff: result.hasDiff,
-      targetPath: result.targetPath,
-      authMode: result.authMode,
-      pageId: result.pageId,
-      timestamp: result.timestamp,
-    }, null, 2));
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "validation-session-push", result }), null, 2));
     return;
   }
 

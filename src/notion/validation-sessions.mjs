@@ -1,6 +1,12 @@
 import { getProjectToken, getWorkspaceToken, nowTimestamp } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
 import {
+  assertLivePageMetadataStable,
+  assertPullPageMetadataFreshFromNotion,
+  buildPullPageMetadata,
+  fetchLivePageMetadata,
+} from "./page-metadata.mjs";
+import {
   createChildDatabase,
   findChildDatabase,
   getDatabaseTitle,
@@ -573,7 +579,13 @@ async function resolveValidationSessionRowContext({
 
   const row = matches[0];
   const targetPath = buildValidationSessionTargetPath(options.projectName, title);
+  const initialLiveMetadata = await fetchLivePageMetadata(row.id, context.surfaceClient);
   const markdown = await fetchPageMarkdown(row.id, targetPath, context.surfaceClient);
+  const liveMetadata = assertLivePageMetadataStable({
+    before: initialLiveMetadata,
+    after: await fetchLivePageMetadata(row.id, context.surfaceClient),
+    targetPath,
+  });
   const managedParts = splitManagedPageMarkdownIfPresent(markdown);
 
   return {
@@ -583,6 +595,7 @@ async function resolveValidationSessionRowContext({
     title,
     targetPath,
     markdown,
+    liveMetadata,
     managedParts,
   };
 }
@@ -845,6 +858,15 @@ export async function pullValidationSessionFile(options) {
     fields,
     bodyMarkdown: context.managedParts.bodyMarkdown,
   });
+  const metadata = buildPullPageMetadata({
+    commandFamily: "validation-session",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.validationTarget.projectId,
+    authMode: context.authMode,
+    lastEditedTime: context.liveMetadata.lastEditedTime,
+  });
 
   return {
     pageId: context.pageId,
@@ -852,6 +874,8 @@ export async function pullValidationSessionFile(options) {
     targetPath: context.targetPath,
     authMode: context.authMode,
     fileMarkdown,
+    liveMetadata: context.liveMetadata,
+    metadata,
   };
 }
 
@@ -884,6 +908,8 @@ export async function diffValidationSessionFile({
 export async function pushValidationSessionFile({
   fileMarkdown,
   apply = false,
+  metadata,
+  workspaceName = "infrastructure-hq",
   timestamp = nowTimestamp(),
   ...options
 }) {
@@ -913,6 +939,16 @@ export async function pushValidationSessionFile({
     };
   }
 
+  const validatedMetadata = await assertPullPageMetadataFreshFromNotion({
+    metadata,
+    client: context.surfaceClient,
+    commandFamily: "validation-session",
+    workspaceName,
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.validationTarget.projectId,
+  });
+
   await context.surfaceClient.request("PATCH", `pages/${context.pageId}`, {
     properties: buildValidationSessionPageProperties(options.title, parsedFile.fields),
   });
@@ -936,6 +972,7 @@ export async function pushValidationSessionFile({
     hasDiff: true,
     diff,
     applied: true,
+    metadata: validatedMetadata,
     timestamp,
   };
 }

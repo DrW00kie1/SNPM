@@ -2,6 +2,8 @@
 
 SNPM is not a generic Notion connector. It is a constrained operator for approved Infrastructure HQ workspace surfaces.
 
+Sprint-level development sequencing lives in [SNPM development plan](./development-plan.md).
+
 ## Current Baseline
 
 Supported on `main`:
@@ -19,7 +21,11 @@ Supported on `main`:
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
+- JSON-only `capabilities` for LLM-readable command discovery
+- read-only `plan-change` for deterministic target-file planning before mutation
 - stdin/stdout ergonomics on the core band
+- strict metadata sidecars and stale-write checks on managed apply paths
+- local redacted mutation journal entries for applied changes
 - EOF-stable managed-page round-trips
 
 Still outside the stable supported line:
@@ -38,6 +44,8 @@ SNPM encodes:
 - clear Notion-vs-repo ownership
 - stable markdown round-trips on supported surfaces
 - review artifacts and explain output before apply
+- stale-write refusal before managed page replacement
+- a local mutation journal that records operational metadata without storing page bodies or secrets
 
 A generic connector gives raw page reach. SNPM gives a narrower tool that is safer to use repeatedly on a live workspace.
 

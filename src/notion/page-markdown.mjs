@@ -5,6 +5,12 @@ import path from "node:path";
 
 import { getProjectToken, getWorkspaceToken, nowTimestamp } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
+import {
+  assertLivePageMetadataStable,
+  assertPullPageMetadataFreshFromNotion,
+  buildPullPageMetadata,
+  fetchLivePageMetadata,
+} from "./page-metadata.mjs";
 import { resolveApprovedPlanningPageTarget } from "./page-targets.mjs";
 
 export function choosePageSyncAuth(
@@ -336,7 +342,13 @@ export async function loadResolvedPageContext({
       };
     })();
 
+  const initialLiveMetadata = await fetchLivePageMetadata(target.pageId, auth.client);
   const markdown = await fetchPageMarkdown(target.pageId, target.targetPath, auth.client);
+  const liveMetadata = assertLivePageMetadataStable({
+    before: initialLiveMetadata,
+    after: await fetchLivePageMetadata(target.pageId, auth.client),
+    targetPath: target.targetPath,
+  });
   const managedParts = splitManagedPageMarkdown(markdown);
 
   return {
@@ -344,6 +356,7 @@ export async function loadResolvedPageContext({
     authMode: auth.authMode,
     client: auth.client,
     markdown,
+    liveMetadata,
     managedParts,
     headerMarkdown: managedParts.headerMarkdown,
     bodyMarkdown: managedParts.bodyMarkdown,
@@ -374,12 +387,23 @@ async function loadApprovedPlanningPageContext({
 
 export async function pullApprovedPageBody(options) {
   const context = await loadApprovedPlanningPageContext(options);
+  const metadata = buildPullPageMetadata({
+    commandFamily: "page",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId,
+    authMode: context.authMode,
+    lastEditedTime: context.liveMetadata.lastEditedTime,
+  });
   return {
     pageId: context.pageId,
     projectId: context.projectId,
     targetPath: context.targetPath,
     authMode: context.authMode,
     bodyMarkdown: context.bodyMarkdown,
+    liveMetadata: context.liveMetadata,
+    metadata,
   };
 }
 
@@ -411,6 +435,7 @@ export async function diffApprovedPageBody({
 export async function pushApprovedPageBody({
   fileBodyMarkdown,
   apply = false,
+  metadata,
   timestamp = nowTimestamp(),
   ...options
 }) {
@@ -438,6 +463,16 @@ export async function pushApprovedPageBody({
     };
   }
 
+  const validatedMetadata = await assertPullPageMetadataFreshFromNotion({
+    metadata,
+    client: context.client,
+    commandFamily: "page",
+    workspaceName: options.workspaceName || "infrastructure-hq",
+    targetPath: context.targetPath,
+    pageId: context.pageId,
+    projectId: context.projectId,
+  });
+
   const replacementMarkdown = buildManagedPageMarkdown({
     headerMarkdown: context.headerMarkdown,
     bodyMarkdown: normalizedFileBody,
@@ -457,6 +492,7 @@ export async function pushApprovedPageBody({
     preserveChildren: true,
     normalizationsApplied: MANAGED_BODY_NORMALIZATIONS.slice(),
     warnings: [],
+    metadata: validatedMetadata,
     currentBodyMarkdown: context.bodyMarkdown,
     nextBodyMarkdown: normalizedFileBody,
     hasDiff: true,

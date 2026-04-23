@@ -17,7 +17,7 @@ import {
   pushSecretRecordBody,
 } from "../notion/project-pages.mjs";
 import { runManagedEditLoop } from "./editing.mjs";
-import { readCommandInput, writeCommandOutput } from "./io.mjs";
+import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
 
 export async function runAccessDomainCreate({
   apply = false,
@@ -58,6 +58,7 @@ export async function runAccessDomainAdopt({
 }
 
 export async function runAccessDomainPull({
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -70,14 +71,22 @@ export async function runAccessDomainPull({
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "access-domain",
+    workspaceName,
   });
 
   const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
+    metadata: result.metadata,
+    ...metadataResult,
     ...outputResult,
   };
 }
@@ -104,6 +113,7 @@ export async function runAccessDomainDiff({
 export async function runAccessDomainPush({
   apply = false,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
@@ -111,14 +121,20 @@ export async function runAccessDomainPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushAccessDomainBody({
     apply,
     config,
     fileBodyMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "access-domain",
+    workspaceName,
   });
 }
 
@@ -143,14 +159,19 @@ export async function runAccessDomainEdit({
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "access-domain",
+      workspaceName,
     }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushAccessDomainBody({
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushAccessDomainBody({
       apply: shouldApply,
       config,
       fileBodyMarkdown,
+      metadata,
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "access-domain",
+      workspaceName,
     }),
   });
 }
@@ -199,6 +220,7 @@ export async function runSecretRecordAdopt({
 
 export async function runSecretRecordPull({
   domainTitle,
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -212,14 +234,22 @@ export async function runSecretRecordPull({
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "secret-record",
+    workspaceName,
   });
 
   const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
+    metadata: result.metadata,
+    ...metadataResult,
     ...outputResult,
   };
 }
@@ -249,6 +279,7 @@ export async function runSecretRecordPush({
   apply = false,
   domainTitle,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
@@ -256,15 +287,21 @@ export async function runSecretRecordPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushSecretRecordBody({
     apply,
     config,
     domainTitle,
     fileBodyMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "secret-record",
+    workspaceName,
   });
 }
 
@@ -291,15 +328,20 @@ export async function runSecretRecordEdit({
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "secret-record",
+      workspaceName,
     }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushSecretRecordBody({
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushSecretRecordBody({
       apply: shouldApply,
       config,
       domainTitle,
       fileBodyMarkdown,
+      metadata,
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "secret-record",
+      workspaceName,
     }),
   });
 }
@@ -348,6 +390,7 @@ export async function runAccessTokenAdopt({
 
 export async function runAccessTokenPull({
   domainTitle,
+  metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
@@ -361,14 +404,22 @@ export async function runAccessTokenPull({
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "access-token",
+    workspaceName,
   });
 
   const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
+  const metadataResult = outputPath !== "-" || metadataOutputPath
+    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
+    projectId: result.projectId,
     targetPath: result.targetPath,
     authMode: result.authMode,
+    metadata: result.metadata,
+    ...metadataResult,
     ...outputResult,
   };
 }
@@ -398,6 +449,7 @@ export async function runAccessTokenPush({
   apply = false,
   domainTitle,
   filePath,
+  metadataPath,
   projectName,
   projectTokenEnv,
   title,
@@ -405,15 +457,21 @@ export async function runAccessTokenPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  const metadata = apply
+    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
+    : undefined;
 
   return pushAccessTokenBody({
     apply,
     config,
     domainTitle,
     fileBodyMarkdown,
+    metadata,
     projectName,
     projectTokenEnv,
     title,
+    commandFamily: "access-token",
+    workspaceName,
   });
 }
 
@@ -440,15 +498,20 @@ export async function runAccessTokenEdit({
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "access-token",
+      workspaceName,
     }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown }) => pushAccessTokenBody({
+    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushAccessTokenBody({
       apply: shouldApply,
       config,
       domainTitle,
       fileBodyMarkdown,
+      metadata,
       projectName,
       projectTokenEnv,
       title,
+      commandFamily: "access-token",
+      workspaceName,
     }),
   });
 }
