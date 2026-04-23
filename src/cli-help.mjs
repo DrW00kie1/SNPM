@@ -1567,13 +1567,13 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run sync-check -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
         ],
         notes: [
-          "sync check supports validation-session v1 manifests and manifest v2 mixed-surface manifests in check-only mode.",
+          "sync check supports validation-session v1 manifests and manifest v2 mixed-surface manifests.",
           "Manifest v2 check entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
         ],
       },
       {
         name: "pull",
-        summary: "Pull the manifest v1 validation-session files from Notion to the repo.",
+        summary: "Pull manifest-backed files from Notion to the repo.",
         usageLines: [
           'node src/cli.mjs sync pull --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
@@ -1590,8 +1590,9 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run sync-pull -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
         ],
         notes: [
-          "sync pull preserves manifest v1 validation-session behavior.",
-          "Manifest v2 mixed-surface manifests are check-only; use sync check for v2 manifests.",
+          "sync pull preserves manifest v1 validation-session artifact-sync behavior.",
+          "Manifest v2 sync pull previews or applies local file refreshes for approved mixed-surface entries and writes <file>.snpm-meta.json sidecars.",
+          "Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
         ],
       },
       {
@@ -1613,8 +1614,8 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
         ],
         notes: [
-          "sync push preserves manifest v1 validation-session behavior.",
-          "Manifest v2 mixed-surface manifests are check-only; use sync check for v2 manifests.",
+          "sync push preserves manifest v1 validation-session artifact-sync behavior.",
+          "Manifest v2 sync push is rejected; use the owning command family for managed Notion writes.",
         ],
       },
     ],
@@ -1668,7 +1669,7 @@ const GLOBAL_COMMAND_GROUPS = [
       ["validation-sessions <init|verify>", "Initialize or verify the Validation Sessions surface."],
       ["validation-bundle <login|preview|apply|verify>", "Experimental Chromium-only UI bundle commands."],
       ["validation-session <create|adopt|pull|diff|push>", "Managed validation-session reports."],
-      ["sync <check|pull|push>", "Manifest-backed sync; v2 mixed-surface support is check-only."],
+      ["sync <check|pull|push>", "Manifest-backed sync; v2 supports check and local-file pull, while push rejects v2."],
     ],
   },
 ];
@@ -1808,7 +1809,9 @@ export function usage() {
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
-    "  Manifest v2 mixed-surface support is check-only through sync check. sync pull and sync push remain manifest v1 validation-session operations.",
+    "  Manifest v2 mixed-surface support includes sync check and local-file sync pull with sidecar metadata; sync push rejects v2 manifests.",
+    "  Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
+    "  Validation-session manifest v1 sync remains a separate artifact lane with sync check, sync pull, and sync push.",
     "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
     "  For the core band, use --output - on pull commands to stream markdown to stdout and --file - on create/diff/push commands to read markdown from stdin.",

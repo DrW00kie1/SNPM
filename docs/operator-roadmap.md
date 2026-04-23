@@ -28,13 +28,15 @@ Supported on `main`:
 - local redacted mutation journal entries for applied changes
 - EOF-stable managed-page round-trips
 
-Current `codex/manifest-v2-check` branch addition:
+Current `codex/manifest-v2-pull` branch addition:
 - manifest v2 `sync check` for read-only mixed-surface drift detection
+- manifest v2 `sync pull` for local-file refreshes with sidecar metadata
+- manifest v2 `sync push` remains rejected
 
 Still outside the stable supported line:
 - build records
 - validation sessions
-- generalized manifest pull/push and batch apply
+- generalized manifest push and batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -91,8 +93,8 @@ Those surfaces continue to use their own command families.
   - `New Validation Session`
 
 ### Phase 2: Workflow Bundles
-- use manifest v2 check-only support as the first safe workflow-bundle primitive
-- compare mixed approved surfaces before designing generalized writes
+- use manifest v2 check and local-file pull support as the first safe workflow-bundle primitives
+- compare and locally refresh mixed approved surfaces before designing generalized writes
 - keep v2 entries explicit:
   - `planning-page`
   - `project-doc`
@@ -100,7 +102,8 @@ Those surfaces continue to use their own command families.
   - `workspace-doc`
   - `runbook`
   - `validation-session`
-- defer generalized `sync pull`, `sync push`, batch apply, create, and adopt until metadata and recovery semantics are designed
+- make v2 `sync pull` write local markdown files and sidecar metadata only, with no Notion mutation and no mutation journal entry
+- defer generalized `sync push`, batch apply, create, and adopt until stale-write and recovery semantics are designed
 - keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
 ### Phase 3: Harden Cross-Repo Consumption
@@ -120,7 +123,7 @@ Keep these boundaries:
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
-- manifest v2 is check-only; mutation stays on the owning command family
+- manifest v2 supports check and local-file pull; `sync push` rejects v2 manifests and mutation stays on the owning command family
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - UI automation stays narrow, explicit, Chromium-only, and non-default
 

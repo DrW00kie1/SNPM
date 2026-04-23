@@ -112,39 +112,42 @@ Purpose: move from one-page operations to planned documentation bundles while ke
 ### Sprint 3.1: Generalized Manifest V2
 
 Goal:
-- extend manifest-backed checking beyond validation sessions without adding new mutation semantics
+- extend manifest-backed checking and local-file pull beyond validation sessions without adding new Notion mutation semantics
 
 Deliverables:
 - typed manifest entries for managed docs, planning pages, runbooks, and validation sessions
 - manifest validation that rejects unsupported surfaces and path escapes
 - `sync check` support for all approved manifest entry types
+- `sync pull` support that previews or writes local markdown files plus per-entry sidecar metadata
 - clear separation from the existing validation-session v1 artifact sync lane
 
 Exit criteria:
-- a project can describe a deterministic documentation bundle in one manifest without using arbitrary page IDs
+- a project can describe and locally refresh a deterministic documentation bundle in one manifest without using arbitrary page IDs
 
 Feature goals covered:
 - generalized manifest sync
 
 Status:
-- active `codex/manifest-v2-check` scope is check-only
+- active `codex/manifest-v2-pull` scope includes `sync check` and local-file `sync pull`
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
-- `sync pull` and `sync push` remain v1 validation-session artifact-sync commands until generalized sidecar metadata, stale checks, and batch-apply semantics are designed
+- manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
+- manifest v2 `sync push` remains rejected until stale checks, recovery, and batch-apply semantics are designed
+- manifest v1 remains the specialized validation-session artifact-sync lane with its existing `sync check`, `sync pull`, and `sync push` behavior
 
-### Sprint 3.2: Manifest Pull And Push
+### Sprint 3.2: Manifest Push And Batch Semantics
 
 Goal:
-- support repeatable local sync for approved project documentation bundles
+- support stale-safe mixed-surface writes for approved project documentation bundles
 
 Deliverables:
-- `sync pull` and `sync push` for the generalized manifest
-- per-entry preview output and failure isolation
+- `sync push` for the generalized manifest
+- per-entry push preview output and failure isolation
 - project-token-safe execution where applicable
-- reuse or extend the managed-page sidecar metadata model before allowing mixed-surface writes
+- reuse or extend the manifest v2 pull sidecar metadata model before allowing mixed-surface writes
 
 Exit criteria:
-- an LLM can pull, edit, diff, and push a typed documentation bundle without hand-sequencing every page command
+- an LLM can pull, edit, diff, and push a typed documentation bundle with stale-write protection and without hand-sequencing every page command
 
 Feature goals covered:
 - generalized manifest sync

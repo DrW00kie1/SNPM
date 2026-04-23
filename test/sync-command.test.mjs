@@ -98,21 +98,161 @@ test("runSyncCheck preserves manifest v1 validation-session routing", async () =
   assert.deepEqual(calls, [{ op: "v1-check", version: 1 }]);
 });
 
-test("runSyncPull and runSyncPush reject manifest v2 before loading workspace config", async () => {
-  const loadWorkspaceConfigImpl = () => {
-    throw new Error("workspace config should not be loaded for v2 pull/push rejection");
-  };
-
-  await assert.rejects(() => runSyncPull({
+test("runSyncPull routes manifest v2 to the injected v2 pull implementation", async () => {
+  const calls = [];
+  const result = await runSyncPull({
+    apply: true,
     manifestPath: "C:\\repo\\snpm.sync.json",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
     loadSyncManifestImpl: () => manifest(2),
-    loadWorkspaceConfigImpl,
-  }), /Manifest version 2 is check-only/i);
+    loadWorkspaceConfigImpl: (workspaceName) => {
+      calls.push({ op: "config", workspaceName });
+      return config();
+    },
+    pullManifestV2SyncManifestImpl: async ({
+      apply,
+      config: loadedConfig,
+      manifest: loadedManifest,
+      projectTokenEnv,
+    }) => {
+      calls.push({
+        op: "v2-pull",
+        apply,
+        notionVersion: loadedConfig.notionVersion,
+        version: loadedManifest.version,
+        projectTokenEnv,
+      });
+      return {
+        command: "sync-pull",
+        applied: true,
+        entries: [],
+        localWrites: [],
+        notionMutationCount: 0,
+      };
+    },
+    pullValidationSessionSyncManifestImpl: async () => {
+      throw new Error("v1 sync pull should not run for manifest v2");
+    },
+  });
+
+  assert.equal(result.command, "sync-pull");
+  assert.equal(result.notionMutationCount, 0);
+  assert.deepEqual(calls, [
+    { op: "config", workspaceName: "infrastructure-hq" },
+    {
+      op: "v2-pull",
+      apply: true,
+      notionVersion: "2026-03-11",
+      version: 2,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+    },
+  ]);
+});
+
+test("runSyncPush rejects manifest v2 before loading workspace config", async () => {
+  const loadWorkspaceConfigImpl = () => {
+    throw new Error("workspace config should not be loaded for v2 push rejection");
+  };
 
   await assert.rejects(() => runSyncPush({
     manifestPath: "C:\\repo\\snpm.sync.json",
     loadSyncManifestImpl: () => manifest(2),
     loadWorkspaceConfigImpl,
-  }), /Manifest version 2 is check-only/i);
+    pushValidationSessionSyncManifestImpl: async () => {
+      throw new Error("v1 sync push should not run for manifest v2");
+    },
+  }), /Manifest version 2 does not support sync push yet/i);
+});
+
+test("runSyncPull and runSyncPush preserve manifest v1 validation-session routing", async () => {
+  const calls = [];
+
+  const pullResult = await runSyncPull({
+    apply: false,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    loadSyncManifestImpl: () => manifest(1),
+    loadWorkspaceConfigImpl: (workspaceName) => {
+      calls.push({ op: "pull-config", workspaceName });
+      return config();
+    },
+    pullManifestV2SyncManifestImpl: async () => {
+      throw new Error("v2 sync pull should not run for manifest v1");
+    },
+    pullValidationSessionSyncManifestImpl: async ({
+      apply,
+      config: loadedConfig,
+      manifest: loadedManifest,
+      projectTokenEnv,
+    }) => {
+      calls.push({
+        op: "v1-pull",
+        apply,
+        notionVersion: loadedConfig.notionVersion,
+        version: loadedManifest.version,
+        projectTokenEnv,
+      });
+      return {
+        command: "sync-pull",
+        applied: false,
+      };
+    },
+  });
+
+  const pushResult = await runSyncPush({
+    apply: true,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    loadSyncManifestImpl: () => manifest(1),
+    loadWorkspaceConfigImpl: (workspaceName) => {
+      calls.push({ op: "push-config", workspaceName });
+      return config();
+    },
+    pushValidationSessionSyncManifestImpl: async ({
+      apply,
+      config: loadedConfig,
+      manifest: loadedManifest,
+      projectTokenEnv,
+    }) => {
+      calls.push({
+        op: "v1-push",
+        apply,
+        notionVersion: loadedConfig.notionVersion,
+        version: loadedManifest.version,
+        projectTokenEnv,
+      });
+      return {
+        command: "sync-push",
+        applied: true,
+      };
+    },
+  });
+
+  assert.deepEqual(pullResult, {
+    command: "sync-pull",
+    applied: false,
+  });
+  assert.deepEqual(pushResult, {
+    command: "sync-push",
+    applied: true,
+  });
+  assert.deepEqual(calls, [
+    { op: "pull-config", workspaceName: "infrastructure-hq" },
+    {
+      op: "v1-pull",
+      apply: false,
+      notionVersion: "2026-03-11",
+      version: 1,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+    },
+    { op: "push-config", workspaceName: "infrastructure-hq" },
+    {
+      op: "v1-push",
+      apply: true,
+      notionVersion: "2026-03-11",
+      version: 1,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+    },
+  ]);
 });
 

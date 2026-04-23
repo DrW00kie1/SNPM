@@ -1,14 +1,14 @@
 # Manifest And Validation-Session Sync
 
 SNPM has two manifest sync contracts:
-- manifest v2 is a check-only, mixed-surface drift detector
+- manifest v2 is a mixed-surface drift detector and local-file pull lane with sidecar metadata
 - manifest v1 is the existing validation-session artifact sync lane with pull and push
 
-Use v2 when the goal is to compare a repo bundle against approved Notion surfaces before planning edits. Use v1 only when a repo-backed validation-session artifact needs to pull from or push to its managed Notion row.
+Use v2 when the goal is to compare a repo bundle against approved Notion surfaces or refresh local files before planning edits. Use v1 only when a repo-backed validation-session artifact needs to pull from or push to its managed Notion row.
 
-## Manifest V2 Check-Only Sync
+## Manifest V2 Mixed-Surface Sync
 
-Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 is intentionally limited to `sync check`.
+Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check` and local-file `sync pull`. Manifest v2 `sync push` is intentionally rejected.
 
 Supported v2 entry kinds:
 - `planning-page`
@@ -80,7 +80,16 @@ npm run sync-check -- --manifest C:\path\to\snpm.sync.json --project-token-env P
 
 `sync check` reads each listed local file, resolves the matching approved Notion target, compares the bodies using the target surface's managed markdown rules, and reports per-entry status. Missing local files, missing Notion targets, unsupported targets, and content drift make the check fail without creating or modifying anything.
 
-V2 does not support generalized mutation. `sync pull` and `sync push` reject v2 manifests in this sprint; use the owning command family instead:
+Pull the v2 bundle into local files:
+
+```powershell
+npm run sync-pull -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run sync-pull -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+```
+
+`sync pull` resolves each approved Notion target and previews local file refreshes by default. With `--apply`, it writes the listed markdown files and adjacent `<file>.snpm-meta.json` sidecars. This is a local-file operation only: it does not mutate Notion and does not append local mutation journal entries.
+
+V2 does not support generalized Notion mutation. `sync push` rejects v2 manifests in this sprint; use the owning command family instead:
 - `page-*` for planning pages
 - `doc-*` for managed docs
 - `runbook-*` for runbooks

@@ -103,6 +103,21 @@ function remoteMarkdownFromReadResult(entry, result) {
   throw new Error(`${entry.kind} adapter readRemote must return markdown, bodyMarkdown, or fileMarkdown.`);
 }
 
+function buildReadRemoteResult(result, markdown) {
+  const remote = {
+    targetPath: result.targetPath,
+    markdown,
+  };
+
+  for (const field of ["pageId", "projectId", "authMode", "authScope", "liveMetadata", "metadata"]) {
+    if (Object.hasOwn(result, field)) {
+      remote[field] = result[field];
+    }
+  }
+
+  return remote;
+}
+
 function normalizeDiffResult(result) {
   const diff = typeof result?.diff === "string" ? result.diff : "";
   const hasDiff = typeof result?.hasDiff === "boolean" ? result.hasDiff : diff.length > 0;
@@ -225,10 +240,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.bodyMarkdown,
-        };
+        return buildReadRemoteResult(result, result.bodyMarkdown);
       },
     },
     "project-doc": {
@@ -251,10 +263,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.bodyMarkdown,
-        };
+        return buildReadRemoteResult(result, result.bodyMarkdown);
       },
     },
     "template-doc": {
@@ -277,10 +286,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.bodyMarkdown,
-        };
+        return buildReadRemoteResult(result, result.bodyMarkdown);
       },
     },
     "workspace-doc": {
@@ -303,10 +309,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.bodyMarkdown,
-        };
+        return buildReadRemoteResult(result, result.bodyMarkdown);
       },
     },
     runbook: {
@@ -331,10 +334,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.bodyMarkdown,
-        };
+        return buildReadRemoteResult(result, result.bodyMarkdown);
       },
     },
     "validation-session": {
@@ -357,10 +357,7 @@ export function createManifestV2SyncCheckAdapters({
           workspaceName: manifest.workspaceName,
         });
 
-        return {
-          targetPath: result.targetPath,
-          markdown: result.fileMarkdown,
-        };
+        return buildReadRemoteResult(result, result.fileMarkdown);
       },
     },
   };

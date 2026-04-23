@@ -81,6 +81,72 @@ function simpleMissingLocalDiff(_currentMarkdown, nextMarkdown) {
   return `missing-local\n+++ remote\n${nextMarkdown}`;
 }
 
+function commandFamilyForKind(kind) {
+  if (kind === "planning-page") {
+    return "page";
+  }
+
+  if (["project-doc", "template-doc", "workspace-doc"].includes(kind)) {
+    return "doc";
+  }
+
+  if (kind === "validation-session") {
+    return "validation-session";
+  }
+
+  return kind;
+}
+
+function makePullMetadata({ authMode = "project-token", commandFamily, pageId, projectId, targetPath }) {
+  const metadata = {
+    schema: "snpm.pull-metadata.v1",
+    commandFamily,
+    workspaceName: "infrastructure-hq",
+    targetPath,
+    pageId,
+    authMode,
+    lastEditedTime: "2026-04-23T20:00:00.000Z",
+    pulledAt: "2026-04-23T20:01:00.000Z",
+  };
+
+  if (projectId) {
+    metadata.projectId = projectId;
+  }
+
+  return metadata;
+}
+
+function makePullResult({
+  authMode = "project-token",
+  commandFamily,
+  markdown,
+  markdownField = "bodyMarkdown",
+  pageId,
+  projectId = "project-root",
+  targetPath,
+}) {
+  const result = {
+    pageId,
+    projectId,
+    targetPath,
+    authMode,
+    liveMetadata: {
+      pageId,
+      lastEditedTime: "2026-04-23T20:00:00.000Z",
+      archived: false,
+    },
+    metadata: makePullMetadata({
+      authMode,
+      commandFamily,
+      pageId,
+      projectId,
+      targetPath,
+    }),
+  };
+  result[markdownField] = markdown;
+  return result;
+}
+
 function makeFakeAdapters({
   calls = [],
   diffByTarget = new Map(),
@@ -125,7 +191,22 @@ function makeFakeAdapters({
       }
 
       return {
+        pageId: `${kind}-page`,
+        projectId: "project-root",
         targetPath: `Projects > SNPM > ${target}`,
+        authMode: projectTokenEnv ? "project-token" : "workspace-token",
+        liveMetadata: {
+          pageId: `${kind}-page`,
+          lastEditedTime: "2026-04-23T20:00:00.000Z",
+          archived: false,
+        },
+        metadata: makePullMetadata({
+          authMode: projectTokenEnv ? "project-token" : "workspace-token",
+          commandFamily: commandFamilyForKind(kind),
+          pageId: `${kind}-page`,
+          projectId: "project-root",
+          targetPath: `Projects > SNPM > ${target}`,
+        }),
         markdown: remoteByTarget.get(target) || `# ${target}\nRemote body\n`,
       };
     },
@@ -216,6 +297,13 @@ test("manifest v2 check handles mixed entries, drift, missing local files, and i
   ]);
   assert.equal(result.entries[2].diff.includes("Template remote"), true);
   assert.equal(result.entries[4].diff.includes("Runbook remote"), true);
+  for (const entry of [result.entries[2], result.entries[4]]) {
+    assert.equal("metadata" in entry, false);
+    assert.equal("pageId" in entry, false);
+    assert.equal("projectId" in entry, false);
+    assert.equal("authMode" in entry, false);
+    assert.equal("liveMetadata" in entry, false);
+  }
 });
 
 test("manifest v2 check isolates per-entry adapter failures", async () => {
@@ -272,6 +360,120 @@ test("manifest v2 check does not call write or mutation hooks", async () => {
   assert.equal(result.entries.every((entry) => entry.applied === false), true);
   assert.equal(result.appliedCount, 0);
   assert.deepEqual(mutationCalls, []);
+  assert.equal(result.entries.some((entry) => "metadata" in entry), false);
+});
+
+test("default manifest v2 readRemote adapters preserve pull metadata and identifiers", async () => {
+  const entries = mixedEntries();
+  const manifest = baseManifest(entries);
+  const calls = [];
+  const adapters = createManifestV2SyncCheckAdapters({
+    pullApprovedPageBodyImpl: async (args) => {
+      calls.push({ op: "page-pull", args });
+      return makePullResult({
+        commandFamily: "page",
+        markdown: "planning remote\n",
+        pageId: "planning-page",
+        projectId: "project-root",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+      });
+    },
+    pullDocBodyImpl: async (args) => {
+      calls.push({ op: "doc-pull", args });
+      return makePullResult({
+        authMode: args.projectName ? "project-token" : "workspace-token",
+        commandFamily: "doc",
+        markdown: `doc remote: ${args.docPath}\n`,
+        pageId: `doc-page-${calls.length}`,
+        projectId: args.projectName ? "project-root" : null,
+        targetPath: `Docs > ${args.docPath}`,
+      });
+    },
+    pullRunbookBodyImpl: async (args) => {
+      calls.push({ op: "runbook-pull", args });
+      return makePullResult({
+        commandFamily: "runbook",
+        markdown: "runbook remote\n",
+        pageId: "runbook-page",
+        projectId: "project-root",
+        targetPath: `Projects > SNPM > Runbooks > ${args.title}`,
+      });
+    },
+    pullValidationSessionFileImpl: async (args) => {
+      calls.push({ op: "validation-session-pull", args });
+      return makePullResult({
+        commandFamily: "validation-session",
+        markdown: "validation remote\n",
+        markdownField: "fileMarkdown",
+        pageId: "validation-page",
+        projectId: "project-root",
+        targetPath: `Projects > SNPM > Ops > Validation > Validation Sessions > ${args.title}`,
+      });
+    },
+  });
+  const adapterInput = {
+    config: baseConfig(),
+    manifest,
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+  };
+
+  const planning = await adapters["planning-page"].readRemote({ ...adapterInput, entry: entries[0] });
+  const docs = await Promise.all(entries.slice(1, 4).map((entry) => adapters[entry.kind].readRemote({
+    ...adapterInput,
+    entry,
+  })));
+  const runbook = await adapters.runbook.readRemote({ ...adapterInput, entry: entries[4] });
+  const validationSession = await adapters["validation-session"].readRemote({ ...adapterInput, entry: entries[5] });
+  const remotes = [planning, ...docs, runbook, validationSession];
+
+  assert.deepEqual(remotes.map((remote) => remote.markdown), [
+    "planning remote\n",
+    "doc remote: Root > Overview\n",
+    "doc remote: Templates > Project Templates > Overview\n",
+    "doc remote: Runbooks > Notion Workspace Workflow\n",
+    "runbook remote\n",
+    "validation remote\n",
+  ]);
+  assert.deepEqual(remotes.map((remote) => remote.metadata.commandFamily), [
+    "page",
+    "doc",
+    "doc",
+    "doc",
+    "runbook",
+    "validation-session",
+  ]);
+  assert.deepEqual(remotes.map((remote) => remote.pageId), [
+    "planning-page",
+    "doc-page-2",
+    "doc-page-3",
+    "doc-page-4",
+    "runbook-page",
+    "validation-page",
+  ]);
+  assert.equal(planning.projectId, "project-root");
+  assert.equal(docs[0].projectId, "project-root");
+  assert.equal(docs[1].projectId, null);
+  assert.equal(docs[2].projectId, null);
+  assert.deepEqual(remotes.map((remote) => remote.authMode), [
+    "project-token",
+    "project-token",
+    "workspace-token",
+    "workspace-token",
+    "project-token",
+    "project-token",
+  ]);
+  assert.deepEqual(remotes.map((remote) => remote.liveMetadata.pageId), remotes.map((remote) => remote.pageId));
+  assert.deepEqual(calls.map((call) => call.op), [
+    "page-pull",
+    "doc-pull",
+    "doc-pull",
+    "doc-pull",
+    "runbook-pull",
+    "validation-session-pull",
+  ]);
+  assert.equal(calls[1].args.projectName, "SNPM");
+  assert.equal(calls[2].args.projectName, undefined);
+  assert.equal(calls[3].args.projectName, undefined);
 });
 
 test("default manifest v2 adapters route normalized entries to existing read-only helpers", async () => {

@@ -1,5 +1,6 @@
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import { checkManifestV2SyncManifest } from "../notion/manifest-sync-check.mjs";
+import { pullManifestV2SyncManifest } from "../notion/manifest-sync-pull.mjs";
 import {
   loadSyncManifest,
   SYNC_MANIFEST_V1_VERSION,
@@ -39,7 +40,7 @@ function assertManifestV1ForSyncMutation(manifest, commandName) {
   }
 
   if (manifest.version === SYNC_MANIFEST_V2_VERSION) {
-    throw new Error(`Manifest version 2 is check-only in this sprint. Use "sync check" for manifest v2, or use a version 1 validation-session manifest for ${commandName}.`);
+    throw new Error(`Manifest version 2 does not support ${commandName} yet. Use "sync check" or "sync pull" for manifest v2, then use the owning page-*, doc-*, runbook-*, or validation-session-* command family for Notion writes.`);
   }
 
   throw new Error(`Unsupported sync manifest version "${manifest.version}".`);
@@ -80,12 +81,23 @@ export async function runSyncPull({
   loadWorkspaceConfigImpl = loadWorkspaceConfig,
   manifestPath,
   projectTokenEnv,
+  pullManifestV2SyncManifestImpl = pullManifestV2SyncManifest,
   pullValidationSessionSyncManifestImpl = pullValidationSessionSyncManifest,
   workspaceOverride,
 }) {
-  const manifest = loadManifest(manifestPath, workspaceOverride, { loadSyncManifestImpl });
-  assertManifestV1ForSyncMutation(manifest, "sync pull");
-  const config = loadConfigForManifest(manifest, { loadWorkspaceConfigImpl });
+  const { manifest, config } = loadManifestAndConfig(manifestPath, workspaceOverride, {
+    loadSyncManifestImpl,
+    loadWorkspaceConfigImpl,
+  });
+
+  if (manifest.version === SYNC_MANIFEST_V2_VERSION) {
+    return pullManifestV2SyncManifestImpl({
+      apply,
+      config,
+      manifest,
+      projectTokenEnv,
+    });
+  }
 
   return pullValidationSessionSyncManifestImpl({
     apply,
