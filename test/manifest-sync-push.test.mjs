@@ -7,6 +7,9 @@ import {
   targetForManifestV2SyncEntry,
 } from "../src/notion/manifest-sync-check.mjs";
 import {
+  MANIFEST_V2_PUSH_DIAGNOSTIC_CODES,
+} from "../src/notion/manifest-sync-diagnostics.mjs";
+import {
   createManifestV2SyncPushAdapters,
   pushManifestV2SyncManifest,
 } from "../src/notion/manifest-sync-push.mjs";
@@ -157,6 +160,14 @@ function mapBackedReadFile(localFiles, readCalls = []) {
 
     return value;
   };
+}
+
+function diagnosticCodes(result) {
+  return (result.diagnostics || []).map((diagnostic) => diagnostic.code);
+}
+
+function entryDiagnosticCodes(entry) {
+  return (entry.diagnostics || []).map((diagnostic) => diagnostic.code);
 }
 
 function makeFakeAdapters({
@@ -355,6 +366,11 @@ test("manifest v2 push apply validates sidecars and calls push adapters", async 
   ]);
   assert.equal(result.warnings.length, 1);
   assert.match(result.warnings[0], /sync pull --apply/i);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_STALE_AFTER_APPLY,
+  ]);
+  assert.equal(result.diagnostics[0].severity, "warning");
+  assert.equal(result.diagnostics[0].state.appliedCount, 2);
   assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
     "pushLocal:false:Planning > Roadmap",
     "readRemote:undefined:Planning > Roadmap",
@@ -392,6 +408,12 @@ test("manifest v2 push refreshSidecars is only valid with apply and performs no 
   assert.match(result.failures[0], /requires --apply/);
   assert.equal(result.entries[0].status, "error");
   assert.match(result.recovery, /--apply/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.REFRESH_SIDECARS_REQUIRES_APPLY,
+  ]);
+  assert.equal(result.diagnostics[0].severity, "error");
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync push --apply --refresh-sidecars");
+  assert.equal(result.diagnostics[0].entry.target, "Planning > Roadmap");
   assert.deepEqual(calls, []);
   assert.deepEqual(readCalls, []);
   assert.deepEqual(writes, []);
@@ -452,6 +474,7 @@ test("manifest v2 push apply refreshes sidecars after all mutations succeed", as
   assert.deepEqual(result.failures, []);
   assert.equal(result.appliedCount, 2);
   assert.equal(result.warnings, undefined);
+  assert.equal(result.diagnostics, undefined);
   assert.deepEqual(result.entries.map((entry) => ({
     status: entry.status,
     applied: entry.applied,
@@ -545,6 +568,12 @@ test("manifest v2 push refreshSidecars writes zero sidecars when refresh preflig
   assert.match(result.failures[0], /Remote markdown mismatch/);
   assert.match(result.failures[0], /No sidecars were written/);
   assert.match(result.recovery, /sync pull --apply/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_REFRESH_PREFLIGHT_FAILED,
+  ]);
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync pull --apply");
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+  assert.equal(result.diagnostics[0].state.sidecarWritesAttempted, false);
   assert.equal(result.appliedCount, 2);
   assert.equal(result.entries[0].applied, true);
   assert.equal(result.entries[1].applied, true);
@@ -622,6 +651,14 @@ test("manifest v2 push refreshSidecars reports partial sidecar writes without un
   assert.match(result.failures[0], /runbooks\\release-smoke\.md\.snpm-meta\.json/);
   assert.match(result.failures[0], /disk full/);
   assert.match(result.recovery, /sync pull --apply/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_REFRESH_WRITE_FAILED,
+  ]);
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+  assert.equal(result.diagnostics[0].state.sidecarWritesCompleted, 1);
+  assert.deepEqual(result.diagnostics[0].state.partialSidecarWrites, [
+    `${entries[0].absoluteFilePath}.snpm-meta.json`,
+  ]);
   assert.equal(result.appliedCount, 2);
   assert.equal(result.entries[0].applied, true);
   assert.equal(result.entries[1].applied, true);
@@ -755,6 +792,12 @@ test("manifest v2 push apply enforces mutation budgets after preflight and befor
     assert.match(result.failures[0], /mutation budget exceeded/);
     assert.match(result.failures[0], /maxMutations is 1/);
     assert.equal(result.appliedCount, 0);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.MUTATION_BUDGET_EXCEEDED,
+    ]);
+    assert.equal(result.diagnostics[0].state.changedCount, 2);
+    assert.equal(result.diagnostics[0].state.maxMutations, 1);
+    assert.equal(result.diagnostics[0].safeNextCommand, "sync push --apply --max-mutations <n|all>");
     assert.deepEqual(writes, []);
     assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
       "pushLocal:false:Planning > Roadmap",
@@ -820,6 +863,14 @@ test("manifest v2 push apply blocks missing and malformed sidecars before mutati
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0], /Metadata sidecar/);
     assert.match(result.failures[0], /sync pull --apply/i);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_MISSING,
+    ]);
+    assert.deepEqual(entryDiagnosticCodes(result.entries[1]), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_MISSING,
+    ]);
+    assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+    assert.equal(result.diagnostics[0].safeNextCommand, "sync pull --apply");
     assert.deepEqual(mutationCalls, []);
   });
 
@@ -846,6 +897,10 @@ test("manifest v2 push apply blocks missing and malformed sidecars before mutati
 
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0], /not valid JSON/);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_MALFORMED,
+    ]);
+    assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
     assert.deepEqual(mutationCalls, []);
   });
 });
@@ -896,6 +951,11 @@ test("manifest v2 push apply blocks stale, mismatched, archived, and trashed met
 
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0], /Stale metadata/);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_STALE,
+    ]);
+    assert.equal(result.diagnostics[0].targetPath, "Projects > SNPM > Planning > Roadmap");
+    assert.equal(result.diagnostics[0].entry.target, "Planning > Roadmap");
     assert.deepEqual(mutationCalls, []);
   });
 
@@ -924,6 +984,9 @@ test("manifest v2 push apply blocks stale, mismatched, archived, and trashed met
 
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0], /must return liveMetadata/);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.REMOTE_PREFLIGHT_FAILED,
+    ]);
     assert.deepEqual(mutationCalls, []);
   });
 
@@ -961,6 +1024,11 @@ test("manifest v2 push apply blocks stale, mismatched, archived, and trashed met
     assert.match(result.failures[0], /targetPath mismatch/);
     assert.match(result.failures[1], /pageId mismatch|Live page id mismatch/);
     assert.match(result.failures[2], /projectId mismatch/);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_MISMATCH,
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_MISMATCH,
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_MISMATCH,
+    ]);
     assert.deepEqual(mutationCalls, []);
   });
 
@@ -998,6 +1066,10 @@ test("manifest v2 push apply blocks stale, mismatched, archived, and trashed met
 
     assert.equal(result.failures.length, 2);
     assert.match(result.failures.join("\n"), /archived or in trash/);
+    assert.deepEqual(diagnosticCodes(result), [
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_ARCHIVED_OR_TRASHED,
+      MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.METADATA_ARCHIVED_OR_TRASHED,
+    ]);
     assert.deepEqual(mutationCalls, []);
   });
 });
@@ -1030,6 +1102,11 @@ test("manifest v2 push apply blocks remote preflight failures before any mutatio
 
   assert.equal(result.failures.length, 1);
   assert.match(result.failures[0], /could not be read/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.REMOTE_PREFLIGHT_FAILED,
+  ]);
+  assert.equal(result.diagnostics[0].targetPath, "Projects > SNPM > Release Smoke Test");
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
   assert.deepEqual(mutationCalls, []);
   assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
     "pushLocal:false:Planning > Roadmap",
@@ -1080,6 +1157,18 @@ test("manifest v2 push apply stops on first apply failure and reports partial re
   assert.match(result.failures[0], /Prior remote mutations: planning-page "Planning > Roadmap"/);
   assert.match(result.failures[0], /No rollback was attempted/);
   assert.match(result.recovery, /sync pull --apply/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.PARTIAL_APPLY,
+  ]);
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+  assert.equal(result.diagnostics[0].targetPath, "Projects > SNPM > Release Smoke Test");
+  assert.deepEqual(result.diagnostics[0].state.priorRemoteMutations, [
+    {
+      kind: "planning-page",
+      target: "Planning > Roadmap",
+      targetPath: "Projects > SNPM > Planning > Roadmap",
+    },
+  ]);
   assert.deepEqual(mutationCalls.map((call) => call.target), [
     "Planning > Roadmap",
     "Release Smoke Test",

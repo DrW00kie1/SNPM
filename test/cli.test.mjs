@@ -87,6 +87,15 @@ function assertSyncCapabilityMetadata(command, expected) {
   assert.equal(command.manifestV2Selection, "entry-or-entries-file");
   assert.equal(command.reviewOutput, expected.reviewOutput);
   assert.equal(command.maxMutations, expected.maxMutations);
+  assert.equal(command.structuredDiagnostics, expected.structuredDiagnostics);
+  assert.deepEqual(command.diagnosticFields, [
+    "code",
+    "severity",
+    "entry",
+    "target",
+    "safeNextCommand",
+    "recoveryAction",
+  ]);
 }
 
 test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
@@ -216,6 +225,8 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(checkResult.stdout, /--entry <kind:target>/);
   assert.match(checkResult.stdout, /--entries-file <path\|->/);
   assert.match(checkResult.stdout, /--review-output <dir>/);
+  assert.match(checkResult.stdout, /structured result\/review metadata/i);
+  assert.match(checkResult.stdout, /stable codes, severity, entry\/target context, a safe next command, and a recovery action/i);
 
   assert.equal(pullResult.status, 0);
   assert.equal(pullResult.stderr, "");
@@ -223,6 +234,8 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assertSyncPullDocumentsManifestV2Pull(pullResult.stdout);
   assert.match(pullResult.stdout, /--entry <kind:target>/);
   assert.match(pullResult.stdout, /--entries-file <path\|->/);
+  assert.match(pullResult.stdout, /structured result metadata/i);
+  assert.match(pullResult.stdout, /safe next command/i);
 
   assert.equal(pushResult.status, 0);
   assert.equal(pushResult.stderr, "");
@@ -233,6 +246,8 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(pushResult.stdout, /--review-output <dir>/);
   assert.match(pushResult.stdout, /--max-mutations <n\|all>/);
   assert.match(pushResult.stdout, /defaults to 1/i);
+  assert.match(pushResult.stdout, /structured result\/review metadata/i);
+  assert.match(pushResult.stdout, /do not add rollback, retries, semantic checks, transaction semantics, or generic batch apply/i);
 
   assert.equal(capabilitiesResult.status, 0);
   assert.equal(capabilitiesResult.stderr, "");
@@ -250,20 +265,25 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
 
   assert.match(syncCheckText, /manifest v2 mixed-surface manifests/i);
   assert.match(syncCheckText, /planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions/);
+  assert.match(syncCheckText, /structured result\/review metadata/i);
   assertSyncPullDocumentsManifestV2Pull(syncPullText);
+  assert.match(syncPullText, /structured result metadata/i);
   assertSyncPushDocumentsGuardedManifestV2Push(syncPushText);
+  assert.match(syncPushText, /structured result\/review metadata/i);
 
   assertSyncCapabilityMetadata(syncCheckCapability, {
     notionMutation: "none",
     localFileWrites: "none",
     journalWrites: "none",
     reviewOutput: "manifest-v2-only",
+    structuredDiagnostics: "manifest-v2-result-and-review-metadata",
   });
   assertSyncCapabilityMetadata(syncPullCapability, {
     notionMutation: "none",
     localFileWrites: "apply-gated",
     journalWrites: "none",
     reviewOutput: "unsupported",
+    structuredDiagnostics: "manifest-v2-result-metadata",
   });
   assertSyncCapabilityMetadata(syncPushCapability, {
     notionMutation: "apply-gated",
@@ -272,6 +292,7 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
     sidecarRefresh: "opt-in-apply-gated",
     reviewOutput: "manifest-v2-preview-only",
     maxMutations: "manifest-v2-apply-default-1",
+    structuredDiagnostics: "manifest-v2-result-and-review-metadata",
   });
   assert.deepEqual(processSyncCheckCapability, syncCheckCapability);
   assert.deepEqual(processSyncPullCapability, syncPullCapability);

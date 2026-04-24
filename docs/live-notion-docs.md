@@ -104,8 +104,9 @@ Supported Sprint 3.2C operator behavior:
 - `sync push --apply` requires v2 sidecars and allows at most one changed entry by default
 - broader applies require `--max-mutations <n>` or `--max-mutations all`
 - `sync push --apply --refresh-sidecars` refreshes sidecars only for selected entries that applied successfully
+- structured recovery diagnostics appear in result/review metadata with stable codes, severity, entry/target context, safe next command, and recovery action
 
-Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
+Manifest v2 diagnostics are recovery metadata only. Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
 
 ## Verification
 

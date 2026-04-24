@@ -7,6 +7,12 @@ import {
   targetForManifestV2SyncEntry,
 } from "./manifest-sync-check.mjs";
 import {
+  MANIFEST_V2_PUSH_DIAGNOSTIC_CODES,
+  buildManifestV2PushBudgetDiagnostic,
+  buildManifestV2PushFailureDiagnostic,
+  buildManifestV2PushWarningDiagnostic,
+} from "./manifest-sync-diagnostics.mjs";
+import {
   normalizeMarkdownNewlines,
   pushApprovedPageBody,
 } from "./page-markdown.mjs";
@@ -17,7 +23,7 @@ import {
 } from "./page-metadata.mjs";
 import { pushRunbookBody } from "./project-pages.mjs";
 import { pushValidationSessionFile } from "./validation-sessions.mjs";
-import { selectManifestEntries } from "./manifest-selection.mjs";
+import { resolveManifestSyncSelection } from "./manifest-selection.mjs";
 
 const SIDECAR_STALE_WARNING = 'Applied manifest v2 sync push mutations make local metadata sidecars stale. Run "sync pull --apply" before the next push.';
 const PARTIAL_APPLY_RECOVERY = 'No rollback was attempted. Run "sync pull --apply" to refresh local files and sidecars before retrying.';
@@ -99,63 +105,12 @@ function buildSkippedEntry(entry, manifest) {
   return buildEntryBase(descriptor);
 }
 
-function hasSelectionInput({ selectedEntries, selectionOptions }) {
-  return selectedEntries !== undefined || selectionOptions !== undefined;
-}
-
-function selectorValuesFromOptions(selectionOptions) {
-  if (Array.isArray(selectionOptions)) {
-    return selectionOptions;
-  }
-
-  if (selectionOptions && typeof selectionOptions === "object") {
-    return selectionOptions.selectors || selectionOptions.selectorValues || [];
-  }
-
-  return [];
-}
-
-function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
-  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
-    return {
-      entries: manifest.entries,
-      metadata: null,
-    };
-  }
-
-  const resolved = selectedEntries !== undefined
-    ? {
-      selectedEntries,
-      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
-      selectedCount: selectedEntries.length,
-      skippedCount: manifest.entries.length - selectedEntries.length,
-      selectorLabels: [],
-      selectors: [],
-    }
-    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
-  const entries = resolved.selectedEntries || [];
-  const skippedEntries = resolved.skippedEntries.map((entry) => buildSkippedEntry(entry, manifest));
-
-  return {
-    entries,
-    metadata: {
-      selection: {
-        selectorLabels: resolved.selectorLabels || [],
-        selectors: resolved.selectors || [],
-      },
-      selectedCount: resolved.selectedCount ?? entries.length,
-      skippedCount: resolved.skippedCount ?? skippedEntries.length,
-      skippedEntries,
-    },
-  };
-}
-
 function buildTopLevelFailure(entry, error) {
   const target = targetForManifestV2SyncEntry(entry);
   return `${entry.kind} "${target}" (${entry.file}): ${toErrorMessage(error)}`;
 }
 
-function buildErrorEntry(descriptor, error) {
+function buildErrorEntry(descriptor, error, { phase = "preflight", state, targetPath } = {}) {
   return {
     ...buildEntryBase(descriptor),
     status: "error",
@@ -163,7 +118,25 @@ function buildErrorEntry(descriptor, error) {
     diff: "",
     applied: false,
     failure: toErrorMessage(error),
+    diagnostics: [buildManifestV2PushFailureDiagnostic({
+      descriptor,
+      error,
+      phase,
+      state,
+      targetPath,
+    })],
   };
+}
+
+function annotatePushError(error, context) {
+  if (error && typeof error === "object") {
+    Object.assign(error, context);
+    throw error;
+  }
+
+  const wrapped = new Error(String(error));
+  Object.assign(wrapped, context);
+  throw wrapped;
 }
 
 function requireLocalMarkdown(descriptor, { readFileSyncImpl = readFileSync } = {}) {
@@ -461,6 +434,7 @@ function stripPreflightState(entry) {
 function buildSummary({
   manifest,
   authMode,
+  diagnostics = [],
   entries,
   failures,
   mutationBudget,
@@ -489,6 +463,16 @@ function buildSummary({
 
   if (warnings.length > 0) {
     summary.warnings = warnings;
+  }
+
+  const entryDiagnostics = entries.flatMap((entry) => Array.isArray(entry.diagnostics) ? entry.diagnostics : []);
+  const allDiagnostics = [
+    ...entryDiagnostics,
+    ...diagnostics,
+  ];
+
+  if (allDiagnostics.length > 0) {
+    summary.diagnostics = allDiagnostics;
   }
 
   if (recovery) {
@@ -578,43 +562,51 @@ async function preflightEntry({
   readFileSyncImpl,
 }) {
   const { entry } = descriptor;
-  const fileMarkdown = requireLocalMarkdown(descriptor, { readFileSyncImpl });
-  const metadata = apply
-    ? readMetadataSidecar(descriptor, { readFileSyncImpl })
-    : undefined;
-  const preview = normalizePushResult(entry, await adapter.pushLocal({
-    apply: false,
-    config,
-    entry,
-    fileMarkdown,
-    manifest,
-    metadata,
-    projectTokenEnv,
-  }));
+  let preview;
 
-  let validatedMetadata = metadata;
-  if (apply) {
-    const remote = await adapter.readRemote({
+  try {
+    const fileMarkdown = requireLocalMarkdown(descriptor, { readFileSyncImpl });
+    const metadata = apply
+      ? readMetadataSidecar(descriptor, { readFileSyncImpl })
+      : undefined;
+    preview = normalizePushResult(entry, await adapter.pushLocal({
+      apply: false,
       config,
       entry,
-      manifest,
-      projectTokenEnv,
-    });
-    validatedMetadata = validatePreflightMetadata({
-      entry,
+      fileMarkdown,
       manifest,
       metadata,
-      preview,
-      remote,
+      projectTokenEnv,
+    }));
+
+    let validatedMetadata = metadata;
+    if (apply) {
+      const remote = await adapter.readRemote({
+        config,
+        entry,
+        manifest,
+        projectTokenEnv,
+      });
+      validatedMetadata = validatePreflightMetadata({
+        entry,
+        manifest,
+        metadata,
+        preview,
+        remote,
+      });
+    }
+
+    return {
+      ...buildPreflightSummaryEntry(descriptor, preview),
+      fileMarkdown,
+      metadata: validatedMetadata,
+      pushedMarkdown: preview.pushedMarkdown !== null ? preview.pushedMarkdown : fileMarkdown,
+    };
+  } catch (error) {
+    annotatePushError(error, {
+      targetPath: preview?.targetPath,
     });
   }
-
-  return {
-    ...buildPreflightSummaryEntry(descriptor, preview),
-    fileMarkdown,
-    metadata: validatedMetadata,
-    pushedMarkdown: preview.pushedMarkdown !== null ? preview.pushedMarkdown : fileMarkdown,
-  };
 }
 
 async function preflightManifestEntries({
@@ -648,7 +640,10 @@ async function preflightManifestEntries({
         readFileSyncImpl,
       }));
     } catch (error) {
-      entries.push(buildErrorEntry(descriptor, error));
+      entries.push(buildErrorEntry(descriptor, error, {
+        phase: apply ? "apply-preflight" : "preview",
+        targetPath: error?.targetPath,
+      }));
       failures.push(buildTopLevelFailure(descriptor.entry, error));
     }
   }
@@ -785,9 +780,19 @@ async function preflightSidecarRefreshes({
         descriptor,
         error,
       });
+      const diagnostic = buildManifestV2PushFailureDiagnostic({
+        descriptor,
+        error: new Error(failure),
+        phase: "sidecar-refresh-preflight",
+        state: {
+          sidecarWritesAttempted: false,
+        },
+        targetPath: summaryEntry?.targetPath || preflightEntry?.metadata?.targetPath,
+      });
       refreshes.push(null);
       failures.push({
         index,
+        diagnostic,
         failure,
         topLevelFailure: buildTopLevelFailure(descriptor.entry, new Error(failure)),
       });
@@ -836,8 +841,23 @@ function writeSidecarRefreshes({
         error,
         partialSidecarWrites,
       });
+      const diagnostic = buildManifestV2PushFailureDiagnostic({
+        descriptor,
+        error: new Error(failure),
+        phase: "sidecar-refresh-write",
+        state: {
+          attemptedSidecarPath: descriptor.metadataPath,
+          partialSidecarWrites: [...partialSidecarWrites],
+          sidecarWritesCompleted: partialSidecarWrites.length,
+        },
+        targetPath: refreshedEntries[index].targetPath,
+      });
       refreshedEntries[index] = {
         ...refreshedEntries[index],
+        diagnostics: [
+          ...(Array.isArray(refreshedEntries[index].diagnostics) ? refreshedEntries[index].diagnostics : []),
+          diagnostic,
+        ],
         failure,
         sidecarRefreshed: false,
       };
@@ -880,6 +900,7 @@ async function refreshSidecarsAfterApply({
 
   if (preflight.failures.length > 0) {
     const failedIndexes = new Map(preflight.failures.map((failure) => [failure.index, failure.failure]));
+    const diagnosticsByIndex = new Map(preflight.failures.map((failure) => [failure.index, failure.diagnostic]));
     return {
       entries: entries.map((entry, index) => {
         const refresh = preflight.refreshes[index];
@@ -894,6 +915,10 @@ async function refreshSidecarsAfterApply({
         return failedIndexes.has(index)
           ? {
             ...baseEntry,
+            diagnostics: [
+              ...(Array.isArray(baseEntry.diagnostics) ? baseEntry.diagnostics : []),
+              diagnosticsByIndex.get(index),
+            ].filter(Boolean),
             failure: failedIndexes.get(index),
             sidecarRefreshed: false,
           }
@@ -1046,7 +1071,8 @@ export async function pushManifestV2SyncManifest({
   selectionOptions,
   writeFileSyncImpl = writeFileSync,
 }) {
-  const selection = resolveSyncSelection({
+  const selection = resolveManifestSyncSelection({
+    buildSkippedEntry,
     manifest,
     selectedEntries,
     selectionOptions,
@@ -1094,6 +1120,10 @@ export async function pushManifestV2SyncManifest({
     return buildSummary({
       manifest,
       authMode: projectTokenEnv ? "project-token" : "workspace-token",
+      diagnostics: [buildManifestV2PushBudgetDiagnostic({
+        message: budgetFailure,
+        mutationBudget,
+      })],
       entries: preflight.entries.map(stripPreflightState),
       failures: [budgetFailure],
       mutationBudget,
@@ -1127,10 +1157,24 @@ export async function pushManifestV2SyncManifest({
         error,
         appliedEntries,
       });
+      const diagnostic = buildManifestV2PushFailureDiagnostic({
+        descriptor,
+        error: new Error(failure),
+        phase: "partial-apply",
+        state: {
+          priorRemoteMutations: appliedEntries.map((appliedEntry) => ({
+            kind: appliedEntry.kind,
+            target: appliedEntry.target,
+            targetPath: appliedEntry.targetPath,
+          })),
+        },
+        targetPath: entry.targetPath || entry.metadata?.targetPath,
+      });
       entries.push({
         ...stripPreflightState(entry),
         status: "error",
         applied: false,
+        diagnostics: [diagnostic],
         failure,
       });
       failures.push(buildTopLevelFailure(descriptor.entry, new Error(failure)));
@@ -1169,10 +1213,20 @@ export async function pushManifestV2SyncManifest({
   const warnings = appliedEntries.length > 0 && failures.length === 0
     ? [SIDECAR_STALE_WARNING]
     : [];
+  const warningDiagnostics = warnings.map((warning) => buildManifestV2PushWarningDiagnostic({
+    code: MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_STALE_AFTER_APPLY,
+    message: warning,
+    state: {
+      phase: "post-apply",
+      appliedCount: appliedEntries.length,
+      sidecarRefreshed: false,
+    },
+  }));
 
   return buildSummary({
     manifest,
     authMode: projectTokenEnv ? "project-token" : "workspace-token",
+    diagnostics: warningDiagnostics,
     entries,
     failures,
     mutationBudget,

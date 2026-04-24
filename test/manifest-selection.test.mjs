@@ -5,6 +5,7 @@ import {
   MANIFEST_V2_SELECTOR_KINDS,
   parseManifestSelector,
   parseManifestSelectorList,
+  resolveManifestSyncSelection,
   selectManifestEntries,
 } from "../src/notion/manifest-selection.mjs";
 
@@ -143,4 +144,104 @@ test("selectManifestEntries keeps manifest v1 unsupported when selectors are pro
   assert.throws(() => selectManifestEntries(manifest, [
     "validation-session:Legacy Session",
   ]), /only supported for manifest v2/);
+});
+
+test("resolveManifestSyncSelection preserves unselected whole-manifest behavior", () => {
+  const entries = mixedEntries();
+  const result = resolveManifestSyncSelection({
+    manifest: manifestV2(entries),
+  });
+
+  assert.equal(result.entries, entries);
+  assert.equal(result.metadata, null);
+});
+
+test("resolveManifestSyncSelection reports direct selectedEntries metadata", () => {
+  const entries = mixedEntries();
+  const result = resolveManifestSyncSelection({
+    buildSkippedEntry: (entry) => ({
+      kind: entry.kind,
+      target: entry.target,
+      file: entry.file,
+    }),
+    manifest: manifestV2(entries),
+    selectedEntries: [entries[1], entries[4]],
+  });
+
+  assert.deepEqual(result.entries, [entries[1], entries[4]]);
+  assert.deepEqual(result.metadata, {
+    selection: {
+      selectorLabels: [],
+      selectors: [],
+    },
+    selectedCount: 2,
+    skippedCount: 4,
+    skippedEntries: [
+      { kind: "planning-page", target: "Planning > Roadmap", file: "planning/roadmap.md" },
+      { kind: "template-doc", target: "Templates > Project Templates > Overview", file: "templates/project-overview.md" },
+      { kind: "workspace-doc", target: "Runbooks > Notion Workspace Workflow", file: "workspace/notion-workflow.md" },
+      { kind: "validation-session", target: "SNPM Validation Session Fixture", file: "ops/validation/session.md" },
+    ],
+  });
+});
+
+test("resolveManifestSyncSelection accepts array selectionOptions", () => {
+  const entries = mixedEntries();
+  const result = resolveManifestSyncSelection({
+    buildSkippedEntry: (entry) => entry.target,
+    manifest: manifestV2(entries),
+    selectionOptions: [
+      "project-doc: Root > Overview",
+      "runbook:Release Smoke Test",
+    ],
+  });
+
+  assert.deepEqual(result.entries, [entries[1], entries[4]]);
+  assert.deepEqual(result.metadata.selection.selectorLabels, [
+    "project-doc: Root > Overview",
+    "runbook:Release Smoke Test",
+  ]);
+  assert.deepEqual(result.metadata.selection.selectors.map((selector) => ({
+    kind: selector.kind,
+    target: selector.target,
+    label: selector.label,
+  })), [
+    {
+      kind: "project-doc",
+      target: "Root > Overview",
+      label: "project-doc: Root > Overview",
+    },
+    {
+      kind: "runbook",
+      target: "Release Smoke Test",
+      label: "runbook:Release Smoke Test",
+    },
+  ]);
+  assert.equal(result.metadata.selectedCount, 2);
+  assert.equal(result.metadata.skippedCount, 4);
+  assert.deepEqual(result.metadata.skippedEntries, [
+    "Planning > Roadmap",
+    "Templates > Project Templates > Overview",
+    "Runbooks > Notion Workspace Workflow",
+    "SNPM Validation Session Fixture",
+  ]);
+});
+
+test("resolveManifestSyncSelection accepts selectorValues selectionOptions", () => {
+  const entries = mixedEntries();
+  const result = resolveManifestSyncSelection({
+    manifest: manifestV2(entries),
+    selectionOptions: {
+      selectorValues: [
+        { kind: "validation-session", target: " SNPM Validation Session Fixture " },
+      ],
+    },
+  });
+
+  assert.deepEqual(result.entries, [entries[5]]);
+  assert.equal(result.metadata.selectedCount, 1);
+  assert.equal(result.metadata.skippedCount, 5);
+  assert.deepEqual(result.metadata.selection.selectorLabels, [
+    "validation-session:SNPM Validation Session Fixture",
+  ]);
 });

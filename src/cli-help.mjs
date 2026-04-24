@@ -30,6 +30,8 @@ const SYNC_CAPABILITY_METADATA = {
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
     manifestV2Selection: "entry-or-entries-file",
     reviewOutput: "manifest-v2-only",
+    structuredDiagnostics: "manifest-v2-result-and-review-metadata",
+    diagnosticFields: ["code", "severity", "entry", "target", "safeNextCommand", "recoveryAction"],
   },
   pull: {
     notionMutation: "none",
@@ -39,6 +41,8 @@ const SYNC_CAPABILITY_METADATA = {
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
     manifestV2Selection: "entry-or-entries-file",
     reviewOutput: "unsupported",
+    structuredDiagnostics: "manifest-v2-result-metadata",
+    diagnosticFields: ["code", "severity", "entry", "target", "safeNextCommand", "recoveryAction"],
   },
   push: {
     notionMutation: "apply-gated",
@@ -50,6 +54,8 @@ const SYNC_CAPABILITY_METADATA = {
     manifestV2Selection: "entry-or-entries-file",
     reviewOutput: "manifest-v2-preview-only",
     maxMutations: "manifest-v2-apply-default-1",
+    structuredDiagnostics: "manifest-v2-result-and-review-metadata",
+    diagnosticFields: ["code", "severity", "entry", "target", "safeNextCommand", "recoveryAction"],
   },
 };
 
@@ -1621,6 +1627,7 @@ const COMPOUND_COMMAND_SPECS = [
           "Manifest v2 check entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
           "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
           "--review-output writes per-entry review artifacts for manifest v2 sync check only.",
+          "Manifest v2 diagnostics are structured result/review metadata with stable codes, severity, entry/target context, a safe next command, and a recovery action.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.check,
       },
@@ -1649,6 +1656,7 @@ const COMPOUND_COMMAND_SPECS = [
           "Manifest v2 sync pull previews or applies local file refreshes for approved mixed-surface entries and writes <file>.snpm-meta.json sidecars.",
           "Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
           "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
+          "Manifest v2 diagnostics are structured result metadata with stable codes, severity, entry/target context, a safe next command, and a recovery action.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.pull,
       },
@@ -1684,6 +1692,7 @@ const COMPOUND_COMMAND_SPECS = [
           "--max-mutations caps manifest v2 apply mutations; sync push --apply defaults to 1 unless a value or all is provided, while preview is not budget-blocked.",
           "--refresh-sidecars is manifest v2 only, requires --apply, and opts into local .snpm-meta.json sidecar refresh writes after successful push mutations.",
           "Without --refresh-sidecars, applied manifest v2 sync push appends redacted local mutation journal entries and leaves local sidecar metadata unchanged; run sync pull --apply after a successful push when you do not opt in.",
+          "Manifest v2 diagnostics are structured result/review metadata with stable codes, severity, entry/target context, a safe next command, and a recovery action; they do not add rollback, retries, semantic checks, transaction semantics, or generic batch apply.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.push,
       },
@@ -1790,6 +1799,8 @@ function copyOptionalCapabilityFields(target, spec) {
     "manifestV2Selection",
     "reviewOutput",
     "maxMutations",
+    "structuredDiagnostics",
+    "diagnosticFields",
   ];
 
   for (const field of optionalFields) {
@@ -1905,6 +1916,7 @@ export function usage() {
     "  Manifest v2 mixed-surface support includes sync check, local-file sync pull with sidecar metadata, and guarded sync push for existing approved targets.",
     "  Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
     "  Manifest v2 sync push mutates Notion only with --apply, appends redacted local mutation journal entries on applied changes, and writes local sidecars only when --refresh-sidecars is also provided.",
+    "  Manifest v2 diagnostics are structured result and review metadata for operator recovery; they do not add rollback, retries, semantic checks, transaction semantics, or generic batch apply.",
     "  Validation-session manifest v1 sync remains a separate artifact lane with sync check, sync pull, and sync push.",
     "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",

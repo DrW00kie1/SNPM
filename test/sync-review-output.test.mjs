@@ -31,6 +31,10 @@ function baseResult(overrides = {}) {
     hasDiff: true,
     driftCount: 2,
     appliedCount: 0,
+    diagnostics: {
+      generatedBy: "manifest-v2-preview",
+      recoveryHint: "review generated artifacts before apply",
+    },
     failures: [],
     warnings: ["preview only"],
     entries: [
@@ -41,6 +45,15 @@ function baseResult(overrides = {}) {
         targetPath: "Projects > SNPM > Planning > Roadmap",
         status: "push-preview",
         hasDiff: true,
+        diagnostics: {
+          sidecarState: "fresh",
+          driftReason: "body-changed",
+        },
+        recovery: "Run page pull before retry if sidecar freshness changes.",
+        recoveryContext: {
+          command: "npm run page-pull -- --path \"Projects > SNPM > Planning > Roadmap\"",
+          reason: "sidecar-aware review recovery",
+        },
         diff: "diff --git a/planning/roadmap.md b/planning/roadmap.md\n@@\n-old\n+new\n",
         applied: false,
         metadataPath: "C:\\repo\\planning\\roadmap.md.snpm-meta.json",
@@ -95,6 +108,10 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
     assert.equal(summary.workspaceName, "infrastructure-hq");
     assert.equal(summary.selectedEntries, 2);
     assert.equal(summary.skippedEntries, 0);
+    assert.deepEqual(summary.diagnostics, {
+      generatedBy: "manifest-v2-preview",
+      recoveryHint: "review generated artifacts before apply",
+    });
     assert.deepEqual(summary.targetPaths, [
       "Projects > SNPM > Planning > Roadmap",
       "Projects > SNPM > Runbooks > Release Smoke Test",
@@ -104,6 +121,9 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
       surface: entry.surface,
       commandFamily: entry.commandFamily,
       hasDiff: entry.hasDiff,
+      diagnostics: entry.diagnostics,
+      recovery: entry.recovery,
+      recoveryContext: entry.recoveryContext,
       diffFile: entry.diffFile,
     })), [
       {
@@ -111,6 +131,15 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
         surface: "planning",
         commandFamily: "page",
         hasDiff: true,
+        diagnostics: {
+          sidecarState: "fresh",
+          driftReason: "body-changed",
+        },
+        recovery: "Run page pull before retry if sidecar freshness changes.",
+        recoveryContext: {
+          command: "npm run page-pull -- --path \"Projects > SNPM > Planning > Roadmap\"",
+          reason: "sidecar-aware review recovery",
+        },
         diffFile: "001-planning-page-planning-roadmap.diff",
       },
       {
@@ -118,6 +147,9 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
         surface: "runbooks",
         commandFamily: "runbook",
         hasDiff: false,
+        diagnostics: undefined,
+        recovery: undefined,
+        recoveryContext: undefined,
         diffFile: undefined,
       },
     ]);
@@ -126,6 +158,15 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
     assert.equal(entry.sidecar.metadataPresent, true);
     assert.equal(entry.sidecar.schema, "snpm.pull-metadata.v1");
     assert.equal(entry.sidecar.lastEditedTime, "2026-04-23T20:00:00.000Z");
+    assert.deepEqual(entry.diagnostics, {
+      sidecarState: "fresh",
+      driftReason: "body-changed",
+    });
+    assert.equal(entry.recovery, "Run page pull before retry if sidecar freshness changes.");
+    assert.deepEqual(entry.recoveryContext, {
+      command: "npm run page-pull -- --path \"Projects > SNPM > Planning > Roadmap\"",
+      reason: "sidecar-aware review recovery",
+    });
     assert.equal("diff" in entry, false);
     assert.equal(readFileSync(path.join(reviewDir, "entries", "001-planning-page-planning-roadmap.diff"), "utf8"), baseResult().entries[0].diff);
   } finally {
@@ -141,6 +182,10 @@ test("writeManifestV2PreviewReviewArtifacts redacts metadata and does not leak s
     const result = baseResult({
       failures: ["failed with ntn_secret_failure_value and password=hunter2"],
       warnings: ["Bearer abc.def.ghi from SNPM_NOTION_TOKEN"],
+      diagnostics: {
+        token: "ntn_secret_summary_diagnostic",
+        message: "password=summary-password",
+      },
       journalExpectation: {
         expected: true,
         token: "ntn_secret_journal_value",
@@ -158,7 +203,16 @@ test("writeManifestV2PreviewReviewArtifacts redacts metadata and does not leak s
         hasDiff: true,
         diff: secretDiff,
         applied: false,
+        diagnostics: {
+          token: "ntn_secret_entry_diagnostic",
+          env: "SNPM_NOTION_TOKEN",
+        },
         failure: "token=ntn_secret_entry_failure",
+        recovery: "Use Bearer entry.secret.token before retry",
+        recoveryContext: {
+          token: "ntn_secret_entry_recovery",
+          password: "password=recovery-password",
+        },
         warnings: ["secret warning secret_warning_value"],
         projectTokenEnv: "SNPM_NOTION_TOKEN",
         currentBodyMarkdown: "# current must not leak\n",
@@ -190,6 +244,9 @@ test("writeManifestV2PreviewReviewArtifacts redacts metadata and does not leak s
     assert.equal(nonDiffText.includes("abc.def.ghi"), false);
     assert.equal(nonDiffText.includes("SNPM_NOTION_TOKEN"), false);
     assert.equal(nonDiffText.includes("secret_mutation_budget_value"), false);
+    assert.equal(nonDiffText.includes("summary-password"), false);
+    assert.equal(nonDiffText.includes("recovery-password"), false);
+    assert.equal(nonDiffText.includes("entry.secret.token"), false);
     assert.equal(readFileSync(artifacts.files.find((filePath) => filePath.endsWith(".diff")), "utf8"), secretDiff);
   } finally {
     rmSync(reviewDir, { recursive: true, force: true });

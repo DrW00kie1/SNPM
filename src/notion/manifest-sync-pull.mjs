@@ -14,7 +14,7 @@ import {
 import { pullRunbookBody } from "./project-pages.mjs";
 import { buildPullPageMetadata } from "./page-metadata.mjs";
 import { pullValidationSessionFile } from "./validation-sessions.mjs";
-import { selectManifestEntries } from "./manifest-selection.mjs";
+import { resolveManifestSyncSelection } from "./manifest-selection.mjs";
 
 function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -74,57 +74,6 @@ function buildEntryBase(descriptor) {
 function buildSkippedEntry(entry, manifest) {
   const descriptor = buildEntryDescriptor(entry, manifest);
   return buildEntryBase(descriptor);
-}
-
-function hasSelectionInput({ selectedEntries, selectionOptions }) {
-  return selectedEntries !== undefined || selectionOptions !== undefined;
-}
-
-function selectorValuesFromOptions(selectionOptions) {
-  if (Array.isArray(selectionOptions)) {
-    return selectionOptions;
-  }
-
-  if (selectionOptions && typeof selectionOptions === "object") {
-    return selectionOptions.selectors || selectionOptions.selectorValues || [];
-  }
-
-  return [];
-}
-
-function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
-  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
-    return {
-      entries: manifest.entries,
-      metadata: null,
-    };
-  }
-
-  const resolved = selectedEntries !== undefined
-    ? {
-      selectedEntries,
-      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
-      selectedCount: selectedEntries.length,
-      skippedCount: manifest.entries.length - selectedEntries.length,
-      selectorLabels: [],
-      selectors: [],
-    }
-    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
-  const entries = resolved.selectedEntries || [];
-  const skippedEntries = resolved.skippedEntries.map((entry) => buildSkippedEntry(entry, manifest));
-
-  return {
-    entries,
-    metadata: {
-      selection: {
-        selectorLabels: resolved.selectorLabels || [],
-        selectors: resolved.selectors || [],
-      },
-      selectedCount: resolved.selectedCount ?? entries.length,
-      skippedCount: resolved.skippedCount ?? skippedEntries.length,
-      skippedEntries,
-    },
-  };
 }
 
 function buildTopLevelFailure(entry, error) {
@@ -566,7 +515,8 @@ export async function pullManifestV2SyncManifest({
   selectionOptions,
   writeFileSyncImpl = writeFileSync,
 }) {
-  const selection = resolveSyncSelection({
+  const selection = resolveManifestSyncSelection({
+    buildSkippedEntry,
     manifest,
     selectedEntries,
     selectionOptions,

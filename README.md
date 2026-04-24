@@ -12,9 +12,9 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, and opt-in sidecar refresh promoted through `b64648c`
-- promotion trace branch: `codex/manifest-v2-refresh-sidecars`
-- active feature branch: `codex/manifest-v2-targeted-review` adds manifest v2 targeted review plus apply mutation limits
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, and apply mutation limits promoted through `d27796f`
+- promotion trace branch: `codex/manifest-v2-targeted-review`
+- active feature branch: `codex/manifest-v2-recovery-diagnostics` adds structured manifest v2 recovery diagnostics
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -45,7 +45,10 @@ Supported narrow-band baseline on `main`:
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
-Current `codex/manifest-v2-targeted-review` branch additions:
+Current `codex/manifest-v2-recovery-diagnostics` branch addition:
+- manifest v2 diagnostics are exposed as structured result and review metadata with stable codes, severity, entry/target context, a safe next command, and a recovery action
+
+Recently promoted manifest v2 targeted-review behavior on `main`:
 - manifest v2 `sync check`, `sync pull`, and `sync push` can target entries with `--entry <selector>` or `--entries-file <path>`
 - manifest v2 `sync push` can write preview artifacts with `--review-output <dir>`
 - manifest v2 `sync push --apply` defaults to at most one changed entry and requires `--max-mutations <n>` or `--max-mutations all` for broader applies
@@ -153,6 +156,8 @@ Manifest v2 supports read-only comparison, local-file pull, guarded push, target
 Manifest v2 `sync push` is preview by default. The default preview still covers the whole manifest unless selectors are supplied. Add `--review-output <dir>` to write the preview summary and per-entry review artifacts without mutating Notion. `sync push --apply` requires the adjacent sidecar metadata produced by v2 `sync pull` and applies only if the target still matches the recorded editing base. Default apply allows at most one changed entry; use `--max-mutations <n>` or `--max-mutations all` only after reviewing a broader selected set.
 
 A default successful `sync push --apply` makes affected sidecars stale because they describe the pre-push base revision. The next safe command is `sync pull --apply` to refresh the local files and sidecars before further edits. When the operator wants the applied push to refresh sidecar metadata to the post-push base, opt in with `sync push --apply --refresh-sidecars`; on selected applies, only selected sidecars for successfully applied entries are refreshed.
+
+Manifest v2 recovery diagnostics are structured metadata, not mutation behavior. Result JSON and review artifacts can include stable diagnostic codes, severity, entry and target context, a safe next command, and a recovery action so operators can decide the next manual step without relying on terminal scrollback.
 
 Manifest v2 does not support create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, or generic batch apply. Sidecar refresh is never automatic on default v2 push; it only happens when `--refresh-sidecars` is included with `--apply`. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
 

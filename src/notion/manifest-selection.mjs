@@ -193,3 +193,59 @@ export function selectManifestEntries(manifest, selectorValues = []) {
     selectors: parsedSelectors,
   };
 }
+
+function hasSelectionInput({ selectedEntries, selectionOptions }) {
+  return selectedEntries !== undefined || selectionOptions !== undefined;
+}
+
+function selectorValuesFromOptions(selectionOptions) {
+  if (Array.isArray(selectionOptions)) {
+    return selectionOptions;
+  }
+
+  if (selectionOptions && typeof selectionOptions === "object") {
+    return selectionOptions.selectors || selectionOptions.selectorValues || [];
+  }
+
+  return [];
+}
+
+export function resolveManifestSyncSelection({
+  buildSkippedEntry = (entry) => entry,
+  manifest,
+  selectedEntries,
+  selectionOptions,
+} = {}) {
+  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
+    return {
+      entries: manifest.entries,
+      metadata: null,
+    };
+  }
+
+  const resolved = selectedEntries !== undefined
+    ? {
+      selectedEntries,
+      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
+      selectedCount: selectedEntries.length,
+      skippedCount: manifest.entries.length - selectedEntries.length,
+      selectorLabels: [],
+      selectors: [],
+    }
+    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
+  const entries = resolved.selectedEntries || [];
+  const skippedEntries = resolved.skippedEntries.map((entry) => buildSkippedEntry(entry, manifest));
+
+  return {
+    entries,
+    metadata: {
+      selection: {
+        selectorLabels: resolved.selectorLabels || [],
+        selectors: resolved.selectors || [],
+      },
+      selectedCount: resolved.selectedCount ?? entries.length,
+      skippedCount: resolved.skippedCount ?? skippedEntries.length,
+      skippedEntries,
+    },
+  };
+}

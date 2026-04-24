@@ -12,7 +12,7 @@ import {
   diffValidationSessionFile,
   pullValidationSessionFile,
 } from "./validation-sessions.mjs";
-import { selectManifestEntries } from "./manifest-selection.mjs";
+import { resolveManifestSyncSelection } from "./manifest-selection.mjs";
 
 export const MANIFEST_V2_SYNC_CHECK_KINDS = Object.freeze([
   "planning-page",
@@ -57,57 +57,6 @@ function buildEntryBase(entry) {
     kind: entry.kind,
     target: targetForManifestV2SyncEntry(entry),
     file: entry.file,
-  };
-}
-
-function hasSelectionInput({ selectedEntries, selectionOptions }) {
-  return selectedEntries !== undefined || selectionOptions !== undefined;
-}
-
-function selectorValuesFromOptions(selectionOptions) {
-  if (Array.isArray(selectionOptions)) {
-    return selectionOptions;
-  }
-
-  if (selectionOptions && typeof selectionOptions === "object") {
-    return selectionOptions.selectors || selectionOptions.selectorValues || [];
-  }
-
-  return [];
-}
-
-function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
-  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
-    return {
-      entries: manifest.entries,
-      metadata: null,
-    };
-  }
-
-  const resolved = selectedEntries !== undefined
-    ? {
-      selectedEntries,
-      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
-      selectedCount: selectedEntries.length,
-      skippedCount: manifest.entries.length - selectedEntries.length,
-      selectorLabels: [],
-      selectors: [],
-    }
-    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
-  const entries = resolved.selectedEntries || [];
-  const skippedEntries = resolved.skippedEntries.map((entry) => buildEntryBase(entry));
-
-  return {
-    entries,
-    metadata: {
-      selection: {
-        selectorLabels: resolved.selectorLabels || [],
-        selectors: resolved.selectors || [],
-      },
-      selectedCount: resolved.selectedCount ?? entries.length,
-      skippedCount: resolved.skippedCount ?? skippedEntries.length,
-      skippedEntries,
-    },
   };
 }
 
@@ -431,7 +380,8 @@ export async function checkManifestV2SyncManifest({
   selectedEntries,
   selectionOptions,
 }) {
-  const selection = resolveSyncSelection({
+  const selection = resolveManifestSyncSelection({
+    buildSkippedEntry: buildEntryBase,
     manifest,
     selectedEntries,
     selectionOptions,

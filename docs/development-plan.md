@@ -129,8 +129,8 @@ Feature goals covered:
 - generalized manifest sync
 
 Status:
-- `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, and opt-in post-push sidecar refresh after `b64648c`
-- active `codex/manifest-v2-targeted-review` scope adds targeted entry selection, push review artifacts, mutation limits, and selected sidecar refresh behavior
+- `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, opt-in post-push sidecar refresh, targeted entry selection, push review artifacts, mutation limits, and selected sidecar refresh behavior after `d27796f`
+- active `codex/manifest-v2-recovery-diagnostics` scope adds structured result/review diagnostics with stable recovery context
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
@@ -140,6 +140,7 @@ Status:
 - default `sync push --apply` allows at most one changed entry unless `--max-mutations` is raised or set to `all`
 - default successful `sync push --apply` makes the sidecars stale; the next safe command is `sync pull --apply`
 - `sync push --apply --refresh-sidecars` is the explicit opt-in for refreshing sidecar metadata to the post-push base during the applied push; selected applies refresh only selected sidecars for successfully applied entries
+- manifest v2 recovery diagnostics are structured result/review metadata with stable codes, severity, entry/target context, safe next command, and recovery action
 - manifest v2 still excludes create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 - manifest v1 remains the specialized validation-session artifact-sync lane with its existing `sync check`, `sync pull`, and `sync push` behavior
 
@@ -189,21 +190,26 @@ Exit criteria:
 Out of scope:
 - create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 
-### Sprint 3.3: Batch Apply
+### Sprint 3.3: Recovery Diagnostics
 
 Goal:
-- apply coordinated approved changes only after a full bundle preview
+- make manifest v2 result JSON and review artifacts self-contained for operator recovery without broadening mutation semantics
 
 Deliverables:
-- batch preview that summarizes all planned changes before apply
-- ordered apply with stop-on-failure behavior
-- per-target recovery guidance and journal entries
+- stable diagnostic codes with severity
+- entry and target context on manifest v2 diagnostics
+- safe next command and recovery action fields for check, pull, push, and review metadata
+- compatibility with existing failures, warnings, recovery strings, sidecar state, journal state, and mutation-budget metadata
 
 Exit criteria:
-- multi-page documentation changes can be reviewed as one planned operation and applied without broadening SNPM into arbitrary page mutation
+- an operator can diagnose manifest v2 recovery steps from structured output or review artifacts without relying on terminal scrollback
 
 Feature goals covered:
-- multi-surface batch apply
+- generalized manifest sync
+- LLM-native capability introspection
+
+Out of scope:
+- rollback, auto-merge, automatic retries, semantic consistency checks, generic transaction semantics, and generic batch apply
 
 ## Phase 4: Project Bootstrap And Policy Scale
 

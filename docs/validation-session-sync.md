@@ -1,14 +1,14 @@
 # Manifest And Validation-Session Sync
 
 SNPM has two manifest sync contracts:
-- manifest v2 is a mixed-surface drift detector, local-file pull lane, and guarded existing-target push lane with sidecar metadata, targeted entry selection, review artifacts, apply mutation limits, and opt-in post-push sidecar refresh
+- manifest v2 is a mixed-surface drift detector, local-file pull lane, and guarded existing-target push lane with sidecar metadata, targeted entry selection, review artifacts, apply mutation limits, opt-in post-push sidecar refresh, and structured recovery diagnostics
 - manifest v1 is the existing validation-session artifact sync lane with pull and push
 
 Use v2 when the goal is to compare a repo bundle against approved Notion surfaces, refresh local files before planning edits, guarded-push existing approved targets, review selected entries, or opt into sidecar refresh during applied push. Use v1 only when a repo-backed validation-session artifact needs the specialized validation-session pull/push lane.
 
 ## Manifest V2 Mixed-Surface Sync
 
-Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, targeted selectors, push review artifacts, apply mutation limits, and opt-in sidecar refresh for applied push. V2 push is preview by default; default whole-manifest preview remains unchanged. `sync push --apply` requires sidecar metadata produced by v2 pull and allows at most one changed entry unless `--max-mutations` is raised or set to `all`. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
+Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, targeted selectors, push review artifacts, apply mutation limits, opt-in sidecar refresh for applied push, and structured recovery diagnostics. V2 push is preview by default; default whole-manifest preview remains unchanged. `sync push --apply` requires sidecar metadata produced by v2 pull and allows at most one changed entry unless `--max-mutations` is raised or set to `all`. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
 
 Supported v2 entry kinds:
 - `planning-page`
@@ -107,6 +107,8 @@ npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PR
 Default `sync push --apply` allows at most one changed entry. Raise the gate with `--max-mutations <n>` or use `--max-mutations all` only after reviewing the selected preview. This safety gate is not generic transaction semantics; it is a bounded mutation limit for guarded existing-target pushes.
 
 A default successful `sync push --apply` makes affected sidecars stale because they describe the pre-push base revision. The next safe command is `sync pull --apply`, which refreshes both the local markdown files and sidecars before the next edit cycle. To refresh sidecar metadata to the post-push base during the applied push, opt in with `sync push --apply --refresh-sidecars`. If the apply uses `--entry` or `--entries-file`, sidecar refresh is limited to selected entries that were successfully applied.
+
+Manifest v2 recovery diagnostics are structured output/review metadata. Diagnostics use stable codes, severity, entry and target context, a safe next command, and a recovery action. They are designed to make review artifacts and result JSON self-contained for operator recovery; they do not retry, roll back, auto-merge, check semantic consistency, create transaction semantics, or turn selected guarded push into generic batch apply.
 
 V2 guarded push is not generalized Notion mutation. Out-of-scope behavior:
 - create/adopt
