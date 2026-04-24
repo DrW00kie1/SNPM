@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   runSyncCheck,
@@ -149,19 +152,63 @@ test("runSyncPull routes manifest v2 to the injected v2 pull implementation", as
   ]);
 });
 
-test("runSyncPush rejects manifest v2 before loading workspace config", async () => {
-  const loadWorkspaceConfigImpl = () => {
-    throw new Error("workspace config should not be loaded for v2 push rejection");
-  };
-
-  await assert.rejects(() => runSyncPush({
+test("runSyncPush routes manifest v2 to the injected v2 push implementation after loading config", async () => {
+  const calls = [];
+  const result = await runSyncPush({
+    apply: true,
     manifestPath: "C:\\repo\\snpm.sync.json",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
     loadSyncManifestImpl: () => manifest(2),
-    loadWorkspaceConfigImpl,
+    loadWorkspaceConfigImpl: (workspaceName) => {
+      calls.push({ op: "config", workspaceName });
+      return config();
+    },
+    pushManifestV2SyncManifestImpl: async ({
+      apply,
+      config: loadedConfig,
+      manifest: loadedManifest,
+      projectTokenEnv,
+    }) => {
+      calls.push({
+        op: "v2-push",
+        apply,
+        notionVersion: loadedConfig.notionVersion,
+        version: loadedManifest.version,
+        projectTokenEnv,
+      });
+      return {
+        command: "sync-push",
+        appliedCount: 0,
+        failures: [],
+        entries: [{
+          kind: "planning-page",
+          target: "Planning > Roadmap",
+          file: "notion/target.md",
+          targetPath: "Projects > SNPM > Planning > Roadmap",
+          status: "in-sync",
+          hasDiff: false,
+          diff: "",
+          applied: false,
+        }],
+      };
+    },
     pushValidationSessionSyncManifestImpl: async () => {
       throw new Error("v1 sync push should not run for manifest v2");
     },
-  }), /Manifest version 2 does not support sync push yet/i);
+  });
+
+  assert.equal(result.command, "sync-push");
+  assert.equal(result.appliedCount, 0);
+  assert.deepEqual(calls, [
+    { op: "config", workspaceName: "infrastructure-hq" },
+    {
+      op: "v2-push",
+      apply: true,
+      notionVersion: "2026-03-11",
+      version: 2,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+    },
+  ]);
 });
 
 test("runSyncPull and runSyncPush preserve manifest v1 validation-session routing", async () => {
@@ -253,6 +300,176 @@ test("runSyncPull and runSyncPush preserve manifest v1 validation-session routin
       version: 1,
       projectTokenEnv: "SNPM_NOTION_TOKEN",
     },
+  ]);
+});
+
+test("runSyncPush records redacted journal entries for applied manifest v2 entries only", async () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-sync-journal-"));
+  const journalPath = path.join(tempDir, "journal.ndjson");
+  const previousJournalPath = process.env.SNPM_JOURNAL_PATH;
+  process.env.SNPM_JOURNAL_PATH = journalPath;
+
+  try {
+    const result = await runSyncPush({
+      apply: true,
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      projectTokenEnv: "PROJECT_NOTION_TOKEN",
+      loadSyncManifestImpl: () => manifest(2),
+      loadWorkspaceConfigImpl: () => config(),
+      pushManifestV2SyncManifestImpl: async () => ({
+        command: "sync-push",
+        manifestPath: "C:\\repo\\snpm.sync.json",
+        projectName: "SNPM",
+        workspaceName: "infrastructure-hq",
+        authMode: "project-token",
+        hasDiff: true,
+        driftCount: 3,
+        appliedCount: 2,
+        failures: [],
+        entries: [
+          {
+            kind: "planning-page",
+            target: "Planning > Roadmap",
+            file: "notion/roadmap.md",
+            targetPath: "Projects > SNPM > Planning > Roadmap",
+            status: "pushed",
+            hasDiff: true,
+            diff: "diff --git a b\n@@\n-old-body-token\n+new-body-secret\n",
+            applied: true,
+            pageId: "page-1",
+            metadata: {
+              schema: "snpm.pull-metadata.v1",
+              commandFamily: "page",
+              workspaceName: "infrastructure-hq",
+              targetPath: "Projects > SNPM > Planning > Roadmap",
+              pageId: "page-1",
+              authMode: "project-token",
+              lastEditedTime: "2026-04-23T19:00:00.000Z",
+              pulledAt: "2026-04-23T19:01:00.000Z",
+              bodyMarkdown: "# body should not be copied",
+              token: "ntn_secret_value",
+              projectTokenEnv: "PROJECT_NOTION_TOKEN",
+            },
+            currentBodyMarkdown: "# Current\nold-body-token",
+            nextBodyMarkdown: "# Next\nnew-body-secret",
+            projectTokenEnv: "PROJECT_NOTION_TOKEN",
+          },
+          {
+            kind: "runbook",
+            target: "Notion Workspace Workflow",
+            file: "notion/runbook.md",
+            targetPath: "Projects > SNPM > Runbooks > Notion Workspace Workflow",
+            status: "push-preview",
+            hasDiff: true,
+            diff: "+unapplied-secret",
+            applied: false,
+            pageId: "page-2",
+          },
+          {
+            kind: "project-doc",
+            target: "Overview",
+            file: "notion/overview.md",
+            targetPath: "Projects > SNPM > Overview",
+            status: "pushed",
+            hasDiff: true,
+            diff: "+updated overview",
+            applied: true,
+            pageId: "page-3",
+            metadata: {
+              schema: "snpm.pull-metadata.v1",
+              commandFamily: "doc",
+              workspaceName: "infrastructure-hq",
+              targetPath: "Projects > SNPM > Overview",
+              pageId: "page-3",
+              authMode: "project-token",
+              lastEditedTime: "2026-04-23T20:00:00.000Z",
+              pulledAt: "2026-04-23T20:01:00.000Z",
+            },
+          },
+        ],
+      }),
+    });
+
+    assert.deepEqual(result.journal, {
+      path: journalPath,
+      entryCount: 2,
+    });
+    assert.equal(result.appliedCount, 2);
+    assert.equal(result.warnings, undefined);
+
+    const journalEntries = readFileSync(journalPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+
+    assert.equal(journalEntries.length, 2);
+    assert.deepEqual(
+      journalEntries.map((entry) => [entry.command, entry.surface, entry.pageId]),
+      [
+        ["sync-push", "planning", "page-1"],
+        ["sync-push", "project-docs", "page-3"],
+      ],
+    );
+    assert.match(journalEntries[0].diff.hash, /^[a-f0-9]{64}$/);
+    assert.equal(journalEntries[0].diff.additions, 1);
+    assert.equal(journalEntries[0].diff.deletions, 1);
+
+    const serialized = JSON.stringify(journalEntries);
+    assert.equal(serialized.includes("old-body-token"), false);
+    assert.equal(serialized.includes("new-body-secret"), false);
+    assert.equal(serialized.includes("unapplied-secret"), false);
+    assert.equal(serialized.includes("body should not be copied"), false);
+    assert.equal(serialized.includes("PROJECT_NOTION_TOKEN"), false);
+    assert.equal(serialized.includes("ntn_secret_value"), false);
+    assert.equal(serialized.includes("runbooks"), false);
+  } finally {
+    if (previousJournalPath === undefined) {
+      delete process.env.SNPM_JOURNAL_PATH;
+    } else {
+      process.env.SNPM_JOURNAL_PATH = previousJournalPath;
+    }
+  }
+});
+
+test("runSyncPush returns journal warnings without undoing successful v2 apply result", async () => {
+  const result = await runSyncPush({
+    apply: true,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    pushManifestV2SyncManifestImpl: async () => ({
+      command: "sync-push",
+      authMode: "workspace-token",
+      appliedCount: 1,
+      failures: [],
+      warnings: ["refresh sidecars after sync push --apply"],
+      entries: [{
+        kind: "planning-page",
+        target: "Planning > Roadmap",
+        file: "notion/roadmap.md",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        status: "pushed",
+        hasDiff: true,
+        diff: "+safe update",
+        applied: true,
+        pageId: "page-1",
+      }],
+    }),
+    tryRecordMutationJournalEntryImpl: () => ({
+      ok: false,
+      journalPath: "C:\\tmp\\journal.ndjson",
+      warning: "Mutation journal write failed: disk full",
+    }),
+  });
+
+  assert.equal(result.command, "sync-push");
+  assert.equal(result.appliedCount, 1);
+  assert.equal(result.failures.length, 0);
+  assert.equal(result.entries[0].applied, true);
+  assert.equal(result.journal, undefined);
+  assert.deepEqual(result.warnings, [
+    "refresh sidecars after sync push --apply",
+    "Mutation journal write failed: disk full",
   ]);
 });
 

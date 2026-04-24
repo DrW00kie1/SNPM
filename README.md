@@ -14,7 +14,7 @@ GitHub remote:
 Current branch reality:
 - active stable baseline: `main`
 - promotion trace branch: `codex/managed-doc-surface`
-- active feature branch: `codex/manifest-v2-pull` adds manifest v2 mixed-surface check and local-file pull support
+- active feature branch: `codex/manifest-v2-pull` adds manifest v2 mixed-surface check, local-file pull, and guarded push support
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -45,13 +45,13 @@ Supported narrow-band baseline on `main`:
 Current `codex/manifest-v2-pull` branch addition:
 - manifest v2 mixed-surface comparison through `sync check`
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
-- manifest v2 `sync push` remains rejected
+- guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
 Present in the repo but outside the current supported line:
 - build records
 - validation sessions
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
-- generalized manifest push and batch apply
+- manifest v2 create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, and post-push automatic sidecar refresh
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -137,11 +137,15 @@ Manifest v2 mixed-surface sync:
 ```bash
 npm run sync-check -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run sync-pull -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run sync-push -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run sync-push -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 ```
 
-Manifest v2 supports read-only comparison and local-file pull for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session` entries. `sync pull` previews by default; with `--apply`, it writes the listed local markdown files and `<file>.snpm-meta.json` sidecars only. It does not mutate Notion and does not append local mutation journal entries.
+Manifest v2 supports read-only comparison, local-file pull, and guarded push for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session` entries. `sync pull` previews by default; with `--apply`, it writes the listed local markdown files and `<file>.snpm-meta.json` sidecars only. It does not mutate Notion and does not append local mutation journal entries.
 
-Manifest v2 does not support `sync push`, create, adopt, or batch apply. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family for managed Notion writes.
+Manifest v2 `sync push` is preview by default. `sync push --apply` requires the adjacent sidecar metadata produced by v2 `sync pull` and applies only if the target still matches the recorded editing base. A successful v2 push makes those sidecars stale; the next safe command is `sync pull --apply` to refresh the local files and sidecars before further edits.
+
+Manifest v2 does not support create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, or post-push automatic sidecar refresh. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
 
 Planning-page sync remains available through `page-*`:
 
@@ -214,7 +218,7 @@ npm run validation-bundle-verify -- --project "Project Name" --project-token-env
 
 Use that Chromium-only lane only when the surrounding Notion UI bundle matters. The stable default remains `validation-sessions-verify --bundle` for the API-visible checks plus manual UI setup where needed.
 
-Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need the specialized `sync-check`, `sync-pull`, or `sync-push` lane; use v2 when the goal is mixed-surface drift detection or local-file refresh across approved surfaces. Manifest v2 `sync push` remains rejected.
+Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need the specialized `sync-check`, `sync-pull`, or `sync-push` lane; use v2 when the goal is mixed-surface drift detection, local-file refresh, or guarded existing-target push across approved surfaces. V1 validation-session sync remains a separate specialized artifact lane, not the generalized bundle workflow.
 
 The file produced by `page-pull`, `runbook-pull`, Access pull commands, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
@@ -273,7 +277,7 @@ Hybrid only when justified:
 
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
-- use manifest v2 `sync check` and local-file `sync pull` to preflight and refresh mixed-surface documentation bundles before any generalized push design
+- use manifest v2 `sync check`, local-file `sync pull`, and guarded `sync push` to preflight, refresh, and update existing mixed-surface documentation bundles before any batch-apply design
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 

@@ -8,6 +8,38 @@ const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
 const OPT_BUNDLE = "--bundle";
 const HELP_TOKENS = new Set(["--help", "-h"]);
+const SYNC_MANIFEST_VERSIONS = [1, 2];
+const SYNC_MANIFEST_V2_ENTRY_KINDS = [
+  "planning-page",
+  "project-doc",
+  "template-doc",
+  "workspace-doc",
+  "runbook",
+  "validation-session",
+];
+const SYNC_CAPABILITY_METADATA = {
+  check: {
+    notionMutation: "none",
+    localFileWrites: "none",
+    journalWrites: "none",
+    supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
+    supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+  },
+  pull: {
+    notionMutation: "none",
+    localFileWrites: "apply-gated",
+    journalWrites: "none",
+    supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
+    supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+  },
+  push: {
+    notionMutation: "apply-gated",
+    localFileWrites: "none",
+    journalWrites: "apply-gated",
+    supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
+    supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+  },
+};
 
 function createCommandSpec({
   canonical,
@@ -22,6 +54,7 @@ function createCommandSpec({
   authScope,
   mutationMode,
   stability,
+  capabilityMetadata = {},
 }) {
   const normalizedCanonical = normalizeCommandName(canonical);
   const hyphenAlias = normalizedCanonical.includes(" ")
@@ -44,6 +77,7 @@ function createCommandSpec({
     examples,
     notes,
     ...metadata,
+    ...capabilityMetadata,
   };
 }
 
@@ -61,6 +95,7 @@ function compoundFamilySpecs({ family, subcommands }) {
     authScope: subcommand.authScope,
     mutationMode: subcommand.mutationMode,
     stability: subcommand.stability,
+    capabilityMetadata: subcommand.capabilityMetadata,
   }));
 }
 
@@ -1570,6 +1605,7 @@ const COMPOUND_COMMAND_SPECS = [
           "sync check supports validation-session v1 manifests and manifest v2 mixed-surface manifests.",
           "Manifest v2 check entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
         ],
+        capabilityMetadata: SYNC_CAPABILITY_METADATA.check,
       },
       {
         name: "pull",
@@ -1594,10 +1630,11 @@ const COMPOUND_COMMAND_SPECS = [
           "Manifest v2 sync pull previews or applies local file refreshes for approved mixed-surface entries and writes <file>.snpm-meta.json sidecars.",
           "Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
         ],
+        capabilityMetadata: SYNC_CAPABILITY_METADATA.pull,
       },
       {
         name: "push",
-        summary: "Push the manifest v1 validation-session files from the repo to Notion.",
+        summary: "Push manifest-backed files from the repo to Notion.",
         usageLines: [
           'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
@@ -1615,8 +1652,11 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: [
           "sync push preserves manifest v1 validation-session artifact-sync behavior.",
-          "Manifest v2 sync push is rejected; use the owning command family for managed Notion writes.",
+          "Manifest v2 sync push previews or applies guarded Notion updates for existing approved targets only.",
+          "Manifest v2 push entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
+          "Applied manifest v2 sync push appends redacted local mutation journal entries and does not refresh sidecar metadata; run sync pull --apply after a successful push.",
         ],
+        capabilityMetadata: SYNC_CAPABILITY_METADATA.push,
       },
     ],
   }),
@@ -1669,7 +1709,7 @@ const GLOBAL_COMMAND_GROUPS = [
       ["validation-sessions <init|verify>", "Initialize or verify the Validation Sessions surface."],
       ["validation-bundle <login|preview|apply|verify>", "Experimental Chromium-only UI bundle commands."],
       ["validation-session <create|adopt|pull|diff|push>", "Managed validation-session reports."],
-      ["sync <check|pull|push>", "Manifest-backed sync; v2 supports check and local-file pull, while push rejects v2."],
+      ["sync <check|pull|push>", "Manifest-backed sync; v2 supports check, local-file pull, and guarded push."],
     ],
   },
 ];
@@ -1710,8 +1750,28 @@ export function findCommandHelp(command) {
   return COMMAND_SPEC_INDEX.get(normalizeCommandName(command)) || null;
 }
 
+function copyOptionalCapabilityFields(target, spec) {
+  const optionalFields = [
+    "notionMutation",
+    "localFileWrites",
+    "journalWrites",
+    "supportedManifestVersions",
+    "supportedManifestV2EntryKinds",
+  ];
+
+  for (const field of optionalFields) {
+    if (!(field in spec)) {
+      continue;
+    }
+
+    target[field] = Array.isArray(spec[field]) ? [...spec[field]] : spec[field];
+  }
+
+  return target;
+}
+
 function commandCapability(spec) {
-  return {
+  return copyOptionalCapabilityFields({
     canonical: spec.canonical,
     aliases: [...spec.aliases],
     summary: spec.summary,
@@ -1724,7 +1784,7 @@ function commandCapability(spec) {
     authScope: spec.authScope,
     mutationMode: spec.mutationMode,
     stability: spec.stability,
-  };
+  }, spec);
 }
 
 export function buildCapabilityMap() {
@@ -1809,8 +1869,9 @@ export function usage() {
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
-    "  Manifest v2 mixed-surface support includes sync check and local-file sync pull with sidecar metadata; sync push rejects v2 manifests.",
+    "  Manifest v2 mixed-surface support includes sync check, local-file sync pull with sidecar metadata, and guarded sync push for existing approved targets.",
     "  Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
+    "  Manifest v2 sync push mutates Notion only with --apply, appends redacted local mutation journal entries on applied changes, and does not write local files.",
     "  Validation-session manifest v1 sync remains a separate artifact lane with sync check, sync pull, and sync push.",
     "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",
