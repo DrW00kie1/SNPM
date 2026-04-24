@@ -129,13 +129,15 @@ Feature goals covered:
 - generalized manifest sync
 
 Status:
-- active `codex/manifest-v2-pull` scope includes `sync check`, local-file `sync pull`, and guarded `sync push`
+- `main` includes `sync check`, local-file `sync pull`, and guarded `sync push` after `82ec3ba`
+- active `codex/manifest-v2-refresh-sidecars` scope adds opt-in `sync push --apply --refresh-sidecars`
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
 - manifest v2 `sync push` previews by default; `sync push --apply` requires sidecar metadata produced by v2 pull and applies only when the target still matches the recorded editing base
-- successful v2 push makes the sidecars stale; the next safe command is `sync pull --apply`
-- manifest v2 still excludes create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, and post-push automatic sidecar refresh
+- default successful `sync push --apply` makes the sidecars stale; the next safe command is `sync pull --apply`
+- `sync push --apply --refresh-sidecars` is the explicit opt-in for refreshing sidecar metadata to the post-push base during the applied push
+- manifest v2 still excludes create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply
 - manifest v1 remains the specialized validation-session artifact-sync lane with its existing `sync check`, `sync pull`, and `sync push` behavior
 
 ### Sprint 3.2: Batch Semantics
@@ -146,13 +148,26 @@ Goal:
 Deliverables:
 - richer per-entry push preview output and failure isolation
 - project-token-safe execution where applicable
-- reviewed recovery rules before adding rollback, auto-merge, or batch apply
+- reviewed recovery rules before adding rollback, auto-merge, automatic retries, or generic batch apply
 
 Exit criteria:
 - an LLM can review and apply coordinated documentation-bundle changes without broadening SNPM into arbitrary page mutation
 
 Feature goals covered:
 - generalized manifest sync
+
+### Sprint 3.2B: Applied Push Sidecar Refresh Opt-In
+
+Goal:
+- let an approved manifest v2 applied push optionally refresh sidecar metadata without making refresh automatic or adding batch semantics
+
+Deliverables:
+- `sync push --apply --refresh-sidecars` for manifest v2 bundles
+- default `sync push --apply` continues to leave sidecars stale and points operators back to `sync pull --apply`
+- scope remains limited to existing approved targets with sidecar stale-write protection
+
+Exit criteria:
+- an operator can choose between the conservative default stale-sidecar behavior and explicit post-push sidecar refresh without enabling create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, or generic batch apply
 
 ### Sprint 3.3: Batch Apply
 

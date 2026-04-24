@@ -69,6 +69,11 @@ function assertSyncPushDocumentsGuardedManifestV2Push(text) {
   assert.match(text, /guarded/i);
   assert.match(text, /existing approved targets/i);
   assert.match(text, /(?:Notion updates|mutates Notion|Notion mutation)/i);
+  assert.match(text, /--refresh-sidecars/);
+  assert.match(text, /sidecar/i);
+  assert.match(text, /local/i);
+  assert.match(text, /requires --apply/i);
+  assert.match(text, /manifest v2 only/i);
   assert.doesNotMatch(text, /(?:reject|not supported|unsupported)/i);
 }
 
@@ -78,6 +83,7 @@ function assertSyncCapabilityMetadata(command, expected) {
   assert.equal(command.notionMutation, expected.notionMutation);
   assert.equal(command.localFileWrites, expected.localFileWrites);
   assert.equal(command.journalWrites, expected.journalWrites);
+  assert.equal(command.sidecarRefresh, expected.sidecarRefresh);
 }
 
 test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
@@ -246,8 +252,9 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   });
   assertSyncCapabilityMetadata(syncPushCapability, {
     notionMutation: "apply-gated",
-    localFileWrites: "none",
+    localFileWrites: "opt-in-refresh-sidecars-apply-gated",
     journalWrites: "apply-gated",
+    sidecarRefresh: "opt-in-apply-gated",
   });
   assert.deepEqual(processSyncCheckCapability, syncCheckCapability);
   assert.deepEqual(processSyncPullCapability, syncPullCapability);
@@ -576,12 +583,14 @@ test("parseArgs supports sync subcommands", () => {
     "--project-token-env",
     "TALLMAN_NOTION_TOKEN",
     "--apply",
+    "--refresh-sidecars",
   ]);
 
   assert.equal(parsed.command, "sync push");
   assert.equal(parsed.options.manifest, "C:\\tall-man-training\\snpm.sync.json");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
   assert.equal(parsed.options.apply, true);
+  assert.equal(parsed.options["refresh-sidecars"], true);
 });
 
 test("parseArgs supports plan-change and journal list discovery commands", () => {

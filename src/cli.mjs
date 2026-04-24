@@ -80,7 +80,7 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain"]);
+const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain", "refresh-sidecars"]);
 export {
   commandUsage,
   findCommandHelp,
@@ -1381,6 +1381,7 @@ async function main() {
       apply: options.apply === true,
       manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
       projectTokenEnv: options["project-token-env"],
+      refreshSidecars: options["refresh-sidecars"] === true,
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);

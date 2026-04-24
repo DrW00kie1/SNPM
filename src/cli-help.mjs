@@ -7,6 +7,7 @@ const OPT_REVIEW_OUTPUT = "--review-output <dir>";
 const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
 const OPT_BUNDLE = "--bundle";
+const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const HELP_TOKENS = new Set(["--help", "-h"]);
 const SYNC_MANIFEST_VERSIONS = [1, 2];
 const SYNC_MANIFEST_V2_ENTRY_KINDS = [
@@ -34,8 +35,9 @@ const SYNC_CAPABILITY_METADATA = {
   },
   push: {
     notionMutation: "apply-gated",
-    localFileWrites: "none",
+    localFileWrites: "opt-in-refresh-sidecars-apply-gated",
     journalWrites: "apply-gated",
+    sidecarRefresh: "opt-in-apply-gated",
     supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
   },
@@ -1636,7 +1638,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Push manifest-backed files from the repo to Notion.",
         usageLines: [
-          'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--refresh-sidecars] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           "--manifest <path>",
@@ -1644,17 +1646,19 @@ const COMPOUND_COMMAND_SPECS = [
         optionalFlags: [
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
+          OPT_REFRESH_SIDECARS,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs sync push --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
-          'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply',
+          'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --refresh-sidecars',
         ],
         notes: [
           "sync push preserves manifest v1 validation-session artifact-sync behavior.",
           "Manifest v2 sync push previews or applies guarded Notion updates for existing approved targets only.",
           "Manifest v2 push entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
-          "Applied manifest v2 sync push appends redacted local mutation journal entries and does not refresh sidecar metadata; run sync pull --apply after a successful push.",
+          "--refresh-sidecars is manifest v2 only, requires --apply, and opts into local .snpm-meta.json sidecar refresh writes after successful push mutations.",
+          "Without --refresh-sidecars, applied manifest v2 sync push appends redacted local mutation journal entries and leaves local sidecar metadata unchanged; run sync pull --apply after a successful push when you do not opt in.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.push,
       },
@@ -1755,6 +1759,7 @@ function copyOptionalCapabilityFields(target, spec) {
     "notionMutation",
     "localFileWrites",
     "journalWrites",
+    "sidecarRefresh",
     "supportedManifestVersions",
     "supportedManifestV2EntryKinds",
   ];
@@ -1871,7 +1876,7 @@ export function usage() {
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",
     "  Manifest v2 mixed-surface support includes sync check, local-file sync pull with sidecar metadata, and guarded sync push for existing approved targets.",
     "  Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
-    "  Manifest v2 sync push mutates Notion only with --apply, appends redacted local mutation journal entries on applied changes, and does not write local files.",
+    "  Manifest v2 sync push mutates Notion only with --apply, appends redacted local mutation journal entries on applied changes, and writes local sidecars only when --refresh-sidecars is also provided.",
     "  Validation-session manifest v1 sync remains a separate artifact lane with sync check, sync pull, and sync push.",
     "  Validation-bundle automation launches Playwright Chromium directly and does not use Edge or the machine default browser.",
     "  verify-workspace-docs is workspace-token only and checks the curated workspace/template doc registry.",

@@ -454,6 +454,8 @@ test("pull, diff, and push operate on managed validation-session rows", async ()
     timestamp: "03-29-2026 11:30:00",
   });
   assert.equal(pushed.applied, true);
+  assert.match(pushed.nextFileMarkdown, /Session State: Failed/);
+  assert.match(pushed.nextFileMarkdown, /- \[x\] Launch app/);
   assert.match(fixture.markdownByPageId["session-row"], /Last Updated: 03-29-2026 11:30:00/);
   assert.match(fixture.markdownByPageId["session-row"], /- \[x\] Launch app/);
   assert.match(fixture.markdownByPageId["session-row"], /## Findings\n\n<callout>\nIssue: Existing finding/);

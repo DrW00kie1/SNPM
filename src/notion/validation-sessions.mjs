@@ -934,6 +934,7 @@ export async function pushValidationSessionFile({
       authMode: context.authMode,
       hasDiff: diff.length > 0,
       diff,
+      nextFileMarkdown: nextFile,
       applied: false,
       timestamp: null,
     };
@@ -971,6 +972,7 @@ export async function pushValidationSessionFile({
     authMode: context.authMode,
     hasDiff: true,
     diff,
+    nextFileMarkdown: nextFile,
     applied: true,
     metadata: validatedMetadata,
     timestamp,

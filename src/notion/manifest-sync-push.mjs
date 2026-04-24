@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
 import { pushDocBody } from "./doc-pages.mjs";
 import {
@@ -12,6 +12,7 @@ import {
 } from "./page-markdown.mjs";
 import {
   assertPullPageMetadataFresh,
+  buildPullPageMetadata,
   validatePullPageMetadata,
 } from "./page-metadata.mjs";
 import { pushRunbookBody } from "./project-pages.mjs";
@@ -19,6 +20,7 @@ import { pushValidationSessionFile } from "./validation-sessions.mjs";
 
 const SIDECAR_STALE_WARNING = 'Applied manifest v2 sync push mutations make local metadata sidecars stale. Run "sync pull --apply" before the next push.';
 const PARTIAL_APPLY_RECOVERY = 'No rollback was attempted. Run "sync pull --apply" to refresh local files and sidecars before retrying.';
+const SIDECAR_REFRESH_RECOVERY = 'No rollback was attempted. Run "sync pull --apply" before the next push, or resolve the refresh failure and retry sync push --apply --refresh-sidecars.';
 
 function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -153,6 +155,13 @@ function normalizePushResult(entry, result) {
   }
 
   const diff = normalizeDiff(result.diff);
+  const pushedMarkdown = typeof result.nextBodyMarkdown === "string"
+    ? normalizeMarkdownNewlines(result.nextBodyMarkdown)
+    : typeof result.nextFileMarkdown === "string"
+      ? normalizeMarkdownNewlines(result.nextFileMarkdown)
+      : typeof result.nextMarkdown === "string"
+        ? normalizeMarkdownNewlines(result.nextMarkdown)
+        : null;
   const hasDiff = typeof result.hasDiff === "boolean" ? result.hasDiff : diff.length > 0;
   const targetPath = typeof result.targetPath === "string" && result.targetPath.trim() !== ""
     ? result.targetPath
@@ -170,8 +179,25 @@ function normalizePushResult(entry, result) {
     hasDiff,
     diff,
     applied: result.applied === true,
+    pushedMarkdown,
     warnings: Array.isArray(result.warnings) ? result.warnings.filter(Boolean) : [],
   };
+}
+
+function remoteMarkdownFromReadResult(entry, result) {
+  if (result && typeof result.markdown === "string") {
+    return normalizeMarkdownNewlines(result.markdown);
+  }
+
+  if (result && typeof result.bodyMarkdown === "string") {
+    return normalizeMarkdownNewlines(result.bodyMarkdown);
+  }
+
+  if (result && typeof result.fileMarkdown === "string") {
+    return normalizeMarkdownNewlines(result.fileMarkdown);
+  }
+
+  throw new Error(`${entry.kind} adapter readRemote must return markdown, bodyMarkdown, or fileMarkdown for sidecar refresh.`);
 }
 
 function liveMetadataFromRemote(entry, remote) {
@@ -195,8 +221,54 @@ function liveMetadataFromRemote(entry, remote) {
   throw new Error(`${entry.kind} adapter readRemote must return liveMetadata for sync push --apply preflight.`);
 }
 
+function metadataFromRefreshRemote({
+  entry,
+  manifest,
+  remote,
+  targetPath,
+}) {
+  if (remote?.metadata) {
+    return validatePullPageMetadata(remote.metadata);
+  }
+
+  const lastEditedTime = remote?.liveMetadata?.lastEditedTime
+    || remote?.liveMetadata?.last_edited_time
+    || remote?.lastEditedTime
+    || remote?.last_edited_time;
+
+  if (remote?.pageId && lastEditedTime) {
+    return buildPullPageMetadata({
+      commandFamily: commandFamilyForEntry(entry),
+      workspaceName: manifest.workspaceName,
+      targetPath,
+      pageId: remote.pageId,
+      projectId: normalizedProjectId(remote.projectId),
+      authMode: remote.authMode,
+      lastEditedTime,
+    });
+  }
+
+  throw new Error(`${entry.kind} adapter readRemote must return metadata, or pageId with live metadata, for sidecar refresh.`);
+}
+
 function normalizedProjectId(projectId) {
   return typeof projectId === "string" && projectId.trim() !== "" ? projectId : undefined;
+}
+
+function assertRemoteProjectMatches(remoteProjectId, expectedProjectId) {
+  const normalizedRemote = normalizedProjectId(remoteProjectId);
+  const normalizedExpected = normalizedProjectId(expectedProjectId);
+
+  if (normalizedExpected === undefined) {
+    if (normalizedRemote !== undefined) {
+      throw new Error(`Remote projectId mismatch: expected no projectId, got "${normalizedRemote}".`);
+    }
+    return;
+  }
+
+  if (normalizedRemote !== undefined && normalizedRemote !== normalizedExpected) {
+    throw new Error(`Remote projectId mismatch: expected "${normalizedExpected}", got "${normalizedRemote}".`);
+  }
 }
 
 function assertMetadataProjectMatches(metadata, expectedProjectId) {
@@ -237,6 +309,57 @@ function validatePreflightMetadata({
   return validatedMetadata;
 }
 
+function expectedRefreshIdentity(summaryEntry, preflightEntry) {
+  return {
+    targetPath: summaryEntry.targetPath || preflightEntry.metadata?.targetPath,
+    pageId: summaryEntry.pageId || preflightEntry.metadata?.pageId,
+    projectId: normalizedProjectId(summaryEntry.projectId) || normalizedProjectId(preflightEntry.metadata?.projectId),
+  };
+}
+
+function validateRefreshMetadata({
+  entry,
+  manifest,
+  metadata,
+  preflightEntry,
+  remote,
+  summaryEntry,
+  targetPath,
+}) {
+  const expected = expectedRefreshIdentity(summaryEntry, preflightEntry);
+  if (expected.targetPath && targetPath !== expected.targetPath) {
+    throw new Error(`Remote targetPath mismatch: expected "${expected.targetPath}", got "${targetPath}".`);
+  }
+
+  if (remote?.pageId && expected.pageId && remote.pageId !== expected.pageId) {
+    throw new Error(`Remote pageId mismatch: expected "${expected.pageId}", got "${remote.pageId}".`);
+  }
+
+  assertRemoteProjectMatches(remote?.projectId, expected.projectId);
+
+  const validatedMetadata = assertPullPageMetadataFresh({
+    metadata,
+    liveMetadata: liveMetadataFromRemote(entry, remote),
+    commandFamily: commandFamilyForEntry(entry),
+    workspaceName: manifest.workspaceName,
+    targetPath,
+    pageId: expected.pageId,
+    projectId: expected.projectId,
+  });
+
+  assertMetadataProjectMatches(validatedMetadata, expected.projectId);
+
+  return validatedMetadata;
+}
+
+function assertRefreshMarkdownMatches({ descriptor, localMarkdown, remoteMarkdown }) {
+  if (remoteMarkdown === localMarkdown) {
+    return;
+  }
+
+  throw new Error(`Remote markdown mismatch after sync push for ${descriptor.entry.kind} "${targetForManifestV2SyncEntry(descriptor.entry)}": re-read remote markdown does not match pushed local markdown.`);
+}
+
 function buildPreviewStatus(hasDiff) {
   return hasDiff ? "push-preview" : "in-sync";
 }
@@ -271,6 +394,7 @@ function stripPreflightState(entry) {
   const {
     fileMarkdown,
     metadata,
+    pushedMarkdown,
     ...summaryEntry
   } = entry;
 
@@ -422,6 +546,7 @@ async function preflightEntry({
     ...buildPreflightSummaryEntry(descriptor, preview),
     fileMarkdown,
     metadata: validatedMetadata,
+    pushedMarkdown: preview.pushedMarkdown !== null ? preview.pushedMarkdown : fileMarkdown,
   };
 }
 
@@ -519,6 +644,213 @@ function buildApplyFailureMessage({ descriptor, error, appliedEntries }) {
   return `Sync push apply failed for ${descriptor.entry.kind} "${targetForManifestV2SyncEntry(descriptor.entry)}": ${toErrorMessage(error)}. Prior remote mutations: ${appliedLabel}. The current ${descriptor.entry.kind} "${targetForManifestV2SyncEntry(descriptor.entry)}" may be partially mutated. ${PARTIAL_APPLY_RECOVERY}`;
 }
 
+function buildRefreshPreflightFailureMessage({ descriptor, error }) {
+  return `Sidecar refresh preflight failed for ${descriptor.entry.kind} "${targetForManifestV2SyncEntry(descriptor.entry)}": ${toErrorMessage(error)}. No sidecars were written.`;
+}
+
+function buildSidecarWriteFailureMessage({
+  attemptedSidecarPath,
+  descriptor,
+  error,
+  partialSidecarWrites,
+}) {
+  const partialLabel = partialSidecarWrites.length > 0
+    ? partialSidecarWrites.join(", ")
+    : "none";
+
+  return `Sidecar refresh write failed for ${descriptor.entry.kind} "${targetForManifestV2SyncEntry(descriptor.entry)}": ${toErrorMessage(error)}. Attempted sidecar: ${attemptedSidecarPath}. Partial sidecar writes: ${partialLabel}.`;
+}
+
+async function preflightSidecarRefreshes({
+  adapters,
+  config,
+  descriptors,
+  entries,
+  manifest,
+  preflightEntries,
+  projectTokenEnv,
+}) {
+  const refreshes = [];
+  const failures = [];
+
+  for (const [index, descriptor] of descriptors.entries()) {
+    const preflightEntry = preflightEntries[index];
+    const summaryEntry = entries[index];
+
+    try {
+      const adapter = requireAdapter(descriptor.entry, adapters, { apply: true });
+      const remote = await adapter.readRemote({
+        config,
+        entry: descriptor.entry,
+        manifest,
+        projectTokenEnv,
+      });
+      const targetPath = typeof remote?.targetPath === "string" && remote.targetPath.trim() !== ""
+        ? remote.targetPath
+        : remote?.metadata?.targetPath;
+      const metadata = metadataFromRefreshRemote({
+        entry: descriptor.entry,
+        manifest,
+        remote,
+        targetPath,
+      });
+      const validatedMetadata = validateRefreshMetadata({
+        entry: descriptor.entry,
+        manifest,
+        metadata,
+        preflightEntry,
+        remote,
+        summaryEntry,
+        targetPath,
+      });
+      const remoteMarkdown = remoteMarkdownFromReadResult(descriptor.entry, remote);
+      assertRefreshMarkdownMatches({
+        descriptor,
+        localMarkdown: preflightEntry.pushedMarkdown ?? preflightEntry.fileMarkdown,
+        remoteMarkdown,
+      });
+
+      refreshes.push({
+        metadata: validatedMetadata,
+      });
+    } catch (error) {
+      const failure = buildRefreshPreflightFailureMessage({
+        descriptor,
+        error,
+      });
+      refreshes.push(null);
+      failures.push({
+        index,
+        failure,
+        topLevelFailure: buildTopLevelFailure(descriptor.entry, new Error(failure)),
+      });
+    }
+  }
+
+  return {
+    failures,
+    refreshes,
+  };
+}
+
+function writeSidecarRefreshes({
+  descriptors,
+  entries,
+  renameSyncImpl,
+  refreshes,
+  writeFileSyncImpl,
+}) {
+  const refreshedEntries = entries.map((entry) => ({ ...entry }));
+  const partialSidecarWrites = [];
+
+  for (const [index, refresh] of refreshes.entries()) {
+    const descriptor = descriptors[index];
+    const temporaryMetadataPath = `${descriptor.metadataPath}.tmp`;
+    const metadataBody = `${JSON.stringify(refresh.metadata, null, 2)}\n`;
+
+    refreshedEntries[index] = {
+      ...refreshedEntries[index],
+      metadata: refresh.metadata,
+      sidecarRefreshed: false,
+    };
+
+    try {
+      writeFileSyncImpl(temporaryMetadataPath, metadataBody, "utf8");
+      renameSyncImpl(temporaryMetadataPath, descriptor.metadataPath);
+      partialSidecarWrites.push(descriptor.metadataPath);
+      refreshedEntries[index] = {
+        ...refreshedEntries[index],
+        sidecarRefreshed: true,
+      };
+    } catch (error) {
+      const failure = buildSidecarWriteFailureMessage({
+        attemptedSidecarPath: descriptor.metadataPath,
+        descriptor,
+        error,
+        partialSidecarWrites,
+      });
+      refreshedEntries[index] = {
+        ...refreshedEntries[index],
+        failure,
+        sidecarRefreshed: false,
+      };
+
+      return {
+        entries: refreshedEntries,
+        failures: [buildTopLevelFailure(descriptor.entry, new Error(failure))],
+        partialSidecarWrites,
+      };
+    }
+  }
+
+  return {
+    entries: refreshedEntries,
+    failures: [],
+    partialSidecarWrites,
+  };
+}
+
+async function refreshSidecarsAfterApply({
+  adapters,
+  config,
+  descriptors,
+  entries,
+  manifest,
+  preflightEntries,
+  projectTokenEnv,
+  renameSyncImpl,
+  writeFileSyncImpl,
+}) {
+  const preflight = await preflightSidecarRefreshes({
+    adapters,
+    config,
+    descriptors,
+    entries,
+    manifest,
+    preflightEntries,
+    projectTokenEnv,
+  });
+
+  if (preflight.failures.length > 0) {
+    const failedIndexes = new Map(preflight.failures.map((failure) => [failure.index, failure.failure]));
+    return {
+      entries: entries.map((entry, index) => {
+        const refresh = preflight.refreshes[index];
+        const baseEntry = refresh?.metadata
+          ? {
+            ...entry,
+            metadata: refresh.metadata,
+            sidecarRefreshed: false,
+          }
+          : entry;
+
+        return failedIndexes.has(index)
+          ? {
+            ...baseEntry,
+            failure: failedIndexes.get(index),
+            sidecarRefreshed: false,
+          }
+          : baseEntry;
+      }),
+      failures: preflight.failures.map((failure) => failure.topLevelFailure),
+      recovery: SIDECAR_REFRESH_RECOVERY,
+    };
+  }
+
+  const writes = writeSidecarRefreshes({
+    descriptors,
+    entries,
+    renameSyncImpl,
+    refreshes: preflight.refreshes,
+    writeFileSyncImpl,
+  });
+
+  return {
+    ...writes,
+    recovery: writes.failures.length > 0 ? SIDECAR_REFRESH_RECOVERY : undefined,
+  };
+}
+
 function buildDescriptors(manifest) {
   return manifest.entries.map((entry) => buildEntryDescriptor(entry, manifest));
 }
@@ -611,8 +943,23 @@ export async function pushManifestV2SyncManifest({
   manifest,
   projectTokenEnv,
   readFileSyncImpl = readFileSync,
+  refreshSidecars = false,
+  renameSyncImpl = renameSync,
+  writeFileSyncImpl = writeFileSync,
 }) {
   const descriptors = buildDescriptors(manifest);
+
+  if (refreshSidecars && !apply) {
+    const failure = 'sync push --refresh-sidecars requires --apply.';
+    return buildSummary({
+      manifest,
+      authMode: projectTokenEnv ? "project-token" : "workspace-token",
+      entries: descriptors.map((descriptor) => buildErrorEntry(descriptor, new Error(failure))),
+      failures: [failure],
+      recovery: 'Re-run with --apply, or omit --refresh-sidecars for preview.',
+    });
+  }
+
   const preflight = await preflightManifestEntries({
     adapters,
     apply,
@@ -671,6 +1018,28 @@ export async function pushManifestV2SyncManifest({
       }
       break;
     }
+  }
+
+  if (refreshSidecars && failures.length === 0) {
+    const refreshed = await refreshSidecarsAfterApply({
+      adapters,
+      config,
+      descriptors,
+      entries,
+      manifest,
+      preflightEntries: preflight.entries,
+      projectTokenEnv,
+      renameSyncImpl,
+      writeFileSyncImpl,
+    });
+
+    return buildSummary({
+      manifest,
+      authMode: projectTokenEnv ? "project-token" : "workspace-token",
+      entries: refreshed.entries,
+      failures: refreshed.failures,
+      recovery: refreshed.recovery,
+    });
   }
 
   const warnings = appliedEntries.length > 0 && failures.length === 0

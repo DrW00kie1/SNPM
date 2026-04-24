@@ -12,9 +12,9 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`
-- promotion trace branch: `codex/managed-doc-surface`
-- active feature branch: `codex/manifest-v2-pull` adds manifest v2 mixed-surface check, local-file pull, and guarded push support
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, and guarded push promoted through `82ec3ba`
+- promotion trace branch: `codex/manifest-v2-push`
+- active feature branch: `codex/manifest-v2-refresh-sidecars` adds opt-in manifest v2 post-push sidecar refresh
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -41,17 +41,19 @@ Supported narrow-band baseline on `main`:
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - stdin/stdout ergonomics on the core band
 - EOF-stable round-trips on managed planning, runbook, Access, and build-record pages
-
-Current `codex/manifest-v2-pull` branch addition:
 - manifest v2 mixed-surface comparison through `sync check`
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
+
+Current `codex/manifest-v2-refresh-sidecars` branch addition:
+- opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
+- default manifest v2 `sync push --apply` still leaves sidecars stale
 
 Present in the repo but outside the current supported line:
 - build records
 - validation sessions
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
-- manifest v2 create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, and post-push automatic sidecar refresh
+- manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -139,13 +141,14 @@ npm run sync-check -- --manifest C:\repo\snpm.sync.json --project-token-env PROJ
 npm run sync-pull -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run sync-push -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run sync-push -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run sync-push -- --manifest C:\repo\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --refresh-sidecars
 ```
 
-Manifest v2 supports read-only comparison, local-file pull, and guarded push for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session` entries. `sync pull` previews by default; with `--apply`, it writes the listed local markdown files and `<file>.snpm-meta.json` sidecars only. It does not mutate Notion and does not append local mutation journal entries.
+Manifest v2 supports read-only comparison, local-file pull, guarded push, and opt-in post-push sidecar refresh for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session` entries. `sync pull` previews by default; with `--apply`, it writes the listed local markdown files and `<file>.snpm-meta.json` sidecars only. It does not mutate Notion and does not append local mutation journal entries.
 
-Manifest v2 `sync push` is preview by default. `sync push --apply` requires the adjacent sidecar metadata produced by v2 `sync pull` and applies only if the target still matches the recorded editing base. A successful v2 push makes those sidecars stale; the next safe command is `sync pull --apply` to refresh the local files and sidecars before further edits.
+Manifest v2 `sync push` is preview by default. `sync push --apply` requires the adjacent sidecar metadata produced by v2 `sync pull` and applies only if the target still matches the recorded editing base. A default successful `sync push --apply` makes those sidecars stale; the next safe command is `sync pull --apply` to refresh the local files and sidecars before further edits. When the operator wants the applied push to refresh sidecar metadata to the post-push base, opt in with `sync push --apply --refresh-sidecars`.
 
-Manifest v2 does not support create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, or post-push automatic sidecar refresh. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
+Manifest v2 does not support create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, or generic batch apply. Sidecar refresh is never automatic on default v2 push; it only happens when `--refresh-sidecars` is included with `--apply`. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
 
 Planning-page sync remains available through `page-*`:
 
@@ -277,7 +280,7 @@ Hybrid only when justified:
 
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
-- use manifest v2 `sync check`, local-file `sync pull`, and guarded `sync push` to preflight, refresh, and update existing mixed-surface documentation bundles before any batch-apply design
+- use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 

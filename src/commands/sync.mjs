@@ -207,6 +207,7 @@ export async function runSyncPush({
   projectTokenEnv,
   pushManifestV2SyncManifestImpl = pushManifestV2SyncManifest,
   pushValidationSessionSyncManifestImpl = pushValidationSessionSyncManifest,
+  refreshSidecars = false,
   tryRecordMutationJournalEntryImpl = tryRecordMutationJournalEntry,
   workspaceOverride,
 }) {
@@ -215,12 +216,21 @@ export async function runSyncPush({
     loadWorkspaceConfigImpl,
   });
 
+  if (refreshSidecars && manifest.version === SYNC_MANIFEST_V1_VERSION) {
+    throw new Error("sync push --refresh-sidecars is only supported for manifest v2; manifest v1 validation-session sync does not refresh sidecars.");
+  }
+
+  if (refreshSidecars && !apply) {
+    throw new Error("sync push --refresh-sidecars requires --apply because it refreshes local .snpm-meta.json sidecars after Notion updates.");
+  }
+
   if (manifest.version === SYNC_MANIFEST_V2_VERSION) {
     const result = await pushManifestV2SyncManifestImpl({
       apply,
       config,
       manifest,
       projectTokenEnv,
+      refreshSidecars,
     });
 
     return withManifestV2SyncPushJournal(result, {

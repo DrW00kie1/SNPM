@@ -122,6 +122,7 @@ function previewFor(entry, localMarkdown, overrides = {}) {
     authMode: remote.authMode,
     hasDiff: diff.length > 0,
     diff,
+    nextBodyMarkdown: Object.hasOwn(overrides, "nextBodyMarkdown") ? overrides.nextBodyMarkdown : localMarkdown,
     applied: false,
     warnings: overrides.warnings || [],
   };
@@ -210,7 +211,18 @@ function makeFakeAdapters({
         throw new Error(remoteFailuresByTarget.get(target));
       }
 
-      return remoteByTarget.get(target) || remoteFor(entry);
+      const remoteOverride = remoteByTarget.get(target);
+      if (typeof remoteOverride === "function") {
+        return remoteOverride({
+          entry,
+          kind,
+          manifest,
+          projectTokenEnv,
+          target,
+        });
+      }
+
+      return remoteOverride || remoteFor(entry);
     },
   }]));
 }
@@ -356,6 +368,276 @@ test("manifest v2 push apply validates sidecars and calls push adapters", async 
   ]);
   assert.equal(calls[4].metadata.pageId, remoteFor(entries[0]).pageId);
   assert.equal(calls[5].metadata.pageId, remoteFor(entries[1]).pageId);
+});
+
+test("manifest v2 push refreshSidecars is only valid with apply and performs no preview work", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+  ];
+  const calls = [];
+  const readCalls = [];
+  const writes = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({ calls }),
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(new Map(), readCalls),
+    refreshSidecars: true,
+    writeFileSyncImpl: (...args) => writes.push(args),
+  });
+
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /requires --apply/);
+  assert.equal(result.entries[0].status, "error");
+  assert.match(result.recovery, /--apply/);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(readCalls, []);
+  assert.deepEqual(writes, []);
+});
+
+test("manifest v2 push apply refreshes sidecars after all mutations succeed", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const localMarkdownByTarget = new Map([
+    ["Planning > Roadmap", "Local roadmap update\n"],
+    ["Release Smoke Test", "Runbook update\n"],
+  ]);
+  const refreshLastEditedTime = "2026-04-23T12:05:00.000Z";
+  const readCounts = new Map();
+  const refreshedRemote = (entry) => {
+    const target = targetForManifestV2SyncEntry(entry);
+    const count = readCounts.get(target) || 0;
+    readCounts.set(target, count + 1);
+    return count === 0
+      ? remoteFor(entry)
+      : remoteFor(entry, {
+        lastEditedTime: refreshLastEditedTime,
+        markdown: localMarkdownByTarget.get(target),
+      });
+  };
+  const localFiles = new Map([
+    [entries[0].absoluteFilePath, localMarkdownByTarget.get("Planning > Roadmap")],
+    [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+    [entries[1].absoluteFilePath, localMarkdownByTarget.get("Release Smoke Test")],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+  ]);
+  const calls = [];
+  const mutationCalls = [];
+  const writes = [];
+  const renames = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      calls,
+      mutationCalls,
+      remoteByTarget: new Map([
+        ["Planning > Roadmap", ({ entry }) => refreshedRemote(entry)],
+        ["Release Smoke Test", ({ entry }) => refreshedRemote(entry)],
+      ]),
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+    refreshSidecars: true,
+    renameSyncImpl: (...args) => renames.push(args),
+    writeFileSyncImpl: (...args) => writes.push(args),
+  });
+
+  assert.deepEqual(result.failures, []);
+  assert.equal(result.appliedCount, 2);
+  assert.equal(result.warnings, undefined);
+  assert.deepEqual(result.entries.map((entry) => ({
+    status: entry.status,
+    applied: entry.applied,
+    sidecarRefreshed: entry.sidecarRefreshed,
+  })), [
+    { status: "pushed", applied: true, sidecarRefreshed: true },
+    { status: "pushed", applied: true, sidecarRefreshed: true },
+  ]);
+  assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
+    "pushLocal:false:Planning > Roadmap",
+    "readRemote:undefined:Planning > Roadmap",
+    "pushLocal:false:Release Smoke Test",
+    "readRemote:undefined:Release Smoke Test",
+    "pushLocal:true:Planning > Roadmap",
+    "pushLocal:true:Release Smoke Test",
+    "readRemote:undefined:Planning > Roadmap",
+    "readRemote:undefined:Release Smoke Test",
+  ]);
+  assert.deepEqual(mutationCalls.map((call) => call.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(writes.map((write) => write[0]), [
+    `${entries[0].absoluteFilePath}.snpm-meta.json.tmp`,
+    `${entries[1].absoluteFilePath}.snpm-meta.json.tmp`,
+  ]);
+  assert.equal(writes.every((write) => write[2] === "utf8"), true);
+  assert.deepEqual(renames, [
+    [`${entries[0].absoluteFilePath}.snpm-meta.json.tmp`, `${entries[0].absoluteFilePath}.snpm-meta.json`],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json.tmp`, `${entries[1].absoluteFilePath}.snpm-meta.json`],
+  ]);
+  assert.equal(JSON.parse(writes[0][1]).lastEditedTime, refreshLastEditedTime);
+  assert.equal(JSON.parse(writes[1][1]).lastEditedTime, refreshLastEditedTime);
+});
+
+test("manifest v2 push refreshSidecars writes zero sidecars when refresh preflight fails", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const localMarkdownByTarget = new Map([
+    ["Planning > Roadmap", "Local roadmap update\n"],
+    ["Release Smoke Test", "Runbook update\n"],
+  ]);
+  const readCounts = new Map();
+  const refreshedRemote = (entry) => {
+    const target = targetForManifestV2SyncEntry(entry);
+    const count = readCounts.get(target) || 0;
+    readCounts.set(target, count + 1);
+    if (count === 0) {
+      return remoteFor(entry);
+    }
+
+    return remoteFor(entry, {
+      lastEditedTime: "2026-04-23T12:05:00.000Z",
+      markdown: target === "Release Smoke Test"
+        ? "Unexpected remote body\n"
+        : localMarkdownByTarget.get(target),
+    });
+  };
+  const localFiles = new Map([
+    [entries[0].absoluteFilePath, localMarkdownByTarget.get("Planning > Roadmap")],
+    [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+    [entries[1].absoluteFilePath, localMarkdownByTarget.get("Release Smoke Test")],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+  ]);
+  const calls = [];
+  const mutationCalls = [];
+  const writes = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      calls,
+      mutationCalls,
+      remoteByTarget: new Map([
+        ["Planning > Roadmap", ({ entry }) => refreshedRemote(entry)],
+        ["Release Smoke Test", ({ entry }) => refreshedRemote(entry)],
+      ]),
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+    refreshSidecars: true,
+    writeFileSyncImpl: (...args) => writes.push(args),
+  });
+
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /Sidecar refresh preflight failed/);
+  assert.match(result.failures[0], /Remote markdown mismatch/);
+  assert.match(result.failures[0], /No sidecars were written/);
+  assert.match(result.recovery, /sync pull --apply/);
+  assert.equal(result.appliedCount, 2);
+  assert.equal(result.entries[0].applied, true);
+  assert.equal(result.entries[1].applied, true);
+  assert.equal(result.entries[1].sidecarRefreshed, false);
+  assert.deepEqual(mutationCalls.map((call) => call.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(writes, []);
+});
+
+test("manifest v2 push refreshSidecars reports partial sidecar writes without undoing apply result", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const localMarkdownByTarget = new Map([
+    ["Planning > Roadmap", "Local roadmap update\n"],
+    ["Release Smoke Test", "Runbook update\n"],
+  ]);
+  const readCounts = new Map();
+  const refreshedRemote = (entry) => {
+    const target = targetForManifestV2SyncEntry(entry);
+    const count = readCounts.get(target) || 0;
+    readCounts.set(target, count + 1);
+    return count === 0
+      ? remoteFor(entry)
+      : remoteFor(entry, {
+        lastEditedTime: "2026-04-23T12:05:00.000Z",
+        markdown: localMarkdownByTarget.get(target),
+      });
+  };
+  const localFiles = new Map([
+    [entries[0].absoluteFilePath, localMarkdownByTarget.get("Planning > Roadmap")],
+    [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+    [entries[1].absoluteFilePath, localMarkdownByTarget.get("Release Smoke Test")],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+  ]);
+  const failingMetadataPath = `${entries[1].absoluteFilePath}.snpm-meta.json`;
+  const mutationCalls = [];
+  const writes = [];
+  const writeAttempts = [];
+  const renames = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      mutationCalls,
+      remoteByTarget: new Map([
+        ["Planning > Roadmap", ({ entry }) => refreshedRemote(entry)],
+        ["Release Smoke Test", ({ entry }) => refreshedRemote(entry)],
+      ]),
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+    refreshSidecars: true,
+    renameSyncImpl: (...args) => renames.push(args),
+    writeFileSyncImpl: (filePath, body, encoding) => {
+      writeAttempts.push([filePath, body, encoding]);
+      if (filePath === `${failingMetadataPath}.tmp`) {
+        throw new Error("disk full");
+      }
+
+      writes.push([filePath, body, encoding]);
+    },
+  });
+
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /Sidecar refresh write failed/);
+  assert.match(result.failures[0], /Partial sidecar writes/);
+  assert.match(result.failures[0], /Attempted sidecar/);
+  assert.match(result.failures[0], /planning\\roadmap\.md\.snpm-meta\.json/);
+  assert.match(result.failures[0], /runbooks\\release-smoke\.md\.snpm-meta\.json/);
+  assert.match(result.failures[0], /disk full/);
+  assert.match(result.recovery, /sync pull --apply/);
+  assert.equal(result.appliedCount, 2);
+  assert.equal(result.entries[0].applied, true);
+  assert.equal(result.entries[1].applied, true);
+  assert.equal(result.entries[0].sidecarRefreshed, true);
+  assert.equal(result.entries[1].sidecarRefreshed, false);
+  assert.equal(result.entries[1].metadata.lastEditedTime, "2026-04-23T12:05:00.000Z");
+  assert.deepEqual(mutationCalls.map((call) => call.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(writeAttempts.map((write) => write[0]), [
+    `${entries[0].absoluteFilePath}.snpm-meta.json.tmp`,
+    `${entries[1].absoluteFilePath}.snpm-meta.json.tmp`,
+  ]);
+  assert.deepEqual(writes.map((write) => write[0]), [
+    `${entries[0].absoluteFilePath}.snpm-meta.json.tmp`,
+  ]);
+  assert.deepEqual(renames, [
+    [`${entries[0].absoluteFilePath}.snpm-meta.json.tmp`, `${entries[0].absoluteFilePath}.snpm-meta.json`],
+  ]);
 });
 
 test("manifest v2 push apply blocks missing and malformed sidecars before mutation", async (t) => {

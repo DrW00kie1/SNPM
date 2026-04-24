@@ -27,16 +27,18 @@ Supported on `main`:
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
 - EOF-stable managed-page round-trips
-
-Current `codex/manifest-v2-pull` branch addition:
 - manifest v2 `sync check` for read-only mixed-surface drift detection
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
+Current `codex/manifest-v2-refresh-sidecars` branch addition:
+- opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
+- default manifest v2 `sync push --apply` still leaves sidecars stale
+
 Still outside the stable supported line:
 - build records
 - validation sessions
-- manifest v2 create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, and post-push automatic sidecar refresh
+- manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -93,7 +95,7 @@ Those surfaces continue to use their own command families.
   - `New Validation Session`
 
 ### Phase 2: Workflow Bundles
-- use manifest v2 check, local-file pull, and guarded push support as the first safe workflow-bundle primitives
+- use manifest v2 check, local-file pull, guarded push, and opt-in sidecar refresh support as the first safe workflow-bundle primitives
 - compare, locally refresh, and stale-guard existing mixed approved surfaces before designing batch semantics
 - keep v2 entries explicit:
   - `planning-page`
@@ -104,8 +106,9 @@ Those surfaces continue to use their own command families.
   - `validation-session`
 - make v2 `sync pull` write local markdown files and sidecar metadata only, with no Notion mutation and no mutation journal entry
 - make v2 `sync push` preview by default; allow `--apply` only with sidecar metadata from v2 pull
-- treat successful v2 push as making sidecars stale; the next safe command is `sync pull --apply`
-- keep create/adopt, Access/build-record entries, arbitrary CRUD, rollback, auto-merge, batch apply, and post-push automatic sidecar refresh out of scope
+- treat default successful v2 push as making sidecars stale; the next safe command is `sync pull --apply`
+- allow `sync push --apply --refresh-sidecars` as the explicit opt-in to refresh sidecar metadata to the post-push base
+- keep create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply out of scope
 - keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
 ### Phase 3: Harden Cross-Repo Consumption
@@ -125,7 +128,7 @@ Keep these boundaries:
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
-- manifest v2 supports check, local-file pull, and guarded push for approved existing targets; broader mutation stays on the owning command family
+- manifest v2 supports check, local-file pull, guarded push, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - UI automation stays narrow, explicit, Chromium-only, and non-default
 

@@ -158,6 +158,7 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
     apply: true,
     manifestPath: "C:\\repo\\snpm.sync.json",
     projectTokenEnv: "SNPM_NOTION_TOKEN",
+    refreshSidecars: true,
     loadSyncManifestImpl: () => manifest(2),
     loadWorkspaceConfigImpl: (workspaceName) => {
       calls.push({ op: "config", workspaceName });
@@ -168,6 +169,7 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
       config: loadedConfig,
       manifest: loadedManifest,
       projectTokenEnv,
+      refreshSidecars,
     }) => {
       calls.push({
         op: "v2-push",
@@ -175,6 +177,7 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
         notionVersion: loadedConfig.notionVersion,
         version: loadedManifest.version,
         projectTokenEnv,
+        refreshSidecars,
       });
       return {
         command: "sync-push",
@@ -207,8 +210,63 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
       notionVersion: "2026-03-11",
       version: 2,
       projectTokenEnv: "SNPM_NOTION_TOKEN",
+      refreshSidecars: true,
     },
   ]);
+});
+
+test("runSyncPush preserves manifest v2 routing defaults when refreshSidecars is absent", async () => {
+  const result = await runSyncPush({
+    apply: true,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    pushManifestV2SyncManifestImpl: async ({ refreshSidecars }) => ({
+      command: "sync-push",
+      appliedCount: 0,
+      failures: [],
+      refreshSidecars,
+      entries: [],
+    }),
+    pushValidationSessionSyncManifestImpl: async () => {
+      throw new Error("v1 sync push should not run for manifest v2");
+    },
+  });
+
+  assert.equal(result.command, "sync-push");
+  assert.equal(result.refreshSidecars, false);
+});
+
+test("runSyncPush rejects refreshSidecars for manifest v1 sync push", async () => {
+  await assert.rejects(
+    runSyncPush({
+      apply: true,
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      refreshSidecars: true,
+      loadSyncManifestImpl: () => manifest(1),
+      loadWorkspaceConfigImpl: () => config(),
+      pushValidationSessionSyncManifestImpl: async () => {
+        throw new Error("v1 sync push should not run when refreshSidecars is requested");
+      },
+    }),
+    /--refresh-sidecars is only supported for manifest v2/i,
+  );
+});
+
+test("runSyncPush rejects refreshSidecars for manifest v2 preview sync push", async () => {
+  await assert.rejects(
+    runSyncPush({
+      apply: false,
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      refreshSidecars: true,
+      loadSyncManifestImpl: () => manifest(2),
+      loadWorkspaceConfigImpl: () => config(),
+      pushManifestV2SyncManifestImpl: async () => {
+        throw new Error("v2 sync push should not run for refreshSidecars preview");
+      },
+    }),
+    /--refresh-sidecars requires --apply/i,
+  );
 });
 
 test("runSyncPull and runSyncPush preserve manifest v1 validation-session routing", async () => {
