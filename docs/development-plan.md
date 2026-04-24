@@ -10,7 +10,7 @@ The goal is to make SNPM a better utility for coding LLMs that need to create an
 SNPM should improve in three ways:
 - make the allowed Notion operating model easier for an LLM to discover
 - make multi-page documentation changes safer to plan, preview, and apply
-- detect stale or inconsistent project truth before teams rely on it
+- eventually detect stale or inconsistent project truth before teams rely on it, after structural policy and safe mutation foundations are stable
 
 The ten planned capability goals are:
 - `plan-change`: convert high-level documentation intent into an approved command plan
@@ -19,7 +19,7 @@ The ten planned capability goals are:
 - drift and staleness audit: detect stale managed pages and outdated project truth
 - cross-document consistency verifier: detect contradictions across project docs
 - concurrency-safe push model: prevent overwriting Notion changes made after pull
-- project policy packs: make approved project/workspace rules reusable and configurable
+- project policy packs: make approved project/workspace rules explicit, reusable, and reviewable
 - bootstrap doc scaffolding: seed useful docs after project creation
 - durable mutation journal: keep an audit record of applied SNPM changes
 - LLM-native capability introspection: expose allowed commands, surfaces, flags, and examples in machine-readable form
@@ -32,6 +32,11 @@ Development should follow these rules:
 - expand manifests before building batch workflows on top of them
 - keep policy packs explicit and reviewed before using them for bootstrap behavior
 - treat semantic consistency checks as advisory until the structural checks are stable
+
+Current policy-pack foundation scope:
+- make the existing Infrastructure HQ project starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
+- preserve existing command behavior and the current workspace config contract
+- do not add drift or staleness audit, cross-document consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
 
 ## Phase 1: LLM Discovery And Planning Safety
 
@@ -129,8 +134,8 @@ Feature goals covered:
 - generalized manifest sync
 
 Status:
-- `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, opt-in post-push sidecar refresh, targeted entry selection, push review artifacts, mutation limits, and selected sidecar refresh behavior after `d27796f`
-- active `codex/manifest-v2-diagnostics-parity` scope keeps help, capability metadata, and docs aligned with structured manifest v2 diagnostics parity
+- `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, opt-in post-push sidecar refresh, targeted entry selection, push review artifacts, mutation limits, selected sidecar refresh behavior, and structured diagnostics after `7a109c6`
+- active `codex/project-policy-packs` scope makes existing project/workspace rules explicit as reusable policy without changing manifest mutation semantics
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
@@ -238,23 +243,39 @@ Purpose: reduce setup friction while keeping workspace rules explicit and review
 ### Sprint 4.1: Project Policy Packs
 
 Goal:
-- make project shape and managed-surface policy reusable across workspaces and project types
+- make the current Infrastructure HQ project shape and managed-surface policy explicit, reusable, and reviewable before supporting additional project shapes
 
 Deliverables:
-- versioned policy-pack schema
-- config validation for reserved roots, curated docs, optional surfaces, and starter docs
-- migration guidance for existing workspace config
+- policy-pack foundation that normalizes the existing workspace config into reusable policy
+- optional top-level `policyPack` v1 config object for explicit reviewable policy declarations
+- config validation for reserved roots, curated docs, optional surfaces, and starter-tree pages
+- migration guidance that keeps the existing workspace config shape valid while making policy ownership explicit
+- docs that separate reusable policy from future audits, consistency checks, starter-doc scaffolding, and broad apply workflows
 
 Exit criteria:
-- SNPM can support more than one approved project shape without code changes to policy logic
+- SNPM can consume current project and workspace rules through a reusable policy layer without changing existing command behavior
+- future project-shape changes can be reviewed as policy changes instead of hidden code-only edits
 
 Feature goals covered:
 - project policy packs
+
+Status:
+- `codex/project-policy-packs` is a foundation slice for explicit reusable policy only
+- no new public policy-pack CLI command or capability metadata is exposed unless implementation adds a public surface
+
+Out of scope:
+- drift or staleness audit
+- cross-document consistency checks
+- starter-doc scaffolding
+- manifest create/adopt entries
+- rollback, automatic retries, transaction semantics, and broad batch apply
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
 - optionally seed useful managed docs when a project is created
+
+This is a future sprint, not part of the policy-pack foundation.
 
 Deliverables:
 - preview-first project doc scaffolding after `create-project`

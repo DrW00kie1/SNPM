@@ -17,6 +17,17 @@ This command:
 - rewrites `Canonical Source`
 - refreshes `Last Updated`
 
+## Policy-pack foundation
+
+The policy-pack foundation makes the existing bootstrap rules explicit and reusable. For the current Infrastructure HQ workspace, policy-owned inputs are:
+- the source template page and destination `Projects` parent
+- the required starter-tree page names
+- reserved structural roots such as `Planning`, `Runbooks`, `Access`, `Ops`, `Vendors`, and `Incidents`
+- the curated managed-doc and workspace-doc boundaries used by other SNPM command families
+- project-token forbidden-scope checks used by verification
+
+This foundation preserves the current bootstrap behavior. It does not seed starter document bodies, scaffold extra managed docs, run drift or staleness audit, run cross-document consistency checks, or apply coordinated batches.
+
 ## From another repo or Codex thread
 
 If the active work is happening in a different repo, use the same command from the SNPM checkout:

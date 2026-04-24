@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -60,6 +60,12 @@ function commandText(command) {
     ...command.examples,
     ...command.notes,
   ].join("\n");
+}
+
+function parseJsonPayloadFromMixedStdout(stdout) {
+  const jsonStart = stdout.indexOf("{\n");
+  assert.notEqual(jsonStart, -1, `Expected JSON payload in stdout:\n${stdout}`);
+  return JSON.parse(stdout.slice(jsonStart));
 }
 
 function assertSyncPullDocumentsManifestV2Pull(text) {
@@ -310,6 +316,63 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.deepEqual(processSyncCheckCapability, syncCheckCapability);
   assert.deepEqual(processSyncPullCapability, syncPullCapability);
   assert.deepEqual(processSyncPushCapability, syncPushCapability);
+});
+
+test("cli sync check reports review-output diagnostics when artifact writing fails", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-review-output-"));
+  const manifestPath = path.join(tempDir, "snpm.sync.json");
+  const markdownPath = path.join(tempDir, "roadmap.md");
+  const reviewOutputPath = path.join(tempDir, "review-output");
+  const missingTokenEnv = "SNPM_REVIEW_OUTPUT_FAILURE_TEST_TOKEN_SHOULD_NOT_EXIST_9F44";
+
+  try {
+    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
+    writeFileSync(manifestPath, `${JSON.stringify({
+      version: 2,
+      workspace: "infrastructure-hq",
+      project: "SNPM",
+      entries: [{
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "roadmap.md",
+      }],
+    }, null, 2)}\n`, "utf8");
+    writeFileSync(reviewOutputPath, "not a directory\n", "utf8");
+
+    const result = runCli([
+      "sync",
+      "check",
+      "--manifest",
+      manifestPath,
+      "--project-token-env",
+      missingTokenEnv,
+      "--review-output",
+      reviewOutputPath,
+    ], {
+      env: {
+        [missingTokenEnv]: "",
+      },
+    });
+    const payload = parseJsonPayloadFromMixedStdout(result.stdout);
+    const reviewDiagnostic = payload.diagnostics.find((diagnostic) => (
+      diagnostic.code === "manifest-v2-check-review-output-failed"
+    ));
+
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, "");
+    assert.equal(payload.ok, false);
+    assert.equal(payload.reviewOutput.written, false);
+    assert.match(payload.reviewOutput.failure, /review-output/i);
+    assert.ok(payload.failures.some((failure) => /Review output failed:/i.test(failure)));
+    assert.ok(reviewDiagnostic);
+    assert.equal(reviewDiagnostic.command, "sync-check");
+    assert.equal(reviewDiagnostic.safeNextCommand, "sync check --review-output <dir>");
+    assert.equal(reviewDiagnostic.recoveryAction, "Choose a writable review output directory, or rerun without review output.");
+    assert.equal(reviewDiagnostic.state.phase, "review-output");
+    assert.equal(reviewDiagnostic.state.reviewOutputDir, reviewOutputPath);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("plan-change and journal list command help and npm scripts are registered", () => {

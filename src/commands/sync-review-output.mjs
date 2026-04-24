@@ -191,6 +191,11 @@ function sidecarStateForEntry(entry) {
 }
 
 function safeEntryMetadata(entry, index, diffPath) {
+  const skipped = typeof entry.skipped === "boolean" ? entry.skipped : entry.status === "skipped";
+  const selected = typeof entry.selected === "boolean"
+    ? entry.selected
+    : entry.applied !== true && !skipped;
+
   return redactValue(includeDefined({
     index,
     kind: entry.kind,
@@ -198,8 +203,8 @@ function safeEntryMetadata(entry, index, diffPath) {
     file: entry.file,
     targetPath: entry.targetPath,
     status: entry.status,
-    selected: entry.applied !== true && entry.status !== "skipped",
-    skipped: entry.status === "skipped",
+    selected,
+    skipped,
     hasDiff: entry.hasDiff,
     applied: entry.applied === true,
     commandFamily: commandFamilyForEntry(entry),
@@ -217,9 +222,46 @@ function safeEntryMetadata(entry, index, diffPath) {
   }));
 }
 
+function nonNegativeIntegerOrNull(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function skippedEntryArtifacts(entryArtifacts) {
+  return entryArtifacts
+    .filter((entry) => entry.metadata.skipped)
+    .map((entry) => includeDefined({
+      index: entry.metadata.index,
+      kind: entry.metadata.kind,
+      target: entry.metadata.target,
+      file: entry.metadata.file,
+      targetPath: entry.metadata.targetPath,
+      status: entry.metadata.status,
+      commandFamily: entry.metadata.commandFamily,
+      surface: entry.metadata.surface,
+    }));
+}
+
+function selectionSummaryForResult(result, entryArtifacts) {
+  const artifactSelectedCount = entryArtifacts.filter((entry) => entry.metadata.selected).length;
+  const artifactSkippedEntries = skippedEntryArtifacts(entryArtifacts);
+  const selectedCount = nonNegativeIntegerOrNull(result.selectedCount) ?? artifactSelectedCount;
+  const skippedEntries = Array.isArray(result.skippedEntries)
+    ? result.skippedEntries
+    : artifactSkippedEntries;
+  const skippedCount = nonNegativeIntegerOrNull(result.skippedCount) ?? skippedEntries.length;
+
+  return {
+    selectedCount,
+    skippedCount,
+    selectedEntries: selectedCount,
+    skippedEntries: skippedCount,
+    skippedEntryCount: skippedCount,
+    skippedEntryDetails: skippedEntries,
+  };
+}
+
 function buildSummary(result, entryArtifacts) {
-  const selectedEntries = entryArtifacts.filter((entry) => entry.metadata.selected).length;
-  const skippedEntries = entryArtifacts.filter((entry) => entry.metadata.skipped).length;
+  const selectionSummary = selectionSummaryForResult(result, entryArtifacts);
 
   return redactValue(includeDefined({
     command: result.command,
@@ -230,8 +272,8 @@ function buildSummary(result, entryArtifacts) {
     hasDiff: result.hasDiff,
     driftCount: result.driftCount,
     appliedCount: result.appliedCount,
-    selectedEntries,
-    skippedEntries,
+    selection: result.selection,
+    ...selectionSummary,
     entryCount: entryArtifacts.length,
     targetPaths: entryArtifacts.map((entry) => entry.metadata.targetPath).filter(Boolean),
     entries: entryArtifacts.map((entry) => includeDefined({

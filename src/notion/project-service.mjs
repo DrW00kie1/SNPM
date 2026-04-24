@@ -1,6 +1,6 @@
 import { getProjectToken, getWorkspaceToken, nowTimestamp, deriveProjectTokenEnv } from "./env.mjs";
 import { makeNotionClient } from "./client.mjs";
-import { getManagedDocReservedRootTitles } from "./managed-doc-policy.mjs";
+import { getProjectPolicyReservedRootTitles } from "./managed-doc-policy.mjs";
 import { buildProjectRootNode, expectedCanonicalSource, pathFromSegments, projectPath } from "./project-model.mjs";
 import { cloneTemplateBlock, getCanonicalSource, sanitizeCover, sanitizeIcon } from "./template-blocks.mjs";
 import { collectValidationSessionScopeChecks, verifyValidationSessionsExtension } from "./validation-sessions.mjs";
@@ -137,7 +137,7 @@ export async function verifyExpectedTree(pageId, node, projectName, client, fail
     lastMatchedIndex = nextIndex;
   }
 
-  const reservedRootTitles = config ? new Set(getManagedDocReservedRootTitles(config)) : null;
+  const reservedRootTitles = config ? new Set(getProjectPolicyReservedRootTitles(config)) : null;
   const allowManagedProjectDocExtras = pathTitles.length === 1;
   const disallowedExtras = allowAnyExtras
     ? []
@@ -222,7 +222,7 @@ async function verifyManagedDescendants(pageId, projectName, client, failures, p
 }
 
 export async function verifyApprovedExtensions(projectPageId, projectName, config, client, failures) {
-  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  const reservedRootTitles = new Set(getProjectPolicyReservedRootTitles(config));
   await verifyManagedDescendants(projectPageId, projectName, client, failures, [projectName], {
     requireIcon: false,
     rootTitleFilter: (title) => !reservedRootTitles.has(title),
@@ -276,7 +276,7 @@ export async function collectExpectedPageIds(pageId, node, client, collected = [
 }
 
 async function collectManagedProjectDocScopeChecks(projectPageId, projectName, config, client) {
-  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  const reservedRootTitles = new Set(getProjectPolicyReservedRootTitles(config));
   const childPages = (await client.getChildren(projectPageId)).filter((block) => block.type === "child_page");
   const collected = [];
 

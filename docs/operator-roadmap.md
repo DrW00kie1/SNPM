@@ -27,7 +27,7 @@ Supported on `main`:
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
 - EOF-stable managed-page round-trips
-- manifest v2 `sync check` for read-only mixed-surface drift detection
+- manifest v2 `sync check` for read-only mixed-surface comparison
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
@@ -35,7 +35,13 @@ Baseline manifest v2 sidecar-refresh behavior:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
 - default manifest v2 `sync push --apply` still leaves sidecars stale
 
-Current `codex/manifest-v2-diagnostics-parity` branch addition:
+Current `codex/project-policy-packs` branch addition:
+- policy-pack foundation makes the current Infrastructure HQ starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
+- the policy can be derived from existing workspace config or declared through an optional `policyPack` v1 config object
+- the current slice preserves existing command behavior and does not add a new public policy-pack CLI command
+- policy packs do not add drift or staleness audit, consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
+
+Recently promoted manifest v2 diagnostics behavior on `main`:
 - manifest v2 diagnostics parity across CLI help, capability metadata, and operator docs
 - v2 check and push diagnostics are structured result/review metadata; v2 pull diagnostics are structured result metadata
 - diagnostics include stable codes, severity, entry/target context, safe next command, and recovery action
@@ -50,6 +56,7 @@ Still outside the stable supported line:
 - build records
 - validation sessions
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
+- policy-pack-driven drift/staleness audit, cross-document consistency checks, starter-doc scaffolding, and broad batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -59,6 +66,7 @@ SNPM encodes:
 - approved-surface mutation only
 - project-token-safe paths
 - deterministic routing before mutation
+- explicit reusable policy for workspace and project shape rules
 - explicit repo-first routing for fast-changing engineering detail
 - clear Notion-vs-repo ownership
 - stable markdown round-trips on supported surfaces
@@ -125,7 +133,10 @@ Those surfaces continue to use their own command families.
 - keep create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply out of scope
 - keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
-### Phase 3: Harden Cross-Repo Consumption
+### Phase 3: Policy Foundation And Cross-Repo Consumption
+- make current workspace and project rules reusable through explicit policy instead of scattered helper assumptions
+- keep policy-pack changes reviewable and backward compatible with the existing Infrastructure HQ config shape
+- do not use policy packs as a shortcut for drift audit, consistency checks, starter-doc scaffolding, or broad batch apply
 - keep pinned install/use from other repos straightforward
 - keep the CLI as the policy layer for other Codex threads
 - add wrappers only after the CLI workflows are stable
@@ -141,6 +152,7 @@ Keep these boundaries:
 - project token remains the default project-local safety boundary
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
+- policy packs describe approved structure and routing boundaries; they do not by themselves audit freshness, check semantic consistency, scaffold starter docs, or apply batches
 - repo sync stays selective
 - manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
 - manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply

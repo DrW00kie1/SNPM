@@ -12,9 +12,9 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, and apply mutation limits promoted through `d27796f`
-- promotion trace branch: `codex/manifest-v2-targeted-review`
-- active feature branch: `codex/manifest-v2-diagnostics-parity` keeps help, capability metadata, and operator docs aligned with structured manifest v2 diagnostics parity
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, and structured diagnostics promoted through `7a109c6`
+- promotion trace branch: `codex/manifest-v2-diagnostics-parity`
+- active feature branch: `codex/project-policy-packs` makes existing workspace and project policy explicit and reusable without adding new public mutation behavior
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -45,7 +45,13 @@ Supported narrow-band baseline on `main`:
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
-Current `codex/manifest-v2-diagnostics-parity` branch addition:
+Current `codex/project-policy-packs` branch addition:
+- policy-pack foundation treats the current Infrastructure HQ starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries as explicit reusable policy
+- workspace config can derive that policy from the existing fields or declare an explicit optional `policyPack` v1 object for reviewable policy changes
+- the foundation does not add a new public CLI command or capability-map entry in this docs slice
+- policy packs do not add drift or staleness audit, cross-document consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
+
+Recently promoted manifest v2 diagnostics behavior on `main`:
 - manifest v2 diagnostics are documented consistently in CLI help, capability metadata, and operator docs as structured result/review metadata for check and push, and structured result metadata for pull
 - diagnostics include stable codes, severity, entry/target context, a safe next command, and a recovery action
 
@@ -61,11 +67,14 @@ Present in the repo but outside the current supported line:
 - validation sessions
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
+- policy-pack-driven drift/staleness audit, cross-document consistency checks, starter-doc scaffolding, and broad batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
 
 The new managed-doc surface is curated, not arbitrary.
+
+The policy-pack foundation keeps this boundary reusable instead of hiding it in one-off helpers. The current policy names the same reserved roots and curated workspace/template docs listed below; changing those rules is a policy change that must be reviewed, tested, and verified against the live workspace.
 
 Project-scoped managed docs:
 - `Root`
@@ -233,7 +242,7 @@ npm run validation-bundle-verify -- --project "Project Name" --project-token-env
 
 Use that Chromium-only lane only when the surrounding Notion UI bundle matters. The stable default remains `validation-sessions-verify --bundle` for the API-visible checks plus manual UI setup where needed.
 
-Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need the specialized `sync-check`, `sync-pull`, or `sync-push` lane; use v2 when the goal is mixed-surface drift detection, local-file refresh, or guarded existing-target push across approved surfaces. V1 validation-session sync remains a separate specialized artifact lane, not the generalized bundle workflow.
+Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need the specialized `sync-check`, `sync-pull`, or `sync-push` lane; use v2 when the goal is mixed-surface comparison, local-file refresh, or guarded existing-target push across approved surfaces. V1 validation-session sync remains a separate specialized artifact lane, not the generalized bundle workflow.
 
 The file produced by `page-pull`, `runbook-pull`, Access pull commands, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
@@ -293,6 +302,7 @@ Hybrid only when justified:
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
 - use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, targeted selectors, review artifacts, mutation limits, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
+- keep policy packs focused on explicit reusable policy for existing approved surfaces before using them to vary project shapes or seed project docs
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 

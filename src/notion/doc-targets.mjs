@@ -5,7 +5,7 @@ import {
   resolveProjectPathTarget,
   resolveProjectRootTarget,
 } from "./page-targets.mjs";
-import { getManagedDocReservedRootTitles } from "./managed-doc-policy.mjs";
+import { getProjectPolicyReservedRootTitles } from "./managed-doc-policy.mjs";
 import { findChildPage } from "./project-service.mjs";
 import { projectPath } from "./project-model.mjs";
 
@@ -54,7 +54,7 @@ function buildReservedRootError(rootTitle) {
 
 function ensureAllowedProjectDocPath(docPath, config) {
   const segments = normalizePathSegments(docPath);
-  const reservedRoots = new Set(getManagedDocReservedRootTitles(config));
+  const reservedRoots = new Set(getProjectPolicyReservedRootTitles(config));
 
   if (segments[0] === "Planning") {
     return {
@@ -99,7 +99,7 @@ function ensureAllowedWorkspaceDocPath(docPath, config) {
   const segments = normalizePathSegments(docPath);
   const normalizedPath = segments.join(" > ");
   const registry = config.workspace.managedDocs;
-  const reservedRoots = new Set(getManagedDocReservedRootTitles(config));
+  const reservedRoots = new Set(getProjectPolicyReservedRootTitles(config));
 
   const exactEntry = registry.exactPages.find((entry) => entry.path === normalizedPath);
   if (exactEntry) {

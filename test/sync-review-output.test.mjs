@@ -107,7 +107,11 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
     assert.equal(summary.projectName, "SNPM");
     assert.equal(summary.workspaceName, "infrastructure-hq");
     assert.equal(summary.selectedEntries, 2);
+    assert.equal(summary.selectedCount, 2);
+    assert.equal(summary.skippedEntryCount, 0);
+    assert.equal(summary.skippedCount, 0);
     assert.equal(summary.skippedEntries, 0);
+    assert.deepEqual(summary.skippedEntryDetails, []);
     assert.deepEqual(summary.diagnostics, {
       generatedBy: "manifest-v2-preview",
       recoveryHint: "review generated artifacts before apply",
@@ -253,6 +257,87 @@ test("writeManifestV2PreviewReviewArtifacts redacts metadata and does not leak s
   }
 });
 
+test("writeManifestV2PreviewReviewArtifacts uses top-level manifest v2 selection metadata", () => {
+  const reviewDir = tempReviewDir();
+
+  try {
+    const result = baseResult({
+      selectedCount: 1,
+      skippedCount: 2,
+      skippedEntries: [
+        {
+          kind: "runbook",
+          target: "Release Smoke Test",
+          file: "runbooks/release.md",
+          targetPath: null,
+          metadataPath: "C:\\repo\\runbooks\\release.md.snpm-meta.json",
+        },
+        {
+          kind: "project-doc",
+          target: "Root > Overview",
+          file: "docs/overview.md",
+          targetPath: null,
+          metadataPath: "C:\\repo\\docs\\overview.md.snpm-meta.json",
+        },
+      ],
+      selection: {
+        selectorLabels: ["planning-page:Planning > Roadmap"],
+        selectors: [{
+          kind: "planning-page",
+          target: "Planning > Roadmap",
+        }],
+      },
+      entries: [{
+        kind: "planning-page",
+        target: "Planning > Roadmap",
+        file: "planning/roadmap.md",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        status: "drift",
+        selected: true,
+        hasDiff: true,
+        diff: "+selected roadmap\n",
+        applied: false,
+      }],
+    });
+
+    writeManifestV2PreviewReviewArtifacts({
+      result,
+      reviewOutputDir: reviewDir,
+    });
+
+    const summary = readJson(path.join(reviewDir, "summary.json"));
+    assert.equal(summary.entryCount, 1);
+    assert.equal(summary.selectedEntries, 1);
+    assert.equal(summary.selectedCount, 1);
+    assert.equal(summary.skippedEntryCount, 2);
+    assert.equal(summary.skippedCount, 2);
+    assert.equal(summary.skippedEntries, 2);
+    assert.deepEqual(summary.skippedEntryDetails, result.skippedEntries);
+    assert.deepEqual(summary.selection, result.selection);
+    assert.deepEqual(summary.entries.map((entry) => ({
+      target: entry.target,
+      selected: entry.selected,
+      skipped: entry.skipped,
+      reviewFile: entry.reviewFile,
+      diffFile: entry.diffFile,
+    })), [{
+      target: "Planning > Roadmap",
+      selected: true,
+      skipped: false,
+      reviewFile: "001-planning-page-planning-roadmap.review.json",
+      diffFile: "001-planning-page-planning-roadmap.diff",
+    }]);
+
+    const entryNames = readdirSync(path.join(reviewDir, "entries")).sort();
+    assert.deepEqual(entryNames, [
+      "001-planning-page-planning-roadmap.diff",
+      "001-planning-page-planning-roadmap.review.json",
+    ]);
+  } finally {
+    rmSync(reviewDir, { recursive: true, force: true });
+  }
+});
+
 test("writeManifestV2PreviewReviewArtifacts preserves diagnostics, recovery, sidecar, and skipped selection metadata", () => {
   const reviewDir = tempReviewDir();
 
@@ -328,7 +413,20 @@ test("writeManifestV2PreviewReviewArtifacts preserves diagnostics, recovery, sid
 
     const summary = readJson(path.join(reviewDir, "summary.json"));
     assert.equal(summary.selectedEntries, 1);
+    assert.equal(summary.selectedCount, 1);
+    assert.equal(summary.skippedEntryCount, 1);
+    assert.equal(summary.skippedCount, 1);
     assert.equal(summary.skippedEntries, 1);
+    assert.deepEqual(summary.skippedEntryDetails, [{
+      index: 1,
+      kind: "runbook",
+      target: "Release Smoke Test",
+      file: "runbooks/release.md",
+      targetPath: "Projects > SNPM > Runbooks > Release Smoke Test",
+      status: "skipped",
+      commandFamily: "runbook",
+      surface: "runbooks",
+    }]);
     assert.deepEqual(summary.diagnostics, [{
       code: "manifest-v2-push-sidecar-stale-after-apply",
       severity: "warning",

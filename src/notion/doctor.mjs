@@ -1,7 +1,7 @@
 import { makeNotionClient } from "./client.mjs";
 import { listChildDatabases, queryDataSource, retrieveDatabase, getPageTitleProperty, getPrimaryDataSourceId } from "./data-sources.mjs";
 import { getWorkspaceToken } from "./env.mjs";
-import { getManagedDocReservedRootTitles } from "./managed-doc-policy.mjs";
+import { getProjectPolicyReservedRootTitles } from "./managed-doc-policy.mjs";
 import {
   ACCESS_DOMAIN_ICON,
   ACCESS_TOKEN_ICON,
@@ -257,7 +257,7 @@ async function analyzeProjectDocs({
     client,
     requireIcon: false,
   });
-  const reservedRootTitles = new Set(getManagedDocReservedRootTitles(config));
+  const reservedRootTitles = new Set(getProjectPolicyReservedRootTitles(config));
   const summary = {
     targetPath: projectRoot.targetPath,
     rootStatus: rootInspection.status,
@@ -903,7 +903,7 @@ export async function diagnoseProject({
     targetPath: projectRoot.targetPath,
     authMode: "workspace-token",
     projectTokenChecked: Boolean(projectTokenEnv),
-    truthBoundaries: buildTruthBoundaries(),
+    truthBoundaries: buildTruthBoundaries(config),
     surfaces: {},
     issues: [],
     adoptable: [],

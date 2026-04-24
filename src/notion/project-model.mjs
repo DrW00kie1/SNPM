@@ -1,3 +1,5 @@
+import { getProjectPolicyStarterChildren } from "./managed-doc-policy.mjs";
+
 export function projectPath(name, suffix = []) {
   return ["Projects", name, ...suffix].join(" > ");
 }
@@ -9,7 +11,7 @@ export function pathFromSegments(segments) {
 export function buildProjectRootNode(projectName, config) {
   return {
     title: projectName,
-    children: config.projectStarter.children,
+    children: getProjectPolicyStarterChildren(config),
   };
 }
 
