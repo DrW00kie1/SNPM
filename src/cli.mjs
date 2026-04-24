@@ -70,6 +70,7 @@ import {
   readMutationJournalEntries,
   tryRecordMutationJournalEntry,
 } from "./commands/mutation-journal.mjs";
+import { writeManifestV2PreviewReviewArtifacts } from "./commands/sync-review-output.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
@@ -81,6 +82,7 @@ import {
 } from "./commands/validation-bundle.mjs";
 
 const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain", "refresh-sidecars"]);
+const REPEATABLE_FLAGS = new Set(["entry"]);
 export {
   commandUsage,
   findCommandHelp,
@@ -187,11 +189,32 @@ export function parseArgs(argv) {
       throw new Error(`Missing value for --${key}`);
     }
 
-    options[key] = value;
+    if (REPEATABLE_FLAGS.has(key)) {
+      options[key] = [...(Array.isArray(options[key]) ? options[key] : []), value];
+    } else {
+      options[key] = value;
+    }
     i += 1;
   }
 
   return { command, options };
+}
+
+function parseMaxMutationsOption(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === "all") {
+    return "all";
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value) {
+    throw new Error("--max-mutations must be a positive integer or \"all\".");
+  }
+
+  return parsed;
 }
 
 function requireOption(options, name, message) {
@@ -1341,14 +1364,23 @@ async function main() {
 
   if (command === "sync check" || command === "sync-check") {
     const result = await runSyncCheck({
+      entries: options.entry,
+      entriesFile: options["entries-file"],
       manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
       projectTokenEnv: options["project-token-env"],
+      reviewOutput: options["review-output"],
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);
     console.log(JSON.stringify({
       ok: result.failures.length === 0 && result.driftCount === 0,
       ...result,
+      ...(options["review-output"] ? {
+        reviewOutput: writeManifestV2PreviewReviewArtifacts({
+          result,
+          reviewOutputDir: options["review-output"],
+        }),
+      } : {}),
     }, null, 2));
     if (result.failures.length > 0 || result.driftCount > 0) {
       process.exitCode = 1;
@@ -1360,8 +1392,11 @@ async function main() {
   if (command === "sync pull" || command === "sync-pull") {
     const result = await runSyncPull({
       apply: options.apply === true,
+      entries: options.entry,
+      entriesFile: options["entries-file"],
       manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
       projectTokenEnv: options["project-token-env"],
+      reviewOutput: options["review-output"],
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);
@@ -1377,17 +1412,28 @@ async function main() {
   }
 
   if (command === "sync push" || command === "sync-push") {
+    const apply = options.apply === true;
     const result = await runSyncPush({
-      apply: options.apply === true,
+      apply,
+      entries: options.entry,
+      entriesFile: options["entries-file"],
       manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
+      maxMutations: parseMaxMutationsOption(options["max-mutations"]),
       projectTokenEnv: options["project-token-env"],
       refreshSidecars: options["refresh-sidecars"] === true,
+      reviewOutput: options["review-output"],
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);
     console.log(JSON.stringify({
       ok: result.failures.length === 0,
       ...result,
+      ...(options["review-output"] && !apply ? {
+        reviewOutput: writeManifestV2PreviewReviewArtifacts({
+          result,
+          reviewOutputDir: options["review-output"],
+        }),
+      } : {}),
     }, null, 2));
     if (result.failures.length > 0) {
       process.exitCode = 1;

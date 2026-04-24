@@ -14,6 +14,7 @@ import {
 import { pullRunbookBody } from "./project-pages.mjs";
 import { buildPullPageMetadata } from "./page-metadata.mjs";
 import { pullValidationSessionFile } from "./validation-sessions.mjs";
+import { selectManifestEntries } from "./manifest-selection.mjs";
 
 function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -67,6 +68,62 @@ function buildEntryBase(descriptor) {
     file: descriptor.entry.file,
     targetPath: null,
     metadataPath: descriptor.metadataPath || null,
+  };
+}
+
+function buildSkippedEntry(entry, manifest) {
+  const descriptor = buildEntryDescriptor(entry, manifest);
+  return buildEntryBase(descriptor);
+}
+
+function hasSelectionInput({ selectedEntries, selectionOptions }) {
+  return selectedEntries !== undefined || selectionOptions !== undefined;
+}
+
+function selectorValuesFromOptions(selectionOptions) {
+  if (Array.isArray(selectionOptions)) {
+    return selectionOptions;
+  }
+
+  if (selectionOptions && typeof selectionOptions === "object") {
+    return selectionOptions.selectors || selectionOptions.selectorValues || [];
+  }
+
+  return [];
+}
+
+function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
+  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
+    return {
+      entries: manifest.entries,
+      metadata: null,
+    };
+  }
+
+  const resolved = selectedEntries !== undefined
+    ? {
+      selectedEntries,
+      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
+      selectedCount: selectedEntries.length,
+      skippedCount: manifest.entries.length - selectedEntries.length,
+      selectorLabels: [],
+      selectors: [],
+    }
+    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
+  const entries = resolved.selectedEntries || [];
+  const skippedEntries = resolved.skippedEntries.map((entry) => buildSkippedEntry(entry, manifest));
+
+  return {
+    entries,
+    metadata: {
+      selection: {
+        selectorLabels: resolved.selectorLabels || [],
+        selectors: resolved.selectors || [],
+      },
+      selectedCount: resolved.selectedCount ?? entries.length,
+      skippedCount: resolved.skippedCount ?? skippedEntries.length,
+      skippedEntries,
+    },
   };
 }
 
@@ -190,11 +247,11 @@ function buildAppliedStatus(localExists, hasDiff) {
   return localExists ? "pulled" : "pulled-created";
 }
 
-function buildSummary({ manifest, authMode, entries, failures }) {
+function buildSummary({ manifest, authMode, entries, failures, selectionMetadata }) {
   const driftCount = entries.filter((entry) => entry.hasDiff).length;
   const appliedCount = entries.filter((entry) => entry.applied).length;
 
-  return {
+  const summary = {
     command: "sync-pull",
     manifestPath: manifest.manifestPath,
     projectName: manifest.projectName,
@@ -206,6 +263,12 @@ function buildSummary({ manifest, authMode, entries, failures }) {
     failures,
     entries,
   };
+
+  if (selectionMetadata) {
+    Object.assign(summary, selectionMetadata);
+  }
+
+  return summary;
 }
 
 function requireAdapter(entry, adapters) {
@@ -486,8 +549,8 @@ async function preflightManifestEntries({
   };
 }
 
-function buildDescriptors(manifest) {
-  return manifest.entries.map((entry) => buildEntryDescriptor(entry, manifest));
+function buildDescriptors(manifest, entries = manifest.entries) {
+  return entries.map((entry) => buildEntryDescriptor(entry, manifest));
 }
 
 export async function pullManifestV2SyncManifest({
@@ -499,9 +562,16 @@ export async function pullManifestV2SyncManifest({
   mkdirSyncImpl = mkdirSync,
   projectTokenEnv,
   readFileSyncImpl = readFileSync,
+  selectedEntries,
+  selectionOptions,
   writeFileSyncImpl = writeFileSync,
 }) {
-  const descriptors = buildDescriptors(manifest);
+  const selection = resolveSyncSelection({
+    manifest,
+    selectedEntries,
+    selectionOptions,
+  });
+  const descriptors = buildDescriptors(manifest, selection.entries);
   const preflight = await preflightManifestEntries({
     adapters,
     config,
@@ -519,6 +589,7 @@ export async function pullManifestV2SyncManifest({
       authMode: projectTokenEnv ? "project-token" : "workspace-token",
       entries: preflight.entries.map(stripPreflightState),
       failures: preflight.failures,
+      selectionMetadata: selection.metadata,
     });
   }
 
@@ -562,5 +633,6 @@ export async function pullManifestV2SyncManifest({
     authMode: projectTokenEnv ? "project-token" : "workspace-token",
     entries,
     failures,
+    selectionMetadata: selection.metadata,
   });
 }

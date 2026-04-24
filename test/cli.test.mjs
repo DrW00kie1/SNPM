@@ -84,6 +84,9 @@ function assertSyncCapabilityMetadata(command, expected) {
   assert.equal(command.localFileWrites, expected.localFileWrites);
   assert.equal(command.journalWrites, expected.journalWrites);
   assert.equal(command.sidecarRefresh, expected.sidecarRefresh);
+  assert.equal(command.manifestV2Selection, "entry-or-entries-file");
+  assert.equal(command.reviewOutput, expected.reviewOutput);
+  assert.equal(command.maxMutations, expected.maxMutations);
 }
 
 test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
@@ -210,16 +213,26 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(checkResult.stdout, /Command: sync check/);
   assert.match(checkResult.stdout, /manifest v2 mixed-surface manifests/i);
   assert.match(checkResult.stdout, /planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions/);
+  assert.match(checkResult.stdout, /--entry <kind:target>/);
+  assert.match(checkResult.stdout, /--entries-file <path\|->/);
+  assert.match(checkResult.stdout, /--review-output <dir>/);
 
   assert.equal(pullResult.status, 0);
   assert.equal(pullResult.stderr, "");
   assert.match(pullResult.stdout, /Command: sync pull/);
   assertSyncPullDocumentsManifestV2Pull(pullResult.stdout);
+  assert.match(pullResult.stdout, /--entry <kind:target>/);
+  assert.match(pullResult.stdout, /--entries-file <path\|->/);
 
   assert.equal(pushResult.status, 0);
   assert.equal(pushResult.stderr, "");
   assert.match(pushResult.stdout, /Command: sync push/);
   assertSyncPushDocumentsGuardedManifestV2Push(pushResult.stdout);
+  assert.match(pushResult.stdout, /--entry <kind:target>/);
+  assert.match(pushResult.stdout, /--entries-file <path\|->/);
+  assert.match(pushResult.stdout, /--review-output <dir>/);
+  assert.match(pushResult.stdout, /--max-mutations <n\|all>/);
+  assert.match(pushResult.stdout, /defaults to 1/i);
 
   assert.equal(capabilitiesResult.status, 0);
   assert.equal(capabilitiesResult.stderr, "");
@@ -244,17 +257,21 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
     notionMutation: "none",
     localFileWrites: "none",
     journalWrites: "none",
+    reviewOutput: "manifest-v2-only",
   });
   assertSyncCapabilityMetadata(syncPullCapability, {
     notionMutation: "none",
     localFileWrites: "apply-gated",
     journalWrites: "none",
+    reviewOutput: "unsupported",
   });
   assertSyncCapabilityMetadata(syncPushCapability, {
     notionMutation: "apply-gated",
     localFileWrites: "opt-in-refresh-sidecars-apply-gated",
     journalWrites: "apply-gated",
     sidecarRefresh: "opt-in-apply-gated",
+    reviewOutput: "manifest-v2-preview-only",
+    maxMutations: "manifest-v2-apply-default-1",
   });
   assert.deepEqual(processSyncCheckCapability, syncCheckCapability);
   assert.deepEqual(processSyncPullCapability, syncPullCapability);
@@ -580,6 +597,16 @@ test("parseArgs supports sync subcommands", () => {
     "push",
     "--manifest",
     "C:\\tall-man-training\\snpm.sync.json",
+    "--entry",
+    "planning-page:Planning > Roadmap",
+    "--entry",
+    "runbook:Deploy",
+    "--entries-file",
+    "-",
+    "--review-output",
+    "review",
+    "--max-mutations",
+    "all",
     "--project-token-env",
     "TALLMAN_NOTION_TOKEN",
     "--apply",
@@ -588,9 +615,30 @@ test("parseArgs supports sync subcommands", () => {
 
   assert.equal(parsed.command, "sync push");
   assert.equal(parsed.options.manifest, "C:\\tall-man-training\\snpm.sync.json");
+  assert.deepEqual(parsed.options.entry, [
+    "planning-page:Planning > Roadmap",
+    "runbook:Deploy",
+  ]);
+  assert.equal(parsed.options["entries-file"], "-");
+  assert.equal(parsed.options["review-output"], "review");
+  assert.equal(parsed.options["max-mutations"], "all");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
   assert.equal(parsed.options.apply, true);
   assert.equal(parsed.options["refresh-sidecars"], true);
+});
+
+test("parseArgs preserves single-value overwrite behavior for other flags", () => {
+  const parsed = parseArgs([
+    "sync",
+    "check",
+    "--manifest",
+    "first.json",
+    "--manifest",
+    "second.json",
+  ]);
+
+  assert.equal(parsed.command, "sync check");
+  assert.equal(parsed.options.manifest, "second.json");
 });
 
 test("parseArgs supports plan-change and journal list discovery commands", () => {

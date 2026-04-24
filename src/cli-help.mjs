@@ -8,6 +8,9 @@ const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
+const OPT_SYNC_ENTRY = "--entry <kind:target>";
+const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
+const OPT_MAX_MUTATIONS = "--max-mutations <n|all>";
 const HELP_TOKENS = new Set(["--help", "-h"]);
 const SYNC_MANIFEST_VERSIONS = [1, 2];
 const SYNC_MANIFEST_V2_ENTRY_KINDS = [
@@ -25,6 +28,8 @@ const SYNC_CAPABILITY_METADATA = {
     journalWrites: "none",
     supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+    manifestV2Selection: "entry-or-entries-file",
+    reviewOutput: "manifest-v2-only",
   },
   pull: {
     notionMutation: "none",
@@ -32,6 +37,8 @@ const SYNC_CAPABILITY_METADATA = {
     journalWrites: "none",
     supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+    manifestV2Selection: "entry-or-entries-file",
+    reviewOutput: "unsupported",
   },
   push: {
     notionMutation: "apply-gated",
@@ -40,6 +47,9 @@ const SYNC_CAPABILITY_METADATA = {
     sidecarRefresh: "opt-in-apply-gated",
     supportedManifestVersions: SYNC_MANIFEST_VERSIONS,
     supportedManifestV2EntryKinds: SYNC_MANIFEST_V2_ENTRY_KINDS,
+    manifestV2Selection: "entry-or-entries-file",
+    reviewOutput: "manifest-v2-preview-only",
+    maxMutations: "manifest-v2-apply-default-1",
   },
 };
 
@@ -1590,12 +1600,15 @@ const COMPOUND_COMMAND_SPECS = [
         name: "check",
         summary: "Check manifest-backed sync state without mutating Notion or local files.",
         usageLines: [
-          'node src/cli.mjs sync check --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs sync check --manifest <path> [--entry <kind:target> ...] [--entries-file <path|->] [--review-output <dir>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           "--manifest <path>",
         ],
         optionalFlags: [
+          OPT_SYNC_ENTRY,
+          OPT_SYNC_ENTRIES_FILE,
+          OPT_REVIEW_OUTPUT,
           OPT_PROJECT_TOKEN,
           OPT_WORKSPACE,
         ],
@@ -1606,6 +1619,8 @@ const COMPOUND_COMMAND_SPECS = [
         notes: [
           "sync check supports validation-session v1 manifests and manifest v2 mixed-surface manifests.",
           "Manifest v2 check entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
+          "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
+          "--review-output writes per-entry review artifacts for manifest v2 sync check only.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.check,
       },
@@ -1613,12 +1628,14 @@ const COMPOUND_COMMAND_SPECS = [
         name: "pull",
         summary: "Pull manifest-backed files from Notion to the repo.",
         usageLines: [
-          'node src/cli.mjs sync pull --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs sync pull --manifest <path> [--entry <kind:target> ...] [--entries-file <path|->] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           "--manifest <path>",
         ],
         optionalFlags: [
+          OPT_SYNC_ENTRY,
+          OPT_SYNC_ENTRIES_FILE,
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
           OPT_WORKSPACE,
@@ -1631,6 +1648,7 @@ const COMPOUND_COMMAND_SPECS = [
           "sync pull preserves manifest v1 validation-session artifact-sync behavior.",
           "Manifest v2 sync pull previews or applies local file refreshes for approved mixed-surface entries and writes <file>.snpm-meta.json sidecars.",
           "Manifest v2 sync pull does not mutate Notion and does not append local mutation journal entries.",
+          "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
         ],
         capabilityMetadata: SYNC_CAPABILITY_METADATA.pull,
       },
@@ -1638,12 +1656,16 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Push manifest-backed files from the repo to Notion.",
         usageLines: [
-          'node src/cli.mjs sync push --manifest <path> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--refresh-sidecars] [--workspace infrastructure-hq]',
+          'node src/cli.mjs sync push --manifest <path> [--entry <kind:target> ...] [--entries-file <path|->] [--review-output <dir>] [--max-mutations <n|all>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--refresh-sidecars] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           "--manifest <path>",
         ],
         optionalFlags: [
+          OPT_SYNC_ENTRY,
+          OPT_SYNC_ENTRIES_FILE,
+          OPT_REVIEW_OUTPUT,
+          OPT_MAX_MUTATIONS,
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
           OPT_REFRESH_SIDECARS,
@@ -1657,6 +1679,9 @@ const COMPOUND_COMMAND_SPECS = [
           "sync push preserves manifest v1 validation-session artifact-sync behavior.",
           "Manifest v2 sync push previews or applies guarded Notion updates for existing approved targets only.",
           "Manifest v2 push entries may cover planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions.",
+          "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
+          "--review-output writes per-entry review artifacts for manifest v2 sync push preview only; apply mode exits with a clear error when review output is requested.",
+          "--max-mutations caps manifest v2 apply mutations; sync push --apply defaults to 1 unless a value or all is provided, while preview is not budget-blocked.",
           "--refresh-sidecars is manifest v2 only, requires --apply, and opts into local .snpm-meta.json sidecar refresh writes after successful push mutations.",
           "Without --refresh-sidecars, applied manifest v2 sync push appends redacted local mutation journal entries and leaves local sidecar metadata unchanged; run sync pull --apply after a successful push when you do not opt in.",
         ],
@@ -1762,6 +1787,9 @@ function copyOptionalCapabilityFields(target, spec) {
     "sidecarRefresh",
     "supportedManifestVersions",
     "supportedManifestV2EntryKinds",
+    "manifestV2Selection",
+    "reviewOutput",
+    "maxMutations",
   ];
 
   for (const field of optionalFields) {

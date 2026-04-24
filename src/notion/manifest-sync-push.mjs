@@ -17,6 +17,7 @@ import {
 } from "./page-metadata.mjs";
 import { pushRunbookBody } from "./project-pages.mjs";
 import { pushValidationSessionFile } from "./validation-sessions.mjs";
+import { selectManifestEntries } from "./manifest-selection.mjs";
 
 const SIDECAR_STALE_WARNING = 'Applied manifest v2 sync push mutations make local metadata sidecars stale. Run "sync pull --apply" before the next push.';
 const PARTIAL_APPLY_RECOVERY = 'No rollback was attempted. Run "sync pull --apply" to refresh local files and sidecars before retrying.';
@@ -90,6 +91,62 @@ function buildEntryBase(descriptor) {
     file: descriptor.entry.file,
     targetPath: null,
     metadataPath: descriptor.metadataPath || null,
+  };
+}
+
+function buildSkippedEntry(entry, manifest) {
+  const descriptor = buildEntryDescriptor(entry, manifest);
+  return buildEntryBase(descriptor);
+}
+
+function hasSelectionInput({ selectedEntries, selectionOptions }) {
+  return selectedEntries !== undefined || selectionOptions !== undefined;
+}
+
+function selectorValuesFromOptions(selectionOptions) {
+  if (Array.isArray(selectionOptions)) {
+    return selectionOptions;
+  }
+
+  if (selectionOptions && typeof selectionOptions === "object") {
+    return selectionOptions.selectors || selectionOptions.selectorValues || [];
+  }
+
+  return [];
+}
+
+function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
+  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
+    return {
+      entries: manifest.entries,
+      metadata: null,
+    };
+  }
+
+  const resolved = selectedEntries !== undefined
+    ? {
+      selectedEntries,
+      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
+      selectedCount: selectedEntries.length,
+      skippedCount: manifest.entries.length - selectedEntries.length,
+      selectorLabels: [],
+      selectors: [],
+    }
+    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
+  const entries = resolved.selectedEntries || [];
+  const skippedEntries = resolved.skippedEntries.map((entry) => buildSkippedEntry(entry, manifest));
+
+  return {
+    entries,
+    metadata: {
+      selection: {
+        selectorLabels: resolved.selectorLabels || [],
+        selectors: resolved.selectors || [],
+      },
+      selectedCount: resolved.selectedCount ?? entries.length,
+      skippedCount: resolved.skippedCount ?? skippedEntries.length,
+      skippedEntries,
+    },
   };
 }
 
@@ -406,7 +463,9 @@ function buildSummary({
   authMode,
   entries,
   failures,
+  mutationBudget,
   recovery,
+  selectionMetadata,
   warnings = [],
 }) {
   const driftCount = entries.filter((entry) => entry.hasDiff).length;
@@ -424,12 +483,20 @@ function buildSummary({
     entries,
   };
 
+  if (mutationBudget) {
+    summary.mutationBudget = mutationBudget;
+  }
+
   if (warnings.length > 0) {
     summary.warnings = warnings;
   }
 
   if (recovery) {
     summary.recovery = recovery;
+  }
+
+  if (selectionMetadata) {
+    Object.assign(summary, selectionMetadata);
   }
 
   return summary;
@@ -851,8 +918,37 @@ async function refreshSidecarsAfterApply({
   };
 }
 
-function buildDescriptors(manifest) {
-  return manifest.entries.map((entry) => buildEntryDescriptor(entry, manifest));
+function buildDescriptors(manifest, entries = manifest.entries) {
+  return entries.map((entry) => buildEntryDescriptor(entry, manifest));
+}
+
+function normalizeMaxMutations(maxMutations) {
+  if (maxMutations === "all") {
+    return Infinity;
+  }
+
+  const budget = maxMutations === undefined ? 1 : maxMutations;
+  if (!Number.isInteger(budget) || budget <= 0) {
+    throw new Error('sync push --apply maxMutations must be a positive integer or "all".');
+  }
+
+  return budget;
+}
+
+function describeMutationBudget({ entries, maxMutations }) {
+  const budget = normalizeMaxMutations(maxMutations);
+  const changedCount = entries.filter((entry) => entry.hasDiff).length;
+
+  return {
+    maxMutations: budget === Infinity ? "all" : budget,
+    changedCount,
+    withinBudget: changedCount <= budget,
+  };
+}
+
+function buildMutationBudgetFailure(mutationBudget) {
+  const budgetLabel = String(mutationBudget.maxMutations);
+  return `sync push --apply mutation budget exceeded: ${mutationBudget.changedCount} changed entries would mutate Notion, but maxMutations is ${budgetLabel}. No mutations or sidecar refreshes were performed.`;
 }
 
 function pushArgsForEntry({ apply, config, entry, fileMarkdown, manifest, metadata, projectTokenEnv }) {
@@ -941,13 +1037,21 @@ export async function pushManifestV2SyncManifest({
   apply = false,
   config,
   manifest,
+  maxMutations,
   projectTokenEnv,
   readFileSyncImpl = readFileSync,
   refreshSidecars = false,
   renameSyncImpl = renameSync,
+  selectedEntries,
+  selectionOptions,
   writeFileSyncImpl = writeFileSync,
 }) {
-  const descriptors = buildDescriptors(manifest);
+  const selection = resolveSyncSelection({
+    manifest,
+    selectedEntries,
+    selectionOptions,
+  });
+  const descriptors = buildDescriptors(manifest, selection.entries);
 
   if (refreshSidecars && !apply) {
     const failure = 'sync push --refresh-sidecars requires --apply.';
@@ -957,6 +1061,7 @@ export async function pushManifestV2SyncManifest({
       entries: descriptors.map((descriptor) => buildErrorEntry(descriptor, new Error(failure))),
       failures: [failure],
       recovery: 'Re-run with --apply, or omit --refresh-sidecars for preview.',
+      selectionMetadata: selection.metadata,
     });
   }
 
@@ -976,6 +1081,23 @@ export async function pushManifestV2SyncManifest({
       authMode: projectTokenEnv ? "project-token" : "workspace-token",
       entries: preflight.entries.map(stripPreflightState),
       failures: preflight.failures,
+      selectionMetadata: selection.metadata,
+    });
+  }
+
+  const mutationBudget = describeMutationBudget({
+    entries: preflight.entries,
+    maxMutations,
+  });
+  if (!mutationBudget.withinBudget) {
+    const budgetFailure = buildMutationBudgetFailure(mutationBudget);
+    return buildSummary({
+      manifest,
+      authMode: projectTokenEnv ? "project-token" : "workspace-token",
+      entries: preflight.entries.map(stripPreflightState),
+      failures: [budgetFailure],
+      mutationBudget,
+      selectionMetadata: selection.metadata,
     });
   }
 
@@ -1038,7 +1160,9 @@ export async function pushManifestV2SyncManifest({
       authMode: projectTokenEnv ? "project-token" : "workspace-token",
       entries: refreshed.entries,
       failures: refreshed.failures,
+      mutationBudget,
       recovery: refreshed.recovery,
+      selectionMetadata: selection.metadata,
     });
   }
 
@@ -1051,7 +1175,9 @@ export async function pushManifestV2SyncManifest({
     authMode: projectTokenEnv ? "project-token" : "workspace-token",
     entries,
     failures,
+    mutationBudget,
     recovery: failures.length > 0 ? PARTIAL_APPLY_RECOVERY : undefined,
+    selectionMetadata: selection.metadata,
     warnings,
   });
 }

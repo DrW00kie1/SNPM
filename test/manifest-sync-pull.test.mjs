@@ -313,6 +313,47 @@ test("manifest v2 pull apply writes changed files and sidecars for all successfu
   assert.equal(mkdirs.length >= 5, true);
 });
 
+test("manifest v2 pull processes and writes only selected entries", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("project-doc", "Root > Overview", "docs/project-overview.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const selectedEntries = [entries[1]];
+  const remoteByTarget = new Map([
+    ["Planning > Roadmap", remoteFor(entries[0], "Remote roadmap\n")],
+    ["Root > Overview", remoteFor(entries[1], "Remote overview\n")],
+    ["Release Smoke Test", remoteFor(entries[2], "Runbook body\n")],
+  ]);
+  const calls = [];
+  const writes = [];
+
+  const result = await pullManifestV2SyncManifest({
+    adapters: makeFakeAdapters({ calls, remoteByTarget }),
+    apply: true,
+    config: baseConfig(),
+    diffMarkdownTextImpl: simpleDiff,
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(new Map()),
+    selectedEntries,
+    writeFileSyncImpl: (...args) => writes.push(args),
+    mkdirSyncImpl: () => {},
+  });
+
+  assert.deepEqual(result.entries.map((entry) => entry.target), ["Root > Overview"]);
+  assert.deepEqual(calls.map((call) => call.target), ["Root > Overview"]);
+  assert.equal(result.selectedCount, 1);
+  assert.equal(result.skippedCount, 2);
+  assert.deepEqual(result.skippedEntries.map((entry) => entry.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(writes.map((write) => write[0]), [
+    entries[1].absoluteFilePath,
+    `${entries[1].absoluteFilePath}.snpm-meta.json`,
+  ]);
+});
+
 test("manifest v2 pull apply rejects output and sidecar path collisions before writes", async () => {
   const entries = [
     makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),

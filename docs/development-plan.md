@@ -129,15 +129,18 @@ Feature goals covered:
 - generalized manifest sync
 
 Status:
-- `main` includes `sync check`, local-file `sync pull`, and guarded `sync push` after `82ec3ba`
-- active `codex/manifest-v2-refresh-sidecars` scope adds opt-in `sync push --apply --refresh-sidecars`
+- `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, and opt-in post-push sidecar refresh after `b64648c`
+- active `codex/manifest-v2-targeted-review` scope adds targeted entry selection, push review artifacts, mutation limits, and selected sidecar refresh behavior
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
+- manifest v2 `sync check`, `sync pull`, and `sync push` can target selected entries with `--entry` or `--entries-file`; without selectors, the default preview and check behavior remains whole-manifest
+- manifest v2 `sync push --review-output <dir>` writes review artifacts for previewed entries
 - manifest v2 `sync push` previews by default; `sync push --apply` requires sidecar metadata produced by v2 pull and applies only when the target still matches the recorded editing base
+- default `sync push --apply` allows at most one changed entry unless `--max-mutations` is raised or set to `all`
 - default successful `sync push --apply` makes the sidecars stale; the next safe command is `sync pull --apply`
-- `sync push --apply --refresh-sidecars` is the explicit opt-in for refreshing sidecar metadata to the post-push base during the applied push
-- manifest v2 still excludes create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply
+- `sync push --apply --refresh-sidecars` is the explicit opt-in for refreshing sidecar metadata to the post-push base during the applied push; selected applies refresh only selected sidecars for successfully applied entries
+- manifest v2 still excludes create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 - manifest v1 remains the specialized validation-session artifact-sync lane with its existing `sync check`, `sync pull`, and `sync push` behavior
 
 ### Sprint 3.2: Batch Semantics
@@ -167,7 +170,24 @@ Deliverables:
 - scope remains limited to existing approved targets with sidecar stale-write protection
 
 Exit criteria:
-- an operator can choose between the conservative default stale-sidecar behavior and explicit post-push sidecar refresh without enabling create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, or generic batch apply
+- an operator can choose between the conservative default stale-sidecar behavior and explicit post-push sidecar refresh without enabling create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, or generic batch apply
+
+### Sprint 3.2C: Targeted Review And Apply Safety Gate
+
+Goal:
+- let operators review and apply selected manifest v2 entries without changing the default whole-manifest preview contract or adding generic batch semantics
+
+Deliverables:
+- `--entry` and `--entries-file` selectors for manifest v2 `sync check`, `sync pull`, and `sync push`
+- push preview artifacts through `--review-output <dir>`
+- `sync push --apply` safety gate that allows at most one changed entry by default and requires `--max-mutations <n>` or `--max-mutations all` for broader selected applies
+- selected `sync push --apply --refresh-sidecars` behavior that refreshes only selected sidecars for successfully applied entries
+
+Exit criteria:
+- an operator can preview the whole manifest by default, narrow review to selected entries when needed, and apply only within an explicit mutation budget while v1 validation-session sync remains separate
+
+Out of scope:
+- create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 
 ### Sprint 3.3: Batch Apply
 

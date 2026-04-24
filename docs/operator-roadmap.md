@@ -31,14 +31,20 @@ Supported on `main`:
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
-Current `codex/manifest-v2-refresh-sidecars` branch addition:
+Baseline manifest v2 sidecar-refresh behavior:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
 - default manifest v2 `sync push --apply` still leaves sidecars stale
+
+Current `codex/manifest-v2-targeted-review` branch additions:
+- manifest v2 `--entry` and `--entries-file` selectors for check, pull, and push
+- manifest v2 push `--review-output` artifacts for preview review
+- manifest v2 push `--max-mutations` gate so default apply allows at most one changed entry unless raised or set to `all`
+- selected `sync push --apply --refresh-sidecars` refreshes only selected sidecars for successfully applied entries
 
 Still outside the stable supported line:
 - build records
 - validation sessions
-- manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply
+- manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -97,6 +103,8 @@ Those surfaces continue to use their own command families.
 ### Phase 2: Workflow Bundles
 - use manifest v2 check, local-file pull, guarded push, and opt-in sidecar refresh support as the first safe workflow-bundle primitives
 - compare, locally refresh, and stale-guard existing mixed approved surfaces before designing batch semantics
+- keep default whole-manifest preview for v2 push, while allowing selected review through `--entry`, `--entries-file`, and `--review-output`
+- keep default v2 apply limited to one changed entry unless `--max-mutations` is raised or set to `all`
 - keep v2 entries explicit:
   - `planning-page`
   - `project-doc`
@@ -107,8 +115,8 @@ Those surfaces continue to use their own command families.
 - make v2 `sync pull` write local markdown files and sidecar metadata only, with no Notion mutation and no mutation journal entry
 - make v2 `sync push` preview by default; allow `--apply` only with sidecar metadata from v2 pull
 - treat default successful v2 push as making sidecars stale; the next safe command is `sync pull --apply`
-- allow `sync push --apply --refresh-sidecars` as the explicit opt-in to refresh sidecar metadata to the post-push base
-- keep create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, and generic batch apply out of scope
+- allow `sync push --apply --refresh-sidecars` as the explicit opt-in to refresh sidecar metadata to the post-push base, limited to selected successfully applied entries when selectors are used
+- keep create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply out of scope
 - keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
 ### Phase 3: Harden Cross-Repo Consumption
@@ -128,7 +136,7 @@ Keep these boundaries:
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
-- manifest v2 supports check, local-file pull, guarded push, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
+- manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - UI automation stays narrow, explicit, Chromium-only, and non-default
 

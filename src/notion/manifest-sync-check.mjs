@@ -12,6 +12,7 @@ import {
   diffValidationSessionFile,
   pullValidationSessionFile,
 } from "./validation-sessions.mjs";
+import { selectManifestEntries } from "./manifest-selection.mjs";
 
 export const MANIFEST_V2_SYNC_CHECK_KINDS = Object.freeze([
   "planning-page",
@@ -56,6 +57,57 @@ function buildEntryBase(entry) {
     kind: entry.kind,
     target: targetForManifestV2SyncEntry(entry),
     file: entry.file,
+  };
+}
+
+function hasSelectionInput({ selectedEntries, selectionOptions }) {
+  return selectedEntries !== undefined || selectionOptions !== undefined;
+}
+
+function selectorValuesFromOptions(selectionOptions) {
+  if (Array.isArray(selectionOptions)) {
+    return selectionOptions;
+  }
+
+  if (selectionOptions && typeof selectionOptions === "object") {
+    return selectionOptions.selectors || selectionOptions.selectorValues || [];
+  }
+
+  return [];
+}
+
+function resolveSyncSelection({ manifest, selectedEntries, selectionOptions }) {
+  if (!hasSelectionInput({ selectedEntries, selectionOptions })) {
+    return {
+      entries: manifest.entries,
+      metadata: null,
+    };
+  }
+
+  const resolved = selectedEntries !== undefined
+    ? {
+      selectedEntries,
+      skippedEntries: manifest.entries.filter((entry) => !selectedEntries.includes(entry)),
+      selectedCount: selectedEntries.length,
+      skippedCount: manifest.entries.length - selectedEntries.length,
+      selectorLabels: [],
+      selectors: [],
+    }
+    : selectManifestEntries(manifest, selectorValuesFromOptions(selectionOptions));
+  const entries = resolved.selectedEntries || [];
+  const skippedEntries = resolved.skippedEntries.map((entry) => buildEntryBase(entry));
+
+  return {
+    entries,
+    metadata: {
+      selection: {
+        selectorLabels: resolved.selectorLabels || [],
+        selectors: resolved.selectors || [],
+      },
+      selectedCount: resolved.selectedCount ?? entries.length,
+      skippedCount: resolved.skippedCount ?? skippedEntries.length,
+      skippedEntries,
+    },
   };
 }
 
@@ -130,10 +182,10 @@ function normalizeDiffResult(result) {
   };
 }
 
-function buildSummary({ manifest, authMode, entries, failures }) {
+function buildSummary({ manifest, authMode, entries, failures, selectionMetadata }) {
   const driftCount = entries.filter((entry) => entry.hasDiff).length;
 
-  return {
+  const summary = {
     command: "sync-check",
     manifestPath: manifest.manifestPath,
     projectName: manifest.projectName,
@@ -145,6 +197,12 @@ function buildSummary({ manifest, authMode, entries, failures }) {
     failures,
     entries,
   };
+
+  if (selectionMetadata) {
+    Object.assign(summary, selectionMetadata);
+  }
+
+  return summary;
 }
 
 function requireAdapter(entry, adapters) {
@@ -370,11 +428,18 @@ export async function checkManifestV2SyncManifest({
   manifest,
   projectTokenEnv,
   readFileSyncImpl = readFileSync,
+  selectedEntries,
+  selectionOptions,
 }) {
+  const selection = resolveSyncSelection({
+    manifest,
+    selectedEntries,
+    selectionOptions,
+  });
   const entries = [];
   const failures = [];
 
-  for (const entry of manifest.entries) {
+  for (const entry of selection.entries) {
     try {
       const adapter = requireAdapter(entry, adapters);
       entries.push(await checkEntry({
@@ -405,5 +470,6 @@ export async function checkManifestV2SyncManifest({
     authMode: projectTokenEnv ? "project-token" : "workspace-token",
     entries,
     failures,
+    selectionMetadata: selection.metadata,
   });
 }

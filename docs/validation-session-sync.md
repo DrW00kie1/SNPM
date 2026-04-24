@@ -1,14 +1,14 @@
 # Manifest And Validation-Session Sync
 
 SNPM has two manifest sync contracts:
-- manifest v2 is a mixed-surface drift detector, local-file pull lane, and guarded existing-target push lane with sidecar metadata and opt-in post-push sidecar refresh
+- manifest v2 is a mixed-surface drift detector, local-file pull lane, and guarded existing-target push lane with sidecar metadata, targeted entry selection, review artifacts, apply mutation limits, and opt-in post-push sidecar refresh
 - manifest v1 is the existing validation-session artifact sync lane with pull and push
 
-Use v2 when the goal is to compare a repo bundle against approved Notion surfaces, refresh local files before planning edits, guarded-push existing approved targets, or opt into sidecar refresh during applied push. Use v1 only when a repo-backed validation-session artifact needs the specialized validation-session pull/push lane.
+Use v2 when the goal is to compare a repo bundle against approved Notion surfaces, refresh local files before planning edits, guarded-push existing approved targets, review selected entries, or opt into sidecar refresh during applied push. Use v1 only when a repo-backed validation-session artifact needs the specialized validation-session pull/push lane.
 
 ## Manifest V2 Mixed-Surface Sync
 
-Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, and opt-in sidecar refresh for applied push. V2 push is preview by default; `sync push --apply` requires sidecar metadata produced by v2 pull. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
+Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, targeted selectors, push review artifacts, apply mutation limits, and opt-in sidecar refresh for applied push. V2 push is preview by default; default whole-manifest preview remains unchanged. `sync push --apply` requires sidecar metadata produced by v2 pull and allows at most one changed entry unless `--max-mutations` is raised or set to `all`. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
 
 Supported v2 entry kinds:
 - `planning-page`
@@ -76,30 +76,37 @@ Check the v2 bundle without mutating Notion or local files:
 
 ```powershell
 npm run sync-check -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run sync-check -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --entry "runbook:Release Smoke Test"
 ```
 
-`sync check` reads each listed local file, resolves the matching approved Notion target, compares the bodies using the target surface's managed markdown rules, and reports per-entry status. Missing local files, missing Notion targets, unsupported targets, and content drift make the check fail without creating or modifying anything.
+`sync check` reads each selected local file, resolves the matching approved Notion target, compares the bodies using the target surface's managed markdown rules, and reports per-entry status. Without selectors, it checks the whole manifest. Missing local files, missing Notion targets, unsupported targets, and content drift make the check fail without creating or modifying anything.
 
 Pull the v2 bundle into local files:
 
 ```powershell
 npm run sync-pull -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run sync-pull -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run sync-pull -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --entries-file C:\path\to\selected-entries.json
 ```
 
-`sync pull` resolves each approved Notion target and previews local file refreshes by default. With `--apply`, it writes the listed markdown files and adjacent `<file>.snpm-meta.json` sidecars. This is a local-file operation only: it does not mutate Notion and does not append local mutation journal entries.
+`sync pull` resolves each selected approved Notion target and previews local file refreshes by default. Without selectors, it previews the whole manifest. With `--apply`, it writes the selected markdown files and adjacent `<file>.snpm-meta.json` sidecars. This is a local-file operation only: it does not mutate Notion and does not append local mutation journal entries.
+
+`--entries-file` must be JSON: either an array of `kind:target` strings, an array of `{ "kind": "...", "target": "..." }` objects, or an object with an `entries` or `selectors` array.
 
 Preview or guarded-apply a v2 push into Notion:
 
 ```powershell
 npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --entry "planning-page:Planning > Roadmap" --review-output C:\path\to\review
 npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --refresh-sidecars
+npm run sync-push -- --manifest C:\path\to\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --entries-file C:\path\to\selected-entries.json --max-mutations 3 --refresh-sidecars
 ```
 
-`sync push` reads the listed local markdown files and previews the Notion updates by default. With `--apply`, it requires the adjacent `<file>.snpm-meta.json` sidecar from v2 `sync pull` and refuses to write if the Notion target no longer matches the recorded editing base.
+`sync push` reads the selected local markdown files and previews the Notion updates by default. Without selectors, the preview covers the whole manifest. Add `--review-output <dir>` to write review artifacts for the previewed entries. With `--apply`, it requires the adjacent `<file>.snpm-meta.json` sidecar from v2 `sync pull` and refuses to write if the Notion target no longer matches the recorded editing base.
 
-A default successful `sync push --apply` makes the sidecars stale because they describe the pre-push base revision. The next safe command is `sync pull --apply`, which refreshes both the local markdown files and sidecars before the next edit cycle. To refresh sidecar metadata to the post-push base during the applied push, opt in with `sync push --apply --refresh-sidecars`.
+Default `sync push --apply` allows at most one changed entry. Raise the gate with `--max-mutations <n>` or use `--max-mutations all` only after reviewing the selected preview. This safety gate is not generic transaction semantics; it is a bounded mutation limit for guarded existing-target pushes.
+
+A default successful `sync push --apply` makes affected sidecars stale because they describe the pre-push base revision. The next safe command is `sync pull --apply`, which refreshes both the local markdown files and sidecars before the next edit cycle. To refresh sidecar metadata to the post-push base during the applied push, opt in with `sync push --apply --refresh-sidecars`. If the apply uses `--entry` or `--entries-file`, sidecar refresh is limited to selected entries that were successfully applied.
 
 V2 guarded push is not generalized Notion mutation. Out-of-scope behavior:
 - create/adopt
@@ -108,6 +115,8 @@ V2 guarded push is not generalized Notion mutation. Out-of-scope behavior:
 - auto-merge
 - automatic retries
 - arbitrary CRUD
+- semantic consistency checks
+- generic transaction semantics
 - generic batch apply
 
 Use the owning command family when that narrower surface is the right workflow:

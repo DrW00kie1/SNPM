@@ -93,6 +93,20 @@ Use `--review-output <dir>` when you need review artifacts without making the re
 
 If `doc-adopt` finds no managed divider, it wraps the current full page body under a new managed-doc header.
 
+## Manifest V2 Doc Bundle Updates
+
+Use manifest v2 for mixed approved documentation bundles only. Keep validation-session v1 artifact sync separate.
+
+Supported Sprint 3.2C operator behavior:
+- default `sync check`, `sync pull`, and `sync push` cover the whole manifest
+- `--entry <selector>` and `--entries-file <path>` narrow check, pull, or push to selected entries
+- `sync push --review-output <dir>` writes preview review artifacts without mutating Notion
+- `sync push --apply` requires v2 sidecars and allows at most one changed entry by default
+- broader applies require `--max-mutations <n>` or `--max-mutations all`
+- `sync push --apply --refresh-sidecars` refreshes sidecars only for selected entries that applied successfully
+
+Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
+
 ## Verification
 
 Project-scoped verification:

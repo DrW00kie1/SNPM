@@ -77,6 +77,48 @@ test("runSyncCheck routes manifest v2 to the read-only v2 check engine", async (
   ]);
 });
 
+test("runSyncCheck passes manifest v2 selection and review options to the v2 implementation", async () => {
+  const calls = [];
+  const result = await runSyncCheck({
+    entries: ["planning-page:Planning > Roadmap", "runbook:Deploy"],
+    entriesFile: "-",
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    reviewOutput: "review",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    readFileSyncImpl: () => JSON.stringify(["project-doc:Root > Overview"]),
+    checkManifestV2SyncManifestImpl: async ({
+      entries,
+      entriesFile,
+      reviewOutput,
+      selectionOptions,
+    }) => {
+      calls.push({ entries, entriesFile, reviewOutput, selectionOptions });
+      return {
+        command: "sync-check",
+        failures: [],
+        driftCount: 0,
+        entries: [],
+      };
+    },
+  });
+
+  assert.equal(result.command, "sync-check");
+  assert.deepEqual(calls, [{
+    entries: ["planning-page:Planning > Roadmap", "runbook:Deploy"],
+    entriesFile: "-",
+    reviewOutput: "review",
+    selectionOptions: {
+      selectors: [
+        "planning-page:Planning > Roadmap",
+        "runbook:Deploy",
+        "project-doc:Root > Overview",
+      ],
+    },
+  }]);
+});
+
 test("runSyncCheck preserves manifest v1 validation-session routing", async () => {
   const calls = [];
   const result = await runSyncCheck({
@@ -152,6 +194,40 @@ test("runSyncPull routes manifest v2 to the injected v2 pull implementation", as
   ]);
 });
 
+test("runSyncPull passes manifest v2 selection options to the v2 implementation", async () => {
+  const calls = [];
+  const result = await runSyncPull({
+    apply: true,
+    entries: ["project-doc:Root > Overview"],
+    entriesFile: "entries.json",
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    readFileSyncImpl: () => JSON.stringify([{ kind: "runbook", target: "Deploy" }]),
+    pullManifestV2SyncManifestImpl: async ({ entries, entriesFile, reviewOutput, selectionOptions }) => {
+      calls.push({ entries, entriesFile, reviewOutput, selectionOptions });
+      return {
+        command: "sync-pull",
+        failures: [],
+        entries: [],
+      };
+    },
+  });
+
+  assert.equal(result.command, "sync-pull");
+  assert.deepEqual(calls, [{
+    entries: ["project-doc:Root > Overview"],
+    entriesFile: "entries.json",
+    reviewOutput: undefined,
+    selectionOptions: {
+      selectors: [
+        "project-doc:Root > Overview",
+        { kind: "runbook", target: "Deploy" },
+      ],
+    },
+  }]);
+});
+
 test("runSyncPush routes manifest v2 to the injected v2 push implementation after loading config", async () => {
   const calls = [];
   const result = await runSyncPush({
@@ -167,17 +243,25 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
     pushManifestV2SyncManifestImpl: async ({
       apply,
       config: loadedConfig,
+      entries,
+      entriesFile,
       manifest: loadedManifest,
+      maxMutations,
       projectTokenEnv,
       refreshSidecars,
+      reviewOutput,
     }) => {
       calls.push({
         op: "v2-push",
         apply,
+        entries,
+        entriesFile,
+        maxMutations,
         notionVersion: loadedConfig.notionVersion,
         version: loadedManifest.version,
         projectTokenEnv,
         refreshSidecars,
+        reviewOutput,
       });
       return {
         command: "sync-push",
@@ -207,12 +291,82 @@ test("runSyncPush routes manifest v2 to the injected v2 push implementation afte
     {
       op: "v2-push",
       apply: true,
+      entries: undefined,
+      entriesFile: undefined,
+      maxMutations: 1,
       notionVersion: "2026-03-11",
       version: 2,
       projectTokenEnv: "SNPM_NOTION_TOKEN",
       refreshSidecars: true,
+      reviewOutput: undefined,
     },
   ]);
+});
+
+test("runSyncPush passes manifest v2 selection, preview review output, and explicit mutation budget", async () => {
+  const calls = [];
+  const result = await runSyncPush({
+    apply: false,
+    entries: ["planning-page:Planning > Roadmap"],
+    entriesFile: "entries.json",
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    maxMutations: "all",
+    reviewOutput: "review",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    readFileSyncImpl: () => JSON.stringify(["runbook:Deploy"]),
+    pushManifestV2SyncManifestImpl: async ({ apply, entries, entriesFile, maxMutations, reviewOutput, selectionOptions }) => {
+      calls.push({ apply, entries, entriesFile, maxMutations, reviewOutput, selectionOptions });
+      return {
+        command: "sync-push",
+        failures: [],
+        entries: [],
+      };
+    },
+  });
+
+  assert.equal(result.command, "sync-push");
+  assert.deepEqual(calls, [{
+    apply: false,
+    entries: ["planning-page:Planning > Roadmap"],
+    entriesFile: "entries.json",
+    maxMutations: "all",
+    reviewOutput: "review",
+    selectionOptions: {
+      selectors: [
+        "planning-page:Planning > Roadmap",
+        "runbook:Deploy",
+      ],
+    },
+  }]);
+});
+
+test("runSyncPush defaults manifest v2 apply maxMutations to 1 but leaves preview unbudgeted", async () => {
+  const maxMutationValues = [];
+
+  await runSyncPush({
+    apply: true,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    pushManifestV2SyncManifestImpl: async ({ maxMutations }) => {
+      maxMutationValues.push(maxMutations);
+      return { command: "sync-push", failures: [], entries: [] };
+    },
+  });
+
+  await runSyncPush({
+    apply: false,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    pushManifestV2SyncManifestImpl: async ({ maxMutations }) => {
+      maxMutationValues.push(maxMutations);
+      return { command: "sync-push", failures: [], entries: [] };
+    },
+  });
+
+  assert.deepEqual(maxMutationValues, [1, undefined]);
 });
 
 test("runSyncPush preserves manifest v2 routing defaults when refreshSidecars is absent", async () => {
@@ -266,6 +420,51 @@ test("runSyncPush rejects refreshSidecars for manifest v2 preview sync push", as
       },
     }),
     /--refresh-sidecars requires --apply/i,
+  );
+});
+
+test("runSyncCheck, runSyncPull, and runSyncPush reject manifest v1 selection, review, and mutation budget options", async () => {
+  await assert.rejects(
+    runSyncCheck({
+      entries: ["validation-session:Session"],
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      loadSyncManifestImpl: () => manifest(1),
+      loadWorkspaceConfigImpl: () => config(),
+    }),
+    /manifest v1.*--entry.*--entries-file/i,
+  );
+
+  await assert.rejects(
+    runSyncPull({
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      reviewOutput: "review",
+      loadSyncManifestImpl: () => manifest(1),
+      loadWorkspaceConfigImpl: () => config(),
+    }),
+    /manifest v1.*--review-output/i,
+  );
+
+  await assert.rejects(
+    runSyncPush({
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      maxMutations: 1,
+      loadSyncManifestImpl: () => manifest(1),
+      loadWorkspaceConfigImpl: () => config(),
+    }),
+    /manifest v1.*--max-mutations/i,
+  );
+});
+
+test("runSyncPush rejects review output for manifest v2 apply", async () => {
+  await assert.rejects(
+    runSyncPush({
+      apply: true,
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      reviewOutput: "review",
+      loadSyncManifestImpl: () => manifest(2),
+      loadWorkspaceConfigImpl: () => config(),
+    }),
+    /--review-output.*preview/i,
   );
 });
 

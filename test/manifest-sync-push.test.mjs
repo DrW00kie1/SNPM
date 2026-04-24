@@ -337,6 +337,7 @@ test("manifest v2 push apply validates sidecars and calls push adapters", async 
     apply: true,
     config: baseConfig(),
     manifest: baseManifest(entries),
+    maxMutations: "all",
     projectTokenEnv: "SNPM_NOTION_TOKEN",
     readFileSyncImpl: mapBackedReadFile(localFiles),
   });
@@ -441,6 +442,7 @@ test("manifest v2 push apply refreshes sidecars after all mutations succeed", as
     apply: true,
     config: baseConfig(),
     manifest: baseManifest(entries),
+    maxMutations: "all",
     readFileSyncImpl: mapBackedReadFile(localFiles),
     refreshSidecars: true,
     renameSyncImpl: (...args) => renames.push(args),
@@ -532,6 +534,7 @@ test("manifest v2 push refreshSidecars writes zero sidecars when refresh preflig
     apply: true,
     config: baseConfig(),
     manifest: baseManifest(entries),
+    maxMutations: "all",
     readFileSyncImpl: mapBackedReadFile(localFiles),
     refreshSidecars: true,
     writeFileSyncImpl: (...args) => writes.push(args),
@@ -597,6 +600,7 @@ test("manifest v2 push refreshSidecars reports partial sidecar writes without un
     apply: true,
     config: baseConfig(),
     manifest: baseManifest(entries),
+    maxMutations: "all",
     readFileSyncImpl: mapBackedReadFile(localFiles),
     refreshSidecars: true,
     renameSyncImpl: (...args) => renames.push(args),
@@ -638,6 +642,158 @@ test("manifest v2 push refreshSidecars reports partial sidecar writes without un
   assert.deepEqual(renames, [
     [`${entries[0].absoluteFilePath}.snpm-meta.json.tmp`, `${entries[0].absoluteFilePath}.snpm-meta.json`],
   ]);
+});
+
+test("manifest v2 push selection applies and refreshes sidecars only for selected entries", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("project-doc", "Root > Overview", "docs/project-overview.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const selectedEntries = [entries[1]];
+  const localMarkdown = "Selected project doc update\n";
+  const readCounts = new Map();
+  const refreshedRemote = (entry) => {
+    const target = targetForManifestV2SyncEntry(entry);
+    const count = readCounts.get(target) || 0;
+    readCounts.set(target, count + 1);
+    return count === 0
+      ? remoteFor(entry)
+      : remoteFor(entry, {
+        lastEditedTime: "2026-04-23T12:06:00.000Z",
+        markdown: localMarkdown,
+      });
+  };
+  const localFiles = new Map([
+    [entries[1].absoluteFilePath, localMarkdown],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+  ]);
+  const calls = [];
+  const mutationCalls = [];
+  const writes = [];
+  const renames = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      calls,
+      mutationCalls,
+      remoteByTarget: new Map([
+        ["Root > Overview", ({ entry }) => refreshedRemote(entry)],
+      ]),
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+    refreshSidecars: true,
+    renameSyncImpl: (...args) => renames.push(args),
+    selectedEntries,
+    writeFileSyncImpl: (...args) => writes.push(args),
+  });
+
+  assert.deepEqual(result.failures, []);
+  assert.deepEqual(result.entries.map((entry) => entry.target), ["Root > Overview"]);
+  assert.equal(result.selectedCount, 1);
+  assert.equal(result.skippedCount, 2);
+  assert.deepEqual(result.skippedEntries.map((entry) => entry.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
+    "pushLocal:false:Root > Overview",
+    "readRemote:undefined:Root > Overview",
+    "pushLocal:true:Root > Overview",
+    "readRemote:undefined:Root > Overview",
+  ]);
+  assert.deepEqual(mutationCalls.map((call) => call.target), ["Root > Overview"]);
+  assert.deepEqual(writes.map((write) => write[0]), [
+    `${entries[1].absoluteFilePath}.snpm-meta.json.tmp`,
+  ]);
+  assert.deepEqual(renames, [
+    [`${entries[1].absoluteFilePath}.snpm-meta.json.tmp`, `${entries[1].absoluteFilePath}.snpm-meta.json`],
+  ]);
+});
+
+test("manifest v2 push apply enforces mutation budgets after preflight and before mutation", async (t) => {
+  async function runBudgetCase({ maxMutations, expectedFailures, expectedMutations }) {
+    const entries = [
+      makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+      makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+    ];
+    const localFiles = new Map([
+      [entries[0].absoluteFilePath, "Local roadmap update\n"],
+      [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+      [entries[1].absoluteFilePath, "Runbook update\n"],
+      [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+    ]);
+    const calls = [];
+    const mutationCalls = [];
+    const writes = [];
+
+    const result = await pushManifestV2SyncManifest({
+      adapters: makeFakeAdapters({ calls, mutationCalls }),
+      apply: true,
+      config: baseConfig(),
+      manifest: baseManifest(entries),
+      maxMutations,
+      readFileSyncImpl: mapBackedReadFile(localFiles),
+      writeFileSyncImpl: (...args) => writes.push(args),
+    });
+
+    assert.equal(result.failures.length, expectedFailures);
+    assert.deepEqual(mutationCalls.map((call) => call.target), expectedMutations);
+    return { calls, result, writes };
+  }
+
+  await t.test("default budget blocks more than one changed entry", async () => {
+    const { calls, result, writes } = await runBudgetCase({
+      maxMutations: undefined,
+      expectedFailures: 1,
+      expectedMutations: [],
+    });
+
+    assert.match(result.failures[0], /mutation budget exceeded/);
+    assert.match(result.failures[0], /maxMutations is 1/);
+    assert.equal(result.appliedCount, 0);
+    assert.deepEqual(writes, []);
+    assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
+      "pushLocal:false:Planning > Roadmap",
+      "readRemote:undefined:Planning > Roadmap",
+      "pushLocal:false:Release Smoke Test",
+      "readRemote:undefined:Release Smoke Test",
+    ]);
+  });
+
+  await t.test("numeric budget blocks above the limit", async () => {
+    const { result, writes } = await runBudgetCase({
+      maxMutations: 1,
+      expectedFailures: 1,
+      expectedMutations: [],
+    });
+
+    assert.match(result.failures[0], /maxMutations is 1/);
+    assert.deepEqual(writes, []);
+  });
+
+  await t.test("numeric budget permits changed entries within the limit", async () => {
+    const { result } = await runBudgetCase({
+      maxMutations: 2,
+      expectedFailures: 0,
+      expectedMutations: ["Planning > Roadmap", "Release Smoke Test"],
+    });
+
+    assert.equal(result.appliedCount, 2);
+  });
+
+  await t.test("all budget permits every changed entry", async () => {
+    const { result } = await runBudgetCase({
+      maxMutations: "all",
+      expectedFailures: 0,
+      expectedMutations: ["Planning > Roadmap", "Release Smoke Test"],
+    });
+
+    assert.equal(result.appliedCount, 2);
+  });
 });
 
 test("manifest v2 push apply blocks missing and malformed sidecars before mutation", async (t) => {
@@ -909,6 +1065,7 @@ test("manifest v2 push apply stops on first apply failure and reports partial re
     apply: true,
     config: baseConfig(),
     manifest: baseManifest(entries),
+    maxMutations: "all",
     readFileSyncImpl: mapBackedReadFile(localFiles),
   });
 

@@ -363,6 +363,39 @@ test("manifest v2 check does not call write or mutation hooks", async () => {
   assert.equal(result.entries.some((entry) => "metadata" in entry), false);
 });
 
+test("manifest v2 check processes only selected entries and reports selection metadata", async () => {
+  const entries = mixedEntries();
+  const selectedEntries = [entries[1], entries[4]];
+  const calls = [];
+  const localFiles = new Map(entries.map((entry) => [entry.absoluteFilePath, `${entry.target}\n`]));
+
+  const result = await checkManifestV2SyncManifest({
+    adapters: makeFakeAdapters({ calls }),
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+    selectedEntries,
+  });
+
+  assert.deepEqual(result.entries.map((entry) => entry.target), [
+    "Root > Overview",
+    "SNPM Operator Validation Runbook",
+  ]);
+  assert.deepEqual(calls.map((call) => call.target), [
+    "Root > Overview",
+    "SNPM Operator Validation Runbook",
+  ]);
+  assert.equal("selection" in result, true);
+  assert.equal(result.selectedCount, 2);
+  assert.equal(result.skippedCount, 4);
+  assert.deepEqual(result.skippedEntries.map((entry) => entry.target), [
+    "Planning > Roadmap",
+    "Templates > Project Templates > Overview",
+    "Runbooks > Notion Workspace Workflow",
+    "SNPM Validation Session Fixture",
+  ]);
+});
+
 test("default manifest v2 readRemote adapters preserve pull metadata and identifiers", async () => {
   const entries = mixedEntries();
   const manifest = baseManifest(entries);
