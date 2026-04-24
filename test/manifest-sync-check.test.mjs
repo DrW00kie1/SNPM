@@ -1,6 +1,8 @@
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import os from "node:os";
 
 import {
   MANIFEST_V2_SYNC_CHECK_KINDS,
@@ -8,6 +10,7 @@ import {
   createManifestV2SyncCheckAdapters,
   targetForManifestV2SyncEntry,
 } from "../src/notion/manifest-sync-check.mjs";
+import { writeManifestV2PreviewReviewArtifacts } from "../src/commands/sync-review-output.mjs";
 
 const manifestDir = "C:\\repo";
 
@@ -79,6 +82,14 @@ function mapBackedReadFile(localFiles, readCalls = []) {
 
 function simpleMissingLocalDiff(_currentMarkdown, nextMarkdown) {
   return `missing-local\n+++ remote\n${nextMarkdown}`;
+}
+
+function diagnosticCodes(result) {
+  return (result.diagnostics || []).map((diagnostic) => diagnostic.code);
+}
+
+function entryDiagnosticCodes(entry) {
+  return (entry.diagnostics || []).map((diagnostic) => diagnostic.code);
 }
 
 function commandFamilyForKind(kind) {
@@ -328,6 +339,14 @@ test("manifest v2 check isolates per-entry adapter failures", async () => {
 
   assert.deepEqual(result.entries.map((entry) => entry.status), ["in-sync", "error", "in-sync"]);
   assert.equal(result.entries[1].failure, "Doc target could not be read.");
+  assert.deepEqual(entryDiagnosticCodes(result.entries[1]), ["manifest-v2-check-remote-failed"]);
+  assert.deepEqual(diagnosticCodes(result), ["manifest-v2-check-remote-failed"]);
+  assert.equal(result.diagnostics[0].severity, "error");
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync check");
+  assert.equal(result.diagnostics[0].entry.kind, "project-doc");
+  assert.equal(result.diagnostics[0].entry.target, "Root > Overview");
+  assert.equal(result.diagnostics[0].entry.file, "docs/project-overview.md");
+  assert.deepEqual(result.diagnostics[0].state, { phase: "check" });
   assert.equal("failure" in result.entries[0], false);
   assert.equal("failure" in result.entries[2], false);
   assert.equal(result.failures.length, 1);
@@ -337,6 +356,44 @@ test("manifest v2 check isolates per-entry adapter failures", async () => {
     "Root > Overview",
     "SNPM Operator Validation Runbook",
   ]);
+});
+
+test("manifest v2 check review output includes structured diagnostics", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("project-doc", "Root > Overview", "docs/project-overview.md"),
+  ];
+  const localFiles = new Map(entries.map((entry) => [entry.absoluteFilePath, `${entry.target}\n`]));
+  const reviewDir = mkdtempSync(path.join(os.tmpdir(), "snpm-check-review-"));
+
+  try {
+    const result = await checkManifestV2SyncManifest({
+      adapters: makeFakeAdapters({
+        failuresByTarget: new Map([["Root > Overview", "Doc target could not be read."]]),
+      }),
+      config: baseConfig(),
+      manifest: baseManifest(entries),
+      readFileSyncImpl: mapBackedReadFile(localFiles),
+    });
+
+    const artifacts = writeManifestV2PreviewReviewArtifacts({
+      result,
+      reviewOutputDir: reviewDir,
+    });
+    const summary = JSON.parse(readFileSync(artifacts.summaryPath, "utf8"));
+    const failedEntryPath = artifacts.files.find((filePath) => filePath.endsWith("002-project-doc-root-overview.review.json"));
+    const failedEntry = JSON.parse(readFileSync(failedEntryPath, "utf8"));
+
+    assert.deepEqual(summary.diagnostics.map((diagnostic) => diagnostic.code), ["manifest-v2-check-remote-failed"]);
+    assert.deepEqual(summary.entries.map((entry) => entry.diagnostics?.map((diagnostic) => diagnostic.code)), [
+      undefined,
+      ["manifest-v2-check-remote-failed"],
+    ]);
+    assert.deepEqual(failedEntry.diagnostics.map((diagnostic) => diagnostic.code), ["manifest-v2-check-remote-failed"]);
+    assert.equal(failedEntry.failure, "Doc target could not be read.");
+  } finally {
+    rmSync(reviewDir, { recursive: true, force: true });
+  }
 });
 
 test("manifest v2 check does not call write or mutation hooks", async () => {

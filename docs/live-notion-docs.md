@@ -97,14 +97,14 @@ If `doc-adopt` finds no managed divider, it wraps the current full page body und
 
 Use manifest v2 for mixed approved documentation bundles only. Keep validation-session v1 artifact sync separate.
 
-Supported Sprint 3.2C operator behavior:
+Supported Sprint 3.3B operator behavior:
 - default `sync check`, `sync pull`, and `sync push` cover the whole manifest
 - `--entry <selector>` and `--entries-file <path>` narrow check, pull, or push to selected entries
 - `sync push --review-output <dir>` writes preview review artifacts without mutating Notion
 - `sync push --apply` requires v2 sidecars and allows at most one changed entry by default
 - broader applies require `--max-mutations <n>` or `--max-mutations all`
 - `sync push --apply --refresh-sidecars` refreshes sidecars only for selected entries that applied successfully
-- structured recovery diagnostics appear in result/review metadata with stable codes, severity, entry/target context, safe next command, and recovery action
+- structured recovery diagnostics appear in result/review metadata for v2 check and push, and result metadata for v2 pull, with stable codes, severity, entry/target context, safe next command, and recovery action
 
 Manifest v2 diagnostics are recovery metadata only. Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
 

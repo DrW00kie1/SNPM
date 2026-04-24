@@ -253,6 +253,154 @@ test("writeManifestV2PreviewReviewArtifacts redacts metadata and does not leak s
   }
 });
 
+test("writeManifestV2PreviewReviewArtifacts preserves diagnostics, recovery, sidecar, and skipped selection metadata", () => {
+  const reviewDir = tempReviewDir();
+
+  try {
+    const result = baseResult({
+      diagnostics: [{
+        code: "manifest-v2-push-sidecar-stale-after-apply",
+        severity: "warning",
+        safeNextCommand: "sync pull --apply",
+        recoveryAction: "Refresh sidecars before the next push.",
+      }],
+      recovery: "Review diagnostics before applying.",
+      recoveryContext: {
+        command: "npm run sync-push -- --manifest snpm.sync.json",
+        selectorCount: 1,
+      },
+      entries: [
+        {
+          kind: "planning-page",
+          target: "Planning > Roadmap",
+          file: "planning/roadmap.md",
+          targetPath: "Projects > SNPM > Planning > Roadmap",
+          status: "push-preview",
+          selected: true,
+          hasDiff: true,
+          diff: "+local roadmap\n",
+          applied: false,
+          sidecarRefreshed: false,
+          metadataPath: "C:\\repo\\planning\\roadmap.md.snpm-meta.json",
+          metadata: {
+            schema: "snpm.pull-metadata.v1",
+            commandFamily: "page",
+            lastEditedTime: "2026-04-23T20:00:00.000Z",
+            pulledAt: "2026-04-23T20:01:00.000Z",
+          },
+          diagnostics: [{
+            code: "manifest-v2-push-sidecar-stale-after-apply",
+            severity: "warning",
+            safeNextCommand: "sync pull --apply",
+            recoveryAction: "Refresh sidecars before retrying.",
+            entry: {
+              kind: "planning-page",
+              target: "Planning > Roadmap",
+            },
+          }],
+          recovery: "Pull fresh sidecars before retrying.",
+          recoveryContext: {
+            command: "npm run sync-pull -- --manifest snpm.sync.json --apply",
+            reason: "stale-sidecar",
+          },
+        },
+        {
+          kind: "runbook",
+          target: "Release Smoke Test",
+          file: "runbooks/release.md",
+          targetPath: "Projects > SNPM > Runbooks > Release Smoke Test",
+          status: "skipped",
+          hasDiff: false,
+          diff: "",
+          applied: false,
+          diagnostics: [{
+            code: "manifest-v2-selection-skipped",
+            severity: "info",
+          }],
+        },
+      ],
+    });
+
+    writeManifestV2PreviewReviewArtifacts({
+      result,
+      reviewOutputDir: reviewDir,
+    });
+
+    const summary = readJson(path.join(reviewDir, "summary.json"));
+    assert.equal(summary.selectedEntries, 1);
+    assert.equal(summary.skippedEntries, 1);
+    assert.deepEqual(summary.diagnostics, [{
+      code: "manifest-v2-push-sidecar-stale-after-apply",
+      severity: "warning",
+      safeNextCommand: "sync pull --apply",
+      recoveryAction: "Refresh sidecars before the next push.",
+    }]);
+    assert.equal(summary.recovery, "Review diagnostics before applying.");
+    assert.deepEqual(summary.recoveryContext, {
+      command: "npm run sync-push -- --manifest snpm.sync.json",
+      selectorCount: 1,
+    });
+    assert.deepEqual(summary.entries.map((entry) => ({
+      target: entry.target,
+      selected: entry.selected,
+      skipped: entry.skipped,
+      diagnostics: entry.diagnostics,
+      recovery: entry.recovery,
+      recoveryContext: entry.recoveryContext,
+    })), [
+      {
+        target: "Planning > Roadmap",
+        selected: true,
+        skipped: false,
+        diagnostics: [{
+          code: "manifest-v2-push-sidecar-stale-after-apply",
+          severity: "warning",
+          safeNextCommand: "sync pull --apply",
+          recoveryAction: "Refresh sidecars before retrying.",
+          entry: {
+            kind: "planning-page",
+            target: "Planning > Roadmap",
+          },
+        }],
+        recovery: "Pull fresh sidecars before retrying.",
+        recoveryContext: {
+          command: "npm run sync-pull -- --manifest snpm.sync.json --apply",
+          reason: "stale-sidecar",
+        },
+      },
+      {
+        target: "Release Smoke Test",
+        selected: false,
+        skipped: true,
+        diagnostics: [{
+          code: "manifest-v2-selection-skipped",
+          severity: "info",
+        }],
+        recovery: undefined,
+        recoveryContext: undefined,
+      },
+    ]);
+
+    const selectedEntry = readJson(path.join(reviewDir, "entries", "001-planning-page-planning-roadmap.review.json"));
+    assert.deepEqual(selectedEntry.sidecar, {
+      metadataPath: "C:\\repo\\planning\\roadmap.md.snpm-meta.json",
+      sidecarRefreshed: false,
+      metadataPresent: true,
+      schema: "snpm.pull-metadata.v1",
+      lastEditedTime: "2026-04-23T20:00:00.000Z",
+      pulledAt: "2026-04-23T20:01:00.000Z",
+    });
+    assert.deepEqual(selectedEntry.diagnostics, result.entries[0].diagnostics);
+
+    const skippedEntry = readJson(path.join(reviewDir, "entries", "002-runbook-release-smoke-test.review.json"));
+    assert.equal(skippedEntry.selected, false);
+    assert.equal(skippedEntry.skipped, true);
+    assert.deepEqual(skippedEntry.diagnostics, result.entries[1].diagnostics);
+  } finally {
+    rmSync(reviewDir, { recursive: true, force: true });
+  }
+});
+
 test("writeManifestV2PreviewReviewArtifacts handles unsafe target names with safe filenames", () => {
   const reviewDir = tempReviewDir();
 

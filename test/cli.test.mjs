@@ -32,6 +32,13 @@ const SUPPORTED_MANIFEST_V2_ENTRY_KINDS = [
   "runbook",
   "validation-session",
 ];
+const MANIFEST_V2_DIAGNOSTIC_NON_GOALS = [
+  "rollback",
+  "automatic-retries",
+  "semantic-consistency-checks",
+  "transaction-semantics",
+  "generic-batch-apply",
+];
 
 function runCli(args, options = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -88,6 +95,9 @@ function assertSyncCapabilityMetadata(command, expected) {
   assert.equal(command.reviewOutput, expected.reviewOutput);
   assert.equal(command.maxMutations, expected.maxMutations);
   assert.equal(command.structuredDiagnostics, expected.structuredDiagnostics);
+  assert.equal(command.diagnosticScope, "manifest-v2-only");
+  assert.equal(command.diagnosticPurpose, "operator-recovery-metadata");
+  assert.deepEqual(command.diagnosticNonGoals, MANIFEST_V2_DIAGNOSTIC_NON_GOALS);
   assert.deepEqual(command.diagnosticFields, [
     "code",
     "severity",
@@ -247,7 +257,7 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(pushResult.stdout, /--max-mutations <n\|all>/);
   assert.match(pushResult.stdout, /defaults to 1/i);
   assert.match(pushResult.stdout, /structured result\/review metadata/i);
-  assert.match(pushResult.stdout, /do not add rollback, retries, semantic checks, transaction semantics, or generic batch apply/i);
+  assert.match(pushResult.stdout, /do not add rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply/i);
 
   assert.equal(capabilitiesResult.status, 0);
   assert.equal(capabilitiesResult.stderr, "");
@@ -266,10 +276,13 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(syncCheckText, /manifest v2 mixed-surface manifests/i);
   assert.match(syncCheckText, /planning pages, project docs, template docs, workspace docs, runbooks, and validation sessions/);
   assert.match(syncCheckText, /structured result\/review metadata/i);
+  assert.match(syncCheckText, /manifest v2 metadata only/i);
   assertSyncPullDocumentsManifestV2Pull(syncPullText);
   assert.match(syncPullText, /structured result metadata/i);
+  assert.match(syncPullText, /manifest v2 metadata only/i);
   assertSyncPushDocumentsGuardedManifestV2Push(syncPushText);
   assert.match(syncPushText, /structured result\/review metadata/i);
+  assert.match(syncPushText, /manifest v2 metadata only/i);
 
   assertSyncCapabilityMetadata(syncCheckCapability, {
     notionMutation: "none",

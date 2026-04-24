@@ -10,6 +10,7 @@ export const MANIFEST_V2_PUSH_DIAGNOSTIC_CODES = Object.freeze({
   PREFLIGHT_FAILED: "manifest-v2-push-preflight-failed",
   REFRESH_SIDECARS_REQUIRES_APPLY: "manifest-v2-push-refresh-sidecars-requires-apply",
   REMOTE_PREFLIGHT_FAILED: "manifest-v2-push-remote-preflight-failed",
+  REVIEW_OUTPUT_FAILED: "manifest-v2-push-review-output-failed",
   SIDECAR_MALFORMED: "manifest-v2-push-sidecar-malformed",
   SIDECAR_MISSING: "manifest-v2-push-sidecar-missing",
   SIDECAR_REFRESH_PREFLIGHT_FAILED: "manifest-v2-push-sidecar-refresh-preflight-failed",
@@ -17,7 +18,68 @@ export const MANIFEST_V2_PUSH_DIAGNOSTIC_CODES = Object.freeze({
   SIDECAR_STALE_AFTER_APPLY: "manifest-v2-push-sidecar-stale-after-apply",
 });
 
+export const MANIFEST_V2_CHECK_DIAGNOSTIC_CODES = Object.freeze({
+  LOCAL_FILE_FAILED: "manifest-v2-check-local-file-failed",
+  PREFLIGHT_FAILED: "manifest-v2-check-preflight-failed",
+  REMOTE_FAILED: "manifest-v2-check-remote-failed",
+  REVIEW_OUTPUT_FAILED: "manifest-v2-check-review-output-failed",
+});
+
+export const MANIFEST_V2_PULL_DIAGNOSTIC_CODES = Object.freeze({
+  LOCAL_FILE_FAILED: "manifest-v2-pull-local-file-failed",
+  PATH_COLLISION: "manifest-v2-pull-path-collision",
+  PREFLIGHT_FAILED: "manifest-v2-pull-preflight-failed",
+  REMOTE_FAILED: "manifest-v2-pull-remote-failed",
+  REVIEW_OUTPUT_FAILED: "manifest-v2-pull-review-output-failed",
+  WRITE_FAILED: "manifest-v2-pull-write-failed",
+});
+
+const SENSITIVE_STRING_PATTERNS = Object.freeze([
+  /\bntn_[A-Za-z0-9_=-]+\b/g,
+  /\b(secret|token|password)\s*[:=]\s*[^,\s"'}]+/gi,
+]);
+
 const DEFAULT_RECOVERY_BY_CODE = Object.freeze({
+  [MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.LOCAL_FILE_FAILED]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Resolve local file access before rerunning sync check.",
+  },
+  [MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.PREFLIGHT_FAILED]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Resolve the preflight failure before rerunning sync check.",
+  },
+  [MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.REMOTE_FAILED]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Verify the remote Notion target is readable before rerunning sync check.",
+  },
+  [MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED]: {
+    safeNextCommand: "sync check --review-output <dir>",
+    recoveryAction: "Choose a writable review output directory, or rerun without review output.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.LOCAL_FILE_FAILED]: {
+    safeNextCommand: "sync pull",
+    recoveryAction: "Resolve local file access before rerunning sync pull.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.PATH_COLLISION]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Fix manifest output and sidecar paths so each managed path is unique before rerunning sync pull.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.PREFLIGHT_FAILED]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Resolve the preflight failure before rerunning sync pull.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.REMOTE_FAILED]: {
+    safeNextCommand: "sync check",
+    recoveryAction: "Verify the remote Notion target is readable before rerunning sync pull.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED]: {
+    safeNextCommand: "sync pull --review-output <dir>",
+    recoveryAction: "Choose a writable review output directory, or rerun without review output.",
+  },
+  [MANIFEST_V2_PULL_DIAGNOSTIC_CODES.WRITE_FAILED]: {
+    safeNextCommand: "sync pull --apply",
+    recoveryAction: "Partial local writes may exist. Rerun sync pull --apply after fixing filesystem access.",
+  },
   [MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.ADAPTER_CONTRACT]: {
     safeNextCommand: "sync check",
     recoveryAction: "Fix the manifest v2 sync adapter contract, then rerun sync push.",
@@ -62,6 +124,10 @@ const DEFAULT_RECOVERY_BY_CODE = Object.freeze({
     safeNextCommand: "sync check",
     recoveryAction: "Verify the remote Notion target is readable before retrying sync push.",
   },
+  [MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED]: {
+    safeNextCommand: "sync push --review-output <dir>",
+    recoveryAction: "Choose a writable review output directory, or rerun without review output.",
+  },
   [MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.SIDECAR_MALFORMED]: {
     safeNextCommand: "sync pull --apply",
     recoveryAction: "Regenerate the metadata sidecar from Notion before retrying.",
@@ -88,6 +154,15 @@ function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function redactString(value) {
+  return SENSITIVE_STRING_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(pattern, (match, label) => (
+      typeof label === "string" ? `${label}: [redacted]` : "[redacted]"
+    )),
+    value,
+  );
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -98,7 +173,11 @@ function cleanObject(value) {
   }
 
   if (!isPlainObject(value)) {
-    return value === undefined ? undefined : value;
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return typeof value === "string" ? redactString(value) : value;
   }
 
   const cleaned = {};
@@ -117,6 +196,10 @@ function cleanObject(value) {
 }
 
 export function manifestV2PushDiagnosticEntry(entry, descriptor = {}) {
+  return manifestV2DiagnosticEntry(entry, descriptor);
+}
+
+export function manifestV2DiagnosticEntry(entry, descriptor = {}) {
   if (!entry || typeof entry !== "object") {
     return undefined;
   }
@@ -129,8 +212,9 @@ export function manifestV2PushDiagnosticEntry(entry, descriptor = {}) {
   });
 }
 
-export function buildManifestV2PushDiagnostic({
+export function buildManifestV2Diagnostic({
   code,
+  command,
   entry,
   descriptor,
   message,
@@ -141,7 +225,7 @@ export function buildManifestV2PushDiagnostic({
   targetPath,
 }) {
   if (typeof code !== "string" || code.trim() === "") {
-    throw new Error("Manifest v2 push diagnostic code must be a non-empty string.");
+    throw new Error("Manifest v2 diagnostic code must be a non-empty string.");
   }
 
   const defaults = DEFAULT_RECOVERY_BY_CODE[code] || {};
@@ -153,11 +237,162 @@ export function buildManifestV2PushDiagnostic({
     code,
     severity,
     message: normalizedMessage,
-    entry: manifestV2PushDiagnosticEntry(entry || descriptor?.entry, descriptor),
+    command,
+    entry: manifestV2DiagnosticEntry(entry || descriptor?.entry, descriptor),
     targetPath,
     safeNextCommand: safeNextCommand || defaults.safeNextCommand || "sync check",
     recoveryAction: recoveryAction || defaults.recoveryAction || "Resolve the diagnostic before retrying.",
     state,
+  });
+}
+
+export function buildManifestV2PushDiagnostic(options) {
+  return buildManifestV2Diagnostic({
+    ...options,
+    command: "sync-push",
+  });
+}
+
+export function buildManifestV2CheckRemoteFailureDiagnostic({ descriptor, entry, error, state, targetPath }) {
+  return buildManifestV2Diagnostic({
+    code: MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.REMOTE_FAILED,
+    command: "sync-check",
+    descriptor,
+    entry,
+    message: toErrorMessage(error),
+    state: {
+      phase: "remote-read",
+      ...state,
+    },
+    targetPath,
+  });
+}
+
+export function buildManifestV2PullRemoteFailureDiagnostic({ descriptor, entry, error, state, targetPath }) {
+  return buildManifestV2Diagnostic({
+    code: MANIFEST_V2_PULL_DIAGNOSTIC_CODES.REMOTE_FAILED,
+    command: "sync-pull",
+    descriptor,
+    entry,
+    message: toErrorMessage(error),
+    state: {
+      phase: "remote-read",
+      ...state,
+    },
+    targetPath,
+  });
+}
+
+export function buildManifestV2PullCollisionDiagnostic({ descriptor, entry, error, message, state, targetPath }) {
+  return buildManifestV2Diagnostic({
+    code: MANIFEST_V2_PULL_DIAGNOSTIC_CODES.PATH_COLLISION,
+    command: "sync-pull",
+    descriptor,
+    entry,
+    message: message || toErrorMessage(error),
+    state: {
+      phase: "path-collision",
+      ...state,
+    },
+    targetPath,
+  });
+}
+
+export function buildManifestV2PullWriteFailureDiagnostic({
+  descriptor,
+  entry,
+  error,
+  partialWrites,
+  state,
+  targetPath,
+}) {
+  return buildManifestV2Diagnostic({
+    code: MANIFEST_V2_PULL_DIAGNOSTIC_CODES.WRITE_FAILED,
+    command: "sync-pull",
+    descriptor,
+    entry,
+    message: toErrorMessage(error),
+    state: {
+      phase: "write",
+      partialWrites,
+      ...state,
+    },
+    targetPath,
+  });
+}
+
+export function buildManifestV2LocalFileFailureDiagnostic({
+  command = "sync-check",
+  descriptor,
+  entry,
+  error,
+  state,
+  targetPath,
+}) {
+  const isPull = command === "sync-pull";
+
+  return buildManifestV2Diagnostic({
+    code: isPull
+      ? MANIFEST_V2_PULL_DIAGNOSTIC_CODES.LOCAL_FILE_FAILED
+      : MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.LOCAL_FILE_FAILED,
+    command,
+    descriptor,
+    entry,
+    message: toErrorMessage(error),
+    state: {
+      phase: "local-file",
+      ...state,
+    },
+    targetPath,
+  });
+}
+
+export function buildManifestV2ReviewOutputFailureDiagnostic({
+  command = "sync-check",
+  error,
+  state,
+}) {
+  const isPull = command === "sync-pull";
+  const isPush = command === "sync-push";
+
+  return buildManifestV2Diagnostic({
+    code: isPush
+      ? MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED
+      : isPull
+        ? MANIFEST_V2_PULL_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED
+        : MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.REVIEW_OUTPUT_FAILED,
+    command,
+    message: toErrorMessage(error),
+    state: {
+      phase: "review-output",
+      ...state,
+    },
+  });
+}
+
+export function buildManifestV2PreflightFailureDiagnostic({
+  command = "sync-check",
+  descriptor,
+  entry,
+  error,
+  state,
+  targetPath,
+}) {
+  const isPull = command === "sync-pull";
+
+  return buildManifestV2Diagnostic({
+    code: isPull
+      ? MANIFEST_V2_PULL_DIAGNOSTIC_CODES.PREFLIGHT_FAILED
+      : MANIFEST_V2_CHECK_DIAGNOSTIC_CODES.PREFLIGHT_FAILED,
+    command,
+    descriptor,
+    entry,
+    message: toErrorMessage(error),
+    state: {
+      phase: "preflight",
+      ...state,
+    },
+    targetPath,
   });
 }
 

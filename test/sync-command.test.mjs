@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -33,6 +33,41 @@ function config() {
   return {
     notionVersion: "2026-03-11",
     workspace: { projectsPageId: "projects" },
+  };
+}
+
+function tempCommandDir() {
+  return mkdtempSync(path.join(os.tmpdir(), "snpm-sync-command-"));
+}
+
+function writeJson(filePath, value) {
+  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  return filePath;
+}
+
+function writeTempManifest(tempDir, rawManifest) {
+  return writeJson(path.join(tempDir, "snpm.sync.json"), rawManifest);
+}
+
+function rawManifestV2(entries) {
+  return {
+    version: 2,
+    workspace: "infrastructure-hq",
+    project: "SNPM",
+    entries,
+  };
+}
+
+function rawManifestV1() {
+  return {
+    version: 1,
+    workspace: "infrastructure-hq",
+    project: "SNPM",
+    entries: [{
+      kind: "validation-session",
+      title: "Session Fixture",
+      file: "ops/validation/session.md",
+    }],
   };
 }
 
@@ -117,6 +152,100 @@ test("runSyncCheck passes manifest v2 selection and review options to the v2 imp
       ],
     },
   }]);
+});
+
+test("runSyncCheck loads a temp manifest v2 and selector file before invoking the v2 contract", async () => {
+  const tempDir = tempCommandDir();
+
+  try {
+    const manifestPath = writeTempManifest(tempDir, rawManifestV2([
+      { kind: "planning-page", pagePath: " Planning > Roadmap ", file: "planning/roadmap.md" },
+      { kind: "runbook", title: "Release Smoke Test", file: "runbooks/release.md" },
+    ]));
+    const entriesFile = writeJson(path.join(tempDir, "selectors.json"), {
+      selectors: [{ kind: "runbook", target: "Release Smoke Test" }],
+    });
+    const calls = [];
+
+    const result = await runSyncCheck({
+      entries: ["planning-page:Planning > Roadmap"],
+      entriesFile,
+      manifestPath,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      reviewOutput: path.join(tempDir, "review"),
+      workspaceOverride: "workspace-override",
+      loadWorkspaceConfigImpl: (workspaceName) => {
+        calls.push({ op: "config", workspaceName });
+        return config();
+      },
+      checkManifestV2SyncManifestImpl: async ({
+        manifest: loadedManifest,
+        projectTokenEnv,
+        reviewOutput,
+        selectionOptions,
+      }) => {
+        calls.push({
+          op: "v2-check",
+          manifestPath: loadedManifest.manifestPath,
+          workspaceName: loadedManifest.workspaceName,
+          projectName: loadedManifest.projectName,
+          entries: loadedManifest.entries.map((entry) => ({
+            kind: entry.kind,
+            target: entry.target,
+            targetField: entry.targetField,
+            file: entry.file,
+          })),
+          projectTokenEnv,
+          reviewOutput,
+          selectionOptions,
+        });
+        return {
+          command: "sync-check",
+          failures: [],
+          driftCount: 0,
+          entries: [],
+        };
+      },
+      checkValidationSessionSyncManifestImpl: async () => {
+        throw new Error("v1 sync check should not run for manifest v2");
+      },
+    });
+
+    assert.equal(result.command, "sync-check");
+    assert.deepEqual(calls, [
+      { op: "config", workspaceName: "workspace-override" },
+      {
+        op: "v2-check",
+        manifestPath: path.resolve(manifestPath),
+        workspaceName: "workspace-override",
+        projectName: "SNPM",
+        entries: [
+          {
+            kind: "planning-page",
+            target: "Planning > Roadmap",
+            targetField: "pagePath",
+            file: ["planning", "roadmap.md"].join(path.sep),
+          },
+          {
+            kind: "runbook",
+            target: "Release Smoke Test",
+            targetField: "title",
+            file: ["runbooks", "release.md"].join(path.sep),
+          },
+        ],
+        projectTokenEnv: "SNPM_NOTION_TOKEN",
+        reviewOutput: path.join(tempDir, "review"),
+        selectionOptions: {
+          selectors: [
+            "planning-page:Planning > Roadmap",
+            { kind: "runbook", target: "Release Smoke Test" },
+          ],
+        },
+      },
+    ]);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("runSyncCheck preserves manifest v1 validation-session routing", async () => {
@@ -226,6 +355,96 @@ test("runSyncPull passes manifest v2 selection options to the v2 implementation"
       ],
     },
   }]);
+});
+
+test("runSyncPull loads a temp manifest v2 and returns pull sidecar contract data from the v2 adapter", async () => {
+  const tempDir = tempCommandDir();
+
+  try {
+    const manifestPath = writeTempManifest(tempDir, rawManifestV2([
+      { kind: "project-doc", docPath: "Root > Overview", file: "docs/overview.md" },
+      { kind: "validation-session", title: "Session Fixture", file: "ops/validation/session.md" },
+    ]));
+    const entriesFile = writeJson(path.join(tempDir, "entries.json"), [
+      { kind: "validation-session", target: "Session Fixture" },
+    ]);
+    const calls = [];
+
+    const result = await runSyncPull({
+      apply: true,
+      entriesFile,
+      manifestPath,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      loadWorkspaceConfigImpl: (workspaceName) => {
+        calls.push({ op: "config", workspaceName });
+        return config();
+      },
+      pullManifestV2SyncManifestImpl: async ({
+        apply,
+        manifest: loadedManifest,
+        projectTokenEnv,
+        selectionOptions,
+      }) => {
+        calls.push({
+          op: "v2-pull",
+          apply,
+          version: loadedManifest.version,
+          targets: loadedManifest.entries.map((entry) => `${entry.kind}:${entry.target}`),
+          projectTokenEnv,
+          selectionOptions,
+        });
+        return {
+          command: "sync-pull",
+          applied: true,
+          appliedCount: 1,
+          driftCount: 1,
+          failures: [],
+          localWrites: [{
+            file: ["ops", "validation", "session.md"].join(path.sep),
+            metadataPath: `${["ops", "validation", "session.md"].join(path.sep)}.snpm-meta.json`,
+          }],
+          entries: [{
+            kind: "validation-session",
+            target: "Session Fixture",
+            status: "pulled",
+            hasDiff: true,
+            applied: true,
+            metadataPath: path.join(tempDir, "ops", "validation", "session.md.snpm-meta.json"),
+          }],
+          notionMutationCount: 0,
+        };
+      },
+      pullValidationSessionSyncManifestImpl: async () => {
+        throw new Error("v1 sync pull should not run for manifest v2");
+      },
+    });
+
+    assert.equal(result.command, "sync-pull");
+    assert.equal(result.applied, true);
+    assert.equal(result.notionMutationCount, 0);
+    assert.deepEqual(result.localWrites, [{
+      file: ["ops", "validation", "session.md"].join(path.sep),
+      metadataPath: `${["ops", "validation", "session.md"].join(path.sep)}.snpm-meta.json`,
+    }]);
+    assert.deepEqual(calls, [
+      { op: "config", workspaceName: "infrastructure-hq" },
+      {
+        op: "v2-pull",
+        apply: true,
+        version: 2,
+        targets: [
+          "project-doc:Root > Overview",
+          "validation-session:Session Fixture",
+        ],
+        projectTokenEnv: "SNPM_NOTION_TOKEN",
+        selectionOptions: {
+          selectors: [{ kind: "validation-session", target: "Session Fixture" }],
+        },
+      },
+    ]);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("runSyncPush routes manifest v2 to the injected v2 push implementation after loading config", async () => {
@@ -389,6 +608,117 @@ test("runSyncPush preserves manifest v2 routing defaults when refreshSidecars is
 
   assert.equal(result.command, "sync-push");
   assert.equal(result.refreshSidecars, false);
+});
+
+test("runSyncPush loads a temp manifest v2 and forwards diagnostics-sidecar apply contract", async () => {
+  const tempDir = tempCommandDir();
+
+  try {
+    const manifestPath = writeTempManifest(tempDir, rawManifestV2([
+      { kind: "planning-page", pagePath: "Planning > Roadmap", file: "planning/roadmap.md" },
+      { kind: "runbook", title: "Release Smoke Test", file: "runbooks/release.md" },
+    ]));
+    const entriesFile = writeJson(path.join(tempDir, "entries.json"), {
+      entries: ["planning-page:Planning > Roadmap"],
+    });
+    const calls = [];
+
+    const result = await runSyncPush({
+      apply: true,
+      entriesFile,
+      manifestPath,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      refreshSidecars: true,
+      loadWorkspaceConfigImpl: () => config(),
+      pushManifestV2SyncManifestImpl: async ({
+        apply,
+        manifest: loadedManifest,
+        maxMutations,
+        projectTokenEnv,
+        refreshSidecars,
+        selectionOptions,
+      }) => {
+        calls.push({
+          apply,
+          maxMutations,
+          version: loadedManifest.version,
+          targets: loadedManifest.entries.map((entry) => `${entry.kind}:${entry.target}`),
+          projectTokenEnv,
+          refreshSidecars,
+          selectionOptions,
+        });
+        return {
+          command: "sync-push",
+          appliedCount: 1,
+          failures: [],
+          diagnostics: [{
+            code: "manifest-v2-push-sidecar-stale-after-apply",
+            severity: "warning",
+            safeNextCommand: "sync pull --apply",
+            recoveryAction: "Refresh sidecars before the next push.",
+            entry: {
+              kind: "planning-page",
+              target: "Planning > Roadmap",
+              file: ["planning", "roadmap.md"].join(path.sep),
+            },
+          }],
+          entries: [{
+            kind: "planning-page",
+            target: "Planning > Roadmap",
+            file: ["planning", "roadmap.md"].join(path.sep),
+            targetPath: "Projects > SNPM > Planning > Roadmap",
+            status: "pushed",
+            hasDiff: true,
+            diff: "+updated roadmap\n",
+            applied: true,
+            sidecarRefreshed: true,
+            pageId: "page-roadmap",
+          }],
+        };
+      },
+      pushValidationSessionSyncManifestImpl: async () => {
+        throw new Error("v1 sync push should not run for manifest v2");
+      },
+      tryRecordMutationJournalEntryImpl: () => ({
+        ok: true,
+        journalPath: path.join(tempDir, "journal.ndjson"),
+      }),
+    });
+
+    assert.equal(result.command, "sync-push");
+    assert.equal(result.appliedCount, 1);
+    assert.deepEqual(result.journal, {
+      path: path.join(tempDir, "journal.ndjson"),
+      entryCount: 1,
+    });
+    assert.deepEqual(result.diagnostics.map((diagnostic) => ({
+      code: diagnostic.code,
+      severity: diagnostic.severity,
+      safeNextCommand: diagnostic.safeNextCommand,
+      target: diagnostic.entry.target,
+    })), [{
+      code: "manifest-v2-push-sidecar-stale-after-apply",
+      severity: "warning",
+      safeNextCommand: "sync pull --apply",
+      target: "Planning > Roadmap",
+    }]);
+    assert.deepEqual(calls, [{
+      apply: true,
+      maxMutations: 1,
+      version: 2,
+      targets: [
+        "planning-page:Planning > Roadmap",
+        "runbook:Release Smoke Test",
+      ],
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      refreshSidecars: true,
+      selectionOptions: {
+        selectors: ["planning-page:Planning > Roadmap"],
+      },
+    }]);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("runSyncPush rejects refreshSidecars for manifest v1 sync push", async () => {
@@ -558,6 +888,77 @@ test("runSyncPull and runSyncPush preserve manifest v1 validation-session routin
       projectTokenEnv: "SNPM_NOTION_TOKEN",
     },
   ]);
+});
+
+test("temp manifest v1 remains validation-session only and rejects v2-only command options", async () => {
+  const tempDir = tempCommandDir();
+
+  try {
+    const manifestPath = writeTempManifest(tempDir, rawManifestV1());
+    const calls = [];
+
+    const checkResult = await runSyncCheck({
+      manifestPath,
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      loadWorkspaceConfigImpl: (workspaceName) => {
+        calls.push({ op: "config", workspaceName });
+        return config();
+      },
+      checkManifestV2SyncManifestImpl: async () => {
+        throw new Error("v2 sync check should not run for manifest v1");
+      },
+      checkValidationSessionSyncManifestImpl: async ({ manifest: loadedManifest }) => {
+        calls.push({
+          op: "v1-check",
+          version: loadedManifest.version,
+          entries: loadedManifest.entries.map((entry) => `${entry.kind}:${entry.title}`),
+        });
+        return {
+          command: "sync-check",
+          failures: [],
+          driftCount: 0,
+          entries: [],
+        };
+      },
+    });
+
+    assert.equal(checkResult.command, "sync-check");
+    assert.deepEqual(calls, [
+      { op: "config", workspaceName: "infrastructure-hq" },
+      {
+        op: "v1-check",
+        version: 1,
+        entries: ["validation-session:Session Fixture"],
+      },
+    ]);
+
+    await assert.rejects(
+      runSyncCheck({
+        entries: ["validation-session:Session Fixture"],
+        manifestPath,
+        loadWorkspaceConfigImpl: () => config(),
+        checkManifestV2SyncManifestImpl: async () => {
+          throw new Error("v2 sync check should not run for manifest v1 selectors");
+        },
+      }),
+      /manifest v1.*--entry.*--entries-file/i,
+    );
+
+    await assert.rejects(
+      runSyncPush({
+        apply: true,
+        manifestPath,
+        maxMutations: "all",
+        loadWorkspaceConfigImpl: () => config(),
+        pushManifestV2SyncManifestImpl: async () => {
+          throw new Error("v2 sync push should not run for manifest v1 budgets");
+        },
+      }),
+      /manifest v1.*--max-mutations/i,
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("runSyncPush records redacted journal entries for applied manifest v2 entries only", async () => {

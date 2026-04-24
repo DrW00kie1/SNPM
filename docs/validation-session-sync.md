@@ -8,7 +8,7 @@ Use v2 when the goal is to compare a repo bundle against approved Notion surface
 
 ## Manifest V2 Mixed-Surface Sync
 
-Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, targeted selectors, push review artifacts, apply mutation limits, opt-in sidecar refresh for applied push, and structured recovery diagnostics. V2 push is preview by default; default whole-manifest preview remains unchanged. `sync push --apply` requires sidecar metadata produced by v2 pull and allows at most one changed entry unless `--max-mutations` is raised or set to `all`. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
+Manifest v2 lets a consumer repo describe a deterministic documentation bundle without raw Notion page ids. In this sprint, v2 supports `sync check`, local-file `sync pull`, guarded `sync push` for existing approved targets, targeted selectors, push review artifacts, apply mutation limits, opt-in sidecar refresh for applied push, and structured recovery diagnostics. V2 check and push diagnostics can appear in result/review metadata; v2 pull diagnostics appear in result metadata. V2 push is preview by default; default whole-manifest preview remains unchanged. `sync push --apply` requires sidecar metadata produced by v2 pull and allows at most one changed entry unless `--max-mutations` is raised or set to `all`. A default applied push still leaves sidecars stale unless `--refresh-sidecars` is explicitly included.
 
 Supported v2 entry kinds:
 - `planning-page`
@@ -108,7 +108,7 @@ Default `sync push --apply` allows at most one changed entry. Raise the gate wit
 
 A default successful `sync push --apply` makes affected sidecars stale because they describe the pre-push base revision. The next safe command is `sync pull --apply`, which refreshes both the local markdown files and sidecars before the next edit cycle. To refresh sidecar metadata to the post-push base during the applied push, opt in with `sync push --apply --refresh-sidecars`. If the apply uses `--entry` or `--entries-file`, sidecar refresh is limited to selected entries that were successfully applied.
 
-Manifest v2 recovery diagnostics are structured output/review metadata. Diagnostics use stable codes, severity, entry and target context, a safe next command, and a recovery action. They are designed to make review artifacts and result JSON self-contained for operator recovery; they do not retry, roll back, auto-merge, check semantic consistency, create transaction semantics, or turn selected guarded push into generic batch apply.
+Manifest v2 recovery diagnostics are structured metadata: result/review metadata for check and push, and result metadata for pull. Diagnostics use stable codes, severity, entry and target context, a safe next command, and a recovery action. They are designed to make review artifacts and result JSON self-contained for operator recovery; they do not retry, roll back, auto-merge, check semantic consistency, create transaction semantics, or turn selected guarded push into generic batch apply.
 
 V2 guarded push is not generalized Notion mutation. Out-of-scope behavior:
 - create/adopt

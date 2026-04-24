@@ -124,6 +124,14 @@ function simpleDiff(currentMarkdown, nextMarkdown) {
   return `--- local\n+++ remote\n${nextMarkdown}`;
 }
 
+function diagnosticCodes(result) {
+  return (result.diagnostics || []).map((diagnostic) => diagnostic.code);
+}
+
+function entryDiagnosticCodes(entry) {
+  return (entry.diagnostics || []).map((diagnostic) => diagnostic.code);
+}
+
 function makeFakeAdapters({
   calls = [],
   failuresByTarget = new Map(),
@@ -245,6 +253,15 @@ test("manifest v2 pull preview reports existing, missing, in-sync, drift, and fa
     },
   ]);
   assert.match(result.entries[3].failure, /could not be read/);
+  assert.deepEqual(entryDiagnosticCodes(result.entries[3]), ["manifest-v2-pull-remote-failed"]);
+  assert.deepEqual(diagnosticCodes(result), ["manifest-v2-pull-remote-failed"]);
+  assert.equal(result.diagnostics[0].severity, "error");
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync check");
+  assert.equal(result.diagnostics[0].entry.kind, "validation-session");
+  assert.equal(result.diagnostics[0].entry.target, "Session Fixture");
+  assert.equal(result.diagnostics[0].entry.file, "ops/validation/session.md");
+  assert.equal(result.diagnostics[0].entry.metadataPath, `${entries[3].absoluteFilePath}.snpm-meta.json`);
+  assert.deepEqual(result.diagnostics[0].state, { phase: "preflight" });
   assert.equal(result.failures.length, 1);
   assert.deepEqual(calls.map((call) => `${call.kind}:${call.target}`), [
     "planning-page:Planning > Roadmap",
@@ -375,6 +392,18 @@ test("manifest v2 pull apply rejects output and sidecar path collisions before w
   });
 
   assert.equal(result.entries.every((entry) => entry.status === "error"), true);
+  assert.deepEqual(result.entries.map(entryDiagnosticCodes), [
+    ["manifest-v2-pull-path-collision"],
+    ["manifest-v2-pull-path-collision"],
+  ]);
+  assert.deepEqual(diagnosticCodes(result), [
+    "manifest-v2-pull-path-collision",
+    "manifest-v2-pull-path-collision",
+  ]);
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync check");
+  assert.equal(result.diagnostics[0].entry.target, "Planning > Roadmap");
+  assert.equal(result.diagnostics[0].entry.metadataPath, `${entries[0].absoluteFilePath}.snpm-meta.json`);
+  assert.deepEqual(result.diagnostics[0].state, { phase: "path-collision" });
   assert.equal(result.failures.length, 2);
   assert.match(result.failures.join("\n"), /Output\/sidecar path collision/);
   assert.deepEqual(calls, []);
@@ -449,6 +478,18 @@ test("manifest v2 pull apply reports partial local writes when a filesystem writ
   assert.equal(result.entries[0].applied, true);
   assert.equal(result.entries[1].status, "error");
   assert.equal(result.entries[1].applied, false);
+  assert.deepEqual(entryDiagnosticCodes(result.entries[1]), ["manifest-v2-pull-write-failed"]);
+  assert.deepEqual(diagnosticCodes(result), ["manifest-v2-pull-write-failed"]);
+  assert.equal(result.diagnostics[0].safeNextCommand, "sync pull --apply");
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+  assert.equal(result.diagnostics[0].entry.metadataPath, `${entries[1].absoluteFilePath}.snpm-meta.json`);
+  assert.equal(result.diagnostics[0].state.phase, "write");
+  assert.equal(result.diagnostics[0].state.partialWriteCount, 3);
+  assert.deepEqual(result.diagnostics[0].state.partialWrites, [
+    entries[0].absoluteFilePath,
+    `${entries[0].absoluteFilePath}.snpm-meta.json`,
+    entries[1].absoluteFilePath,
+  ]);
   assert.equal(result.entries[2].applied, false);
   assert.equal(result.appliedCount, 1);
   assert.equal(result.failures.length, 1);

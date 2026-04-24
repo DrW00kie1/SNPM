@@ -71,6 +71,7 @@ import {
   tryRecordMutationJournalEntry,
 } from "./commands/mutation-journal.mjs";
 import { writeManifestV2PreviewReviewArtifacts } from "./commands/sync-review-output.mjs";
+import { buildManifestV2ReviewOutputFailureDiagnostic } from "./notion/manifest-sync-diagnostics.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
@@ -121,6 +122,55 @@ function withMutationJournal(result, { command, surface }) {
       recorded.warning,
     ],
   };
+}
+
+function buildSyncPayload(result, {
+  command,
+  failOnDrift = false,
+  reviewOutputDir = null,
+} = {}) {
+  const basePayload = {
+    ok: result.failures.length === 0 && (!failOnDrift || (result.driftCount || 0) === 0),
+    ...result,
+  };
+
+  if (!reviewOutputDir) {
+    return basePayload;
+  }
+
+  try {
+    return {
+      ...basePayload,
+      reviewOutput: writeManifestV2PreviewReviewArtifacts({
+        result,
+        reviewOutputDir,
+      }),
+    };
+  } catch (error) {
+    const diagnostic = buildManifestV2ReviewOutputFailureDiagnostic({
+      command,
+      error,
+      state: {
+        reviewOutputDir,
+      },
+    });
+    return {
+      ...basePayload,
+      ok: false,
+      failures: [
+        ...(Array.isArray(result.failures) ? result.failures : []),
+        `Review output failed: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+      diagnostics: [
+        ...(Array.isArray(result.diagnostics) ? result.diagnostics : []),
+        diagnostic,
+      ],
+      reviewOutput: {
+        written: false,
+        failure: diagnostic.message,
+      },
+    };
+  }
 }
 
 export { withMutationJournal };
@@ -1372,17 +1422,13 @@ async function main() {
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);
-    console.log(JSON.stringify({
-      ok: result.failures.length === 0 && result.driftCount === 0,
-      ...result,
-      ...(options["review-output"] ? {
-        reviewOutput: writeManifestV2PreviewReviewArtifacts({
-          result,
-          reviewOutputDir: options["review-output"],
-        }),
-      } : {}),
-    }, null, 2));
-    if (result.failures.length > 0 || result.driftCount > 0) {
+    const payload = buildSyncPayload(result, {
+      command: "sync-check",
+      failOnDrift: true,
+      reviewOutputDir: options["review-output"],
+    });
+    console.log(JSON.stringify(payload, null, 2));
+    if (payload.failures.length > 0 || result.driftCount > 0) {
       process.exitCode = 1;
       return;
     }
@@ -1425,17 +1471,12 @@ async function main() {
       workspaceOverride: options.workspace,
     });
     printSyncEntryResults(result.entries);
-    console.log(JSON.stringify({
-      ok: result.failures.length === 0,
-      ...result,
-      ...(options["review-output"] && !apply ? {
-        reviewOutput: writeManifestV2PreviewReviewArtifacts({
-          result,
-          reviewOutputDir: options["review-output"],
-        }),
-      } : {}),
-    }, null, 2));
-    if (result.failures.length > 0) {
+    const payload = buildSyncPayload(result, {
+      command: "sync-push",
+      reviewOutputDir: options["review-output"] && !apply ? options["review-output"] : null,
+    });
+    console.log(JSON.stringify(payload, null, 2));
+    if (payload.failures.length > 0) {
       process.exitCode = 1;
       return;
     }

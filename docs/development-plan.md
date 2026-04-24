@@ -130,7 +130,7 @@ Feature goals covered:
 
 Status:
 - `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, opt-in post-push sidecar refresh, targeted entry selection, push review artifacts, mutation limits, and selected sidecar refresh behavior after `d27796f`
-- active `codex/manifest-v2-recovery-diagnostics` scope adds structured result/review diagnostics with stable recovery context
+- active `codex/manifest-v2-diagnostics-parity` scope keeps help, capability metadata, and docs aligned with structured manifest v2 diagnostics parity
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
@@ -210,6 +210,26 @@ Feature goals covered:
 
 Out of scope:
 - rollback, auto-merge, automatic retries, semantic consistency checks, generic transaction semantics, and generic batch apply
+
+### Sprint 3.3B: Diagnostics Parity
+
+Goal:
+- keep CLI help, capability metadata, README guidance, and operator docs consistent about manifest v2 diagnostics for `sync check`, `sync pull`, and `sync push`
+
+Deliverables:
+- help text that documents structured result/review diagnostics for v2 check and push, and structured result diagnostics for v2 pull
+- capability metadata that exposes diagnostic scope, purpose, fields, and non-goals for v2 check, pull, and push
+- docs that describe diagnostics as recovery metadata only, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply
+
+Exit criteria:
+- an operator or LLM can read help, capabilities JSON, or repo docs and get the same bounded diagnostics contract for v2 check, pull, and push
+
+Feature goals covered:
+- generalized manifest sync
+- LLM-native capability introspection
+
+Out of scope:
+- rollback, auto-merge, automatic retries, semantic consistency checks, transaction semantics, and generic batch apply
 
 ## Phase 4: Project Bootstrap And Policy Scale
 

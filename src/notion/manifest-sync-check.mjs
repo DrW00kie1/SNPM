@@ -12,6 +12,11 @@ import {
   diffValidationSessionFile,
   pullValidationSessionFile,
 } from "./validation-sessions.mjs";
+import {
+  buildManifestV2CheckRemoteFailureDiagnostic,
+  buildManifestV2LocalFileFailureDiagnostic,
+  buildManifestV2PreflightFailureDiagnostic,
+} from "./manifest-sync-diagnostics.mjs";
 import { resolveManifestSyncSelection } from "./manifest-selection.mjs";
 
 export const MANIFEST_V2_SYNC_CHECK_KINDS = Object.freeze([
@@ -63,6 +68,35 @@ function buildEntryBase(entry) {
 function buildTopLevelFailure(entry, error) {
   const target = targetForManifestV2SyncEntry(entry);
   return `${entry.kind} "${target}" (${entry.file}): ${toErrorMessage(error)}`;
+}
+
+function buildCheckFailureDiagnostic(entry, error, { phase = "check", targetPath } = {}) {
+  if (error && typeof error === "object" && "code" in error) {
+    return buildManifestV2LocalFileFailureDiagnostic({
+      command: "sync-check",
+      entry,
+      error,
+      state: { phase },
+      targetPath,
+    });
+  }
+
+  if (/Unsupported manifest v2 sync check kind|missing (diffLocal|readRemote)|must return/i.test(toErrorMessage(error))) {
+    return buildManifestV2PreflightFailureDiagnostic({
+      command: "sync-check",
+      entry,
+      error,
+      state: { phase },
+      targetPath,
+    });
+  }
+
+  return buildManifestV2CheckRemoteFailureDiagnostic({
+    entry,
+    error,
+    state: { phase },
+    targetPath,
+  });
 }
 
 function readLocalMarkdown(entry, { readFileSyncImpl = readFileSync } = {}) {
@@ -146,6 +180,11 @@ function buildSummary({ manifest, authMode, entries, failures, selectionMetadata
     failures,
     entries,
   };
+
+  const diagnostics = entries.flatMap((entry) => Array.isArray(entry.diagnostics) ? entry.diagnostics : []);
+  if (diagnostics.length > 0) {
+    summary.diagnostics = diagnostics;
+  }
 
   if (selectionMetadata) {
     Object.assign(summary, selectionMetadata);
@@ -402,6 +441,7 @@ export async function checkManifestV2SyncManifest({
         readFileSyncImpl,
       }));
     } catch (error) {
+      const diagnostic = buildCheckFailureDiagnostic(entry, error);
       entries.push({
         ...buildEntryBase(entry),
         targetPath: null,
@@ -410,6 +450,7 @@ export async function checkManifestV2SyncManifest({
         diff: "",
         applied: false,
         failure: toErrorMessage(error),
+        diagnostics: [diagnostic],
       });
       failures.push(buildTopLevelFailure(entry, error));
     }

@@ -35,8 +35,10 @@ Baseline manifest v2 sidecar-refresh behavior:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
 - default manifest v2 `sync push --apply` still leaves sidecars stale
 
-Current `codex/manifest-v2-recovery-diagnostics` branch addition:
-- manifest v2 recovery diagnostics in structured result/review metadata with stable codes, severity, entry/target context, safe next command, and recovery action
+Current `codex/manifest-v2-diagnostics-parity` branch addition:
+- manifest v2 diagnostics parity across CLI help, capability metadata, and operator docs
+- v2 check and push diagnostics are structured result/review metadata; v2 pull diagnostics are structured result metadata
+- diagnostics include stable codes, severity, entry/target context, safe next command, and recovery action
 
 Recently promoted manifest v2 targeted-review behavior on `main`:
 - manifest v2 `--entry` and `--entries-file` selectors for check, pull, and push
@@ -119,7 +121,7 @@ Those surfaces continue to use their own command families.
 - make v2 `sync push` preview by default; allow `--apply` only with sidecar metadata from v2 pull
 - treat default successful v2 push as making sidecars stale; the next safe command is `sync pull --apply`
 - allow `sync push --apply --refresh-sidecars` as the explicit opt-in to refresh sidecar metadata to the post-push base, limited to selected successfully applied entries when selectors are used
-- expose v2 recovery diagnostics as structured output and review metadata only, so operators get self-contained recovery context without adding mutation semantics
+- expose v2 recovery diagnostics as structured metadata only, so operators get self-contained recovery context without adding mutation semantics
 - keep create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply out of scope
 - keep the v1 validation-session manifest lane available only for repo-backed validation artifacts that need pull/push sync
 
@@ -141,7 +143,7 @@ Keep these boundaries:
 - curated doc families stay config-backed and explicit
 - repo sync stays selective
 - manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
-- manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, retries, semantic consistency checks, transaction semantics, or generic batch apply
+- manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - UI automation stays narrow, explicit, Chromium-only, and non-default
 

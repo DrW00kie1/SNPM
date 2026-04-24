@@ -14,6 +14,13 @@ import {
 import { pullRunbookBody } from "./project-pages.mjs";
 import { buildPullPageMetadata } from "./page-metadata.mjs";
 import { pullValidationSessionFile } from "./validation-sessions.mjs";
+import {
+  buildManifestV2LocalFileFailureDiagnostic,
+  buildManifestV2PreflightFailureDiagnostic,
+  buildManifestV2PullCollisionDiagnostic,
+  buildManifestV2PullRemoteFailureDiagnostic,
+  buildManifestV2PullWriteFailureDiagnostic,
+} from "./manifest-sync-diagnostics.mjs";
 import { resolveManifestSyncSelection } from "./manifest-selection.mjs";
 
 function toErrorMessage(error) {
@@ -81,7 +88,65 @@ function buildTopLevelFailure(entry, error) {
   return `${entry.kind} "${target}" (${entry.file}): ${toErrorMessage(error)}`;
 }
 
-function buildErrorEntry(descriptor, error) {
+function buildPullFailureDiagnostic(
+  descriptor,
+  error,
+  {
+    code,
+    phase = "preflight",
+    partialWrites,
+    state,
+    targetPath,
+  } = {},
+) {
+  if (code === "manifest-v2-pull-path-collision") {
+    return buildManifestV2PullCollisionDiagnostic({
+      descriptor,
+      error,
+      state,
+      targetPath,
+    });
+  }
+
+  if (code === "manifest-v2-pull-write-failed") {
+    return buildManifestV2PullWriteFailureDiagnostic({
+      descriptor,
+      error,
+      partialWrites,
+      state,
+      targetPath,
+    });
+  }
+
+  if (error && typeof error === "object" && "code" in error) {
+    return buildManifestV2LocalFileFailureDiagnostic({
+      command: "sync-pull",
+      descriptor,
+      error,
+      state: { phase, ...state },
+      targetPath,
+    });
+  }
+
+  if (/Unsupported manifest v2 sync pull kind|missing readRemote|must return metadata|must return markdown/i.test(toErrorMessage(error))) {
+    return buildManifestV2PreflightFailureDiagnostic({
+      command: "sync-pull",
+      descriptor,
+      error,
+      state: { phase, ...state },
+      targetPath,
+    });
+  }
+
+  return buildManifestV2PullRemoteFailureDiagnostic({
+    descriptor,
+    error,
+    state: { phase, ...state },
+    targetPath,
+  });
+}
+
+function buildErrorEntry(descriptor, error, diagnosticOptions) {
   return {
     ...buildEntryBase(descriptor),
     status: "error",
@@ -89,6 +154,7 @@ function buildErrorEntry(descriptor, error) {
     diff: "",
     applied: false,
     failure: toErrorMessage(error),
+    diagnostics: [buildPullFailureDiagnostic(descriptor, error, diagnosticOptions)],
   };
 }
 
@@ -212,6 +278,11 @@ function buildSummary({ manifest, authMode, entries, failures, selectionMetadata
     failures,
     entries,
   };
+
+  const diagnostics = entries.flatMap((entry) => Array.isArray(entry.diagnostics) ? entry.diagnostics : []);
+  if (diagnostics.length > 0) {
+    summary.diagnostics = diagnostics;
+  }
 
   if (selectionMetadata) {
     Object.assign(summary, selectionMetadata);
@@ -472,7 +543,12 @@ async function preflightManifestEntries({
     try {
       const collisionFailures = collisions.get(index);
       if (collisionFailures?.size > 0) {
-        throw new Error(Array.from(collisionFailures).join(" "));
+        const error = new Error(Array.from(collisionFailures).join(" "));
+        error.diagnosticOptions = {
+          code: "manifest-v2-pull-path-collision",
+          phase: "path-collision",
+        };
+        throw error;
       }
 
       const adapter = requireAdapter(descriptor.entry, adapters);
@@ -487,7 +563,7 @@ async function preflightManifestEntries({
         requireMetadata,
       }));
     } catch (error) {
-      entries.push(buildErrorEntry(descriptor, error));
+      entries.push(buildErrorEntry(descriptor, error, error?.diagnosticOptions));
       failures.push(buildTopLevelFailure(descriptor.entry, error));
     }
   }
@@ -568,6 +644,15 @@ export async function pullManifestV2SyncManifest({
         status: "error",
         applied: false,
         failure,
+        diagnostics: [buildPullFailureDiagnostic(descriptor, new Error(failure), {
+          code: "manifest-v2-pull-write-failed",
+          phase: "write",
+          partialWrites: [...partialWrites],
+          state: {
+            partialWriteCount: partialWrites.length,
+          },
+          targetPath: entry.targetPath,
+        })],
       });
       failures.push(buildTopLevelFailure(descriptor.entry, new Error(failure)));
 
