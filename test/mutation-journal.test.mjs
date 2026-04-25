@@ -103,6 +103,31 @@ test("buildMutationJournalEntry records operational metadata only", () => {
   assert.equal(serialized.includes("ntn_secret"), false);
 });
 
+test("buildMutationJournalEntry for secret-bearing commands excludes body and raw diff text", () => {
+  const entry = buildMutationJournalEntry({
+    command: "secret-record-push",
+    surface: "secret-record",
+    timestamp: "04-25-2026 12:00:00",
+    result: {
+      applied: true,
+      authMode: "project-token",
+      diff: "diff --git a b\n@@\n-old-super-secret-value\n+new-super-secret-value\n",
+      pageId: "secret-page",
+      targetPath: "Projects > SNPM > Access > App & Backend > GEMINI_API_KEY",
+      currentBodyMarkdown: "## Raw Value\nold-super-secret-value\n",
+      nextBodyMarkdown: "## Raw Value\nnew-super-secret-value\n",
+    },
+  });
+
+  const serialized = JSON.stringify(entry);
+  assert.equal(entry.command, "secret-record-push");
+  assert.equal(entry.surface, "secret-record");
+  assert.match(entry.diff.hash, /^[a-f0-9]{64}$/);
+  assert.equal(serialized.includes("old-super-secret-value"), false);
+  assert.equal(serialized.includes("new-super-secret-value"), false);
+  assert.equal(serialized.includes("## Raw Value"), false);
+});
+
 test("recordMutationJournalEntry appends ndjson and list honors limit", () => {
   const writes = [];
   const dirs = [];

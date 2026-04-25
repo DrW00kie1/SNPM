@@ -7,6 +7,8 @@ const OPT_REVIEW_OUTPUT = "--review-output <dir>";
 const OPT_OUTPUT_DIR = "--output-dir <dir>";
 const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
+const OPT_RAW_SECRET_OUTPUT = "--raw-secret-output";
+const OPT_ALLOW_REPO_SECRET_OUTPUT = "--allow-repo-secret-output";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
@@ -68,6 +70,25 @@ const SYNC_CAPABILITY_METADATA = {
     diagnosticNonGoals: ["rollback", "automatic-retries", "semantic-consistency-checks", "transaction-semantics", "generic-batch-apply"],
   },
 };
+
+const SECRET_OUTPUT_CAPABILITY_METADATA = {
+  secretOutput: "redacted-by-default",
+  rawSecretOutput: "explicit-raw-secret-output-flag",
+  repoSecretOutputGuard: ".snpm/secrets-or-allow-repo-secret-output",
+  reviewOutputRedaction: "secret-bearing-surfaces-redacted",
+};
+
+const SECRET_REVIEW_NOTES = [
+  "Secret-bearing Access output is redacted in terminal diffs and review artifacts by default.",
+  "Inputs containing the SNPM redaction marker are rejected so redacted pull output cannot overwrite a live secret.",
+];
+
+const SECRET_PULL_NOTES = [
+  "Secret-bearing Access pulls are redacted by default and do not write metadata sidecars because redacted files are not push-ready editing bases.",
+  "Use --raw-secret-output only when an explicit raw local copy is required. Raw output inside this repo is allowed under .snpm/secrets/ or with --allow-repo-secret-output.",
+  "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
+  "Raw pulls write <output>.snpm-meta.json by default; use --metadata-output to override or when streaming raw markdown to stdout.",
+];
 
 function createCommandSpec({
   canonical,
@@ -881,9 +902,11 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs secret-record create --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md',
-          'npm run secret-record-create -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --apply',
+          'node src/cli.mjs secret-record create --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file -',
+          'npm run secret-record-create -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "adopt",
@@ -905,12 +928,14 @@ const COMPOUND_COMMAND_SPECS = [
           'node src/cli.mjs secret-record adopt --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY"',
           'npm run secret-record-adopt -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "pull",
         summary: "Pull a managed project secret record to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--raw-secret-output] [--allow-repo-secret-output] [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -920,17 +945,17 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_RAW_SECRET_OUTPUT,
+          OPT_ALLOW_REPO_SECRET_OUTPUT,
           OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs secret-record pull --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output -',
-          'npm run secret-record-pull -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret.md',
+          'npm run secret-record-pull -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output .snpm/secrets/secret-record.md --raw-secret-output',
         ],
-        notes: [
-          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
-          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
-        ],
+        notes: SECRET_PULL_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "diff",
@@ -951,9 +976,11 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs secret-record diff --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --explain',
-          'npm run secret-record-diff -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --review-output review',
+          'node src/cli.mjs secret-record diff --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --explain',
+          'npm run secret-record-diff -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --review-output review',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "push",
@@ -976,12 +1003,14 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs secret-record push --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md',
-          'npm run secret-record-push -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret.md --apply',
+          'node src/cli.mjs secret-record push --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md',
+          'npm run secret-record-push -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --apply',
         ],
         notes: [
           "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
+          ...SECRET_REVIEW_NOTES,
         ],
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "edit",
@@ -1005,6 +1034,8 @@ const COMPOUND_COMMAND_SPECS = [
           'node src/cli.mjs secret-record edit --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY"',
           'npm run secret-record-edit -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
     ],
   }),
@@ -1029,9 +1060,11 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs access-token create --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md',
-          'npm run access-token-create -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --apply',
+          'node src/cli.mjs access-token create --project "SNPM" --domain "App & Backend" --title "Project Token" --file -',
+          'npm run access-token-create -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "adopt",
@@ -1053,12 +1086,14 @@ const COMPOUND_COMMAND_SPECS = [
           'node src/cli.mjs access-token adopt --project "SNPM" --domain "App & Backend" --title "Project Token"',
           'npm run access-token-adopt -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "pull",
         summary: "Pull a managed project access-token record to a file or stream the markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--raw-secret-output] [--allow-repo-secret-output] [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -1068,17 +1103,17 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
+          OPT_RAW_SECRET_OUTPUT,
+          OPT_ALLOW_REPO_SECRET_OUTPUT,
           OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs access-token pull --project "SNPM" --domain "App & Backend" --title "Project Token" --output -',
-          'npm run access-token-pull -- --project "SNPM" --domain "App & Backend" --title "Project Token" --output token.md',
+          'npm run access-token-pull -- --project "SNPM" --domain "App & Backend" --title "Project Token" --output .snpm/secrets/access-token.md --raw-secret-output',
         ],
-        notes: [
-          "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
-          "Pull writes <output>.snpm-meta.json by default; use --metadata-output to override or when streaming markdown to stdout.",
-        ],
+        notes: SECRET_PULL_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "diff",
@@ -1099,9 +1134,11 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs access-token diff --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --explain',
-          'npm run access-token-diff -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --review-output review',
+          'node src/cli.mjs access-token diff --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --explain',
+          'npm run access-token-diff -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --review-output review',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "push",
@@ -1124,12 +1161,14 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_WORKSPACE,
         ],
         examples: [
-          'node src/cli.mjs access-token push --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md',
-          'npm run access-token-push -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file token.md --apply',
+          'node src/cli.mjs access-token push --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md',
+          'npm run access-token-push -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --apply',
         ],
         notes: [
           "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
+          ...SECRET_REVIEW_NOTES,
         ],
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
       {
         name: "edit",
@@ -1153,6 +1192,8 @@ const COMPOUND_COMMAND_SPECS = [
           'node src/cli.mjs access-token edit --project "SNPM" --domain "App & Backend" --title "Project Token"',
           'npm run access-token-edit -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
         ],
+        notes: SECRET_REVIEW_NOTES,
+        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
       },
     ],
   }),
@@ -1996,6 +2037,10 @@ function copyOptionalCapabilityFields(target, spec) {
     "diagnosticNonGoals",
     "supportedScaffoldKinds",
     "scaffoldTargets",
+    "secretOutput",
+    "rawSecretOutput",
+    "repoSecretOutputGuard",
+    "reviewOutputRedaction",
   ];
 
   for (const field of optionalFields) {

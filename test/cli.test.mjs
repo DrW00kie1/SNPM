@@ -295,6 +295,25 @@ test("npm run examples in help capabilities have registered package scripts", ()
   }
 });
 
+test("secret-bearing access help and capabilities document redacted local output", () => {
+  const secretPull = findCommandHelp("secret-record pull");
+  const tokenPull = findCommandHelp("access-token pull");
+  const capabilities = buildCapabilityMap();
+  const secretPullCapability = capabilities.commands.find((command) => command.canonical === "secret-record pull");
+
+  assert.ok(secretPull);
+  assert.ok(tokenPull);
+  assert.match(commandText(secretPull), /--raw-secret-output/);
+  assert.match(commandText(secretPull), /--allow-repo-secret-output/);
+  assert.match(commandText(secretPull), /redacted by default/i);
+  assert.match(commandText(secretPull), /\.snpm\/secrets/);
+  assert.match(commandText(tokenPull), /--raw-secret-output/);
+  assert.equal(secretPullCapability.secretOutput, "redacted-by-default");
+  assert.equal(secretPullCapability.rawSecretOutput, "explicit-raw-secret-output-flag");
+  assert.equal(secretPullCapability.repoSecretOutputGuard, ".snpm/secrets-or-allow-repo-secret-output");
+  assert.equal(secretPullCapability.reviewOutputRedaction, "secret-bearing-surfaces-redacted");
+});
+
 test("sync check, pull, and push help document manifest v2 boundaries", () => {
   const checkResult = runCli(["sync", "check", "--help"]);
   const pullResult = runCli(["sync", "pull", "--help"]);
@@ -709,6 +728,24 @@ test("parseArgs supports access-domain and nested record subcommands", () => {
   assert.equal(tokenParsed.command, "access-token adopt");
   assert.equal(tokenParsed.options.domain, "App & Backend");
   assert.equal(tokenParsed.options.apply, true);
+
+  const rawPullParsed = parseArgs([
+    "secret-record",
+    "pull",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "GEMINI_API_KEY",
+    "--output",
+    ".snpm/secrets/secret-record.md",
+    "--raw-secret-output",
+    "--allow-repo-secret-output",
+  ]);
+  assert.equal(rawPullParsed.command, "secret-record pull");
+  assert.equal(rawPullParsed.options["raw-secret-output"], true);
+  assert.equal(rawPullParsed.options["allow-repo-secret-output"], true);
 });
 
 test("parseArgs supports build-record subcommands", () => {
@@ -992,6 +1029,23 @@ test("cli scaffold-docs help prints registry-only command help", () => {
   assert.match(result.stdout, /never mutates Notion directly/);
   assert.doesNotMatch(result.stdout, /--apply/);
   assert.equal(result.stderr, "");
+});
+
+test("cli secret-bearing pull help documents raw-output guardrails", () => {
+  const secretResult = runCli(["secret-record", "pull", "--help"]);
+  const tokenResult = runCli(["access-token", "pull", "--help"]);
+
+  assert.equal(secretResult.status, 0);
+  assert.match(secretResult.stdout, /--raw-secret-output/);
+  assert.match(secretResult.stdout, /--allow-repo-secret-output/);
+  assert.match(secretResult.stdout, /redacted by default/i);
+  assert.match(secretResult.stdout, /\.snpm\/secrets/);
+  assert.equal(secretResult.stderr, "");
+
+  assert.equal(tokenResult.status, 0);
+  assert.match(tokenResult.stdout, /--raw-secret-output/);
+  assert.match(tokenResult.stdout, /redacted by default/i);
+  assert.equal(tokenResult.stderr, "");
 });
 
 test("cli capabilities prints JSON only", () => {

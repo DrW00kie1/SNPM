@@ -33,14 +33,14 @@ How to use it:
 - Why it exists: teams stored canonical secrets in the right place before SNPM had a first-class secret-record flow.
 - Exact next command: `npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN`
 - Manual steps: none.
-- Verify afterward: rerun `doctor`, then `secret-record-pull` or `secret-record-diff`.
+- Verify afterward: rerun `doctor`, then prefer `secret-record-edit` for changes. Use `secret-record-pull --raw-secret-output --output .snpm/secrets/secret-record.md` only when an explicit raw local editing base is required.
 
 ### `unmanaged-access-token`
 - Detected when: a token page exists under an Access domain but is not managed yet.
 - Why it exists: the project-local token is already stored canonically in Notion, but it predates the managed token record contract.
 - Exact next command: `npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" --project-token-env PROJECT_NAME_NOTION_TOKEN`
 - Manual steps: none.
-- Verify afterward: rerun `doctor`, then `access-token-pull` or `access-token-diff`.
+- Verify afterward: rerun `doctor`, then prefer `access-token-edit` for changes. Use `access-token-pull --raw-secret-output --output .snpm/secrets/access-token.md` only when an explicit raw local editing base is required.
 
 ### `project-token-not-checked`
 - Detected when: `doctor` found actionable project-local work, but you did not provide `--project-token-env`.

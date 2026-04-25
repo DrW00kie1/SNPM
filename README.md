@@ -221,12 +221,14 @@ Access workflow:
 ```bash
 npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run access-domain-adopt -- --project "Project Name" --title "Legacy Access Domain" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output .snpm/secrets/secret-record.md --raw-secret-output --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run secret-record-edit -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\access
 ```
+
+`secret-record-*` and `access-token-*` are secret-bearing surfaces. Pulls are redacted by default and do not create push-ready sidecars unless `--raw-secret-output` is explicit. Keep exceptional raw local copies under gitignored `.snpm/secrets/`; terminal diffs and `--review-output` artifacts are redacted by default.
 
 Managed-doc workflow on `main`:
 

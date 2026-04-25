@@ -26,6 +26,7 @@ Supported on the current active line:
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
+- redacted-by-default local output and review artifacts for `secret-record-*` and `access-token-*`; raw local exports require `--raw-secret-output`
 - EOF-stable managed-page round-trips
 - manifest v2 `sync check` for read-only mixed-surface comparison
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata

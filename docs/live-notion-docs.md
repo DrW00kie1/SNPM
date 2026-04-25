@@ -96,6 +96,7 @@ For low-ceremony edits on supported operational surfaces, prefer the editor-back
 
 Use `--explain` when you need the auth-mode, target-resolution, child-page, and normalization reasoning before apply.
 Use `--review-output <dir>` when you need review artifacts without making the repo the source of truth.
+For `secret-record-*` and `access-token-*`, review artifacts and terminal diffs are redacted by default; use `.snpm/secrets/` plus `--raw-secret-output` only for explicit raw local secret exports.
 
 If `doc-adopt` finds no managed divider, it wraps the current full page body under a new managed-doc header.
 

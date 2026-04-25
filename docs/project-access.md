@@ -56,42 +56,45 @@ npm run access-domain-push -- --project "Project Name" --title "App & Backend" -
 Secret record commands:
 
 ```bash
-npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output .snpm/secrets/secret-record.md --raw-secret-output --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 ```
 
 Access token commands:
 
 ```bash
-npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output .snpm/secrets/access-token.md --raw-secret-output --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run access-token-diff -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run access-token-push -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 ```
 
 Managed workflow rules:
 
 - use `create` for new managed pages
 - use `adopt` only for existing headerless pages
-- use the pulled file as the editing base before later `diff` or `push`
+- prefer `secret-record-edit` and `access-token-edit` for normal changes because the editable file stays in an OS temp directory and is removed afterward
+- use `.snpm/secrets/` only for exceptional raw local editing bases; the directory is gitignored
+- default `secret-record-pull` and `access-token-pull` output is redacted and is not push-ready
 - if a domain page does not exist, create or adopt the domain first
 - SNPM-managed Access records stay inside `Projects > <Project> > Access`
 
-Pipe-friendly core-band path:
+Pipe-friendly raw core-band path:
 
 ```bash
-npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output - --project-token-env PROJECT_NAME_NOTION_TOKEN \
+npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output - --raw-secret-output --project-token-env PROJECT_NAME_NOTION_TOKEN \
   | npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file - --project-token-env PROJECT_NAME_NOTION_TOKEN
 ```
 
 Core-band stdin/stdout rules:
-- use `--output -` on Access pull commands to stream the managed body to stdout
+- use `--output - --raw-secret-output` on secret-bearing Access pull commands only when the shell pipeline intentionally handles raw secret text
 - use `--file -` on Access create, diff, and push commands to read markdown from stdin
 - when `--output -` is used, SNPM writes the markdown body to stdout and the structured success metadata to stderr so shell pipelines stay clean
+- terminal diffs and `--review-output` artifacts for secret-bearing Access records are redacted by default
 
 ## Body Ownership
 

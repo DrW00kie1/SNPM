@@ -286,10 +286,13 @@ test("recommend routes managed access tokens to pull diff push commands", async 
   assert.equal(result.ok, true);
   assert.equal(result.recommendedHome, "notion");
   assert.equal(result.targetPath, "Projects > SNPM > Access > App & Backend > Project Token");
-  assert.equal(result.nextCommands.length, 3);
-  assert.match(result.nextCommands[0].command, /npm run access-token-pull/);
-  assert.match(result.nextCommands[1].command, /npm run access-token-diff/);
-  assert.match(result.nextCommands[2].command, /npm run access-token-push/);
+  assert.equal(result.nextCommands.length, 4);
+  assert.match(result.nextCommands[0].command, /npm run access-token-edit/);
+  assert.match(result.nextCommands[1].command, /npm run access-token-pull/);
+  assert.match(result.nextCommands[1].command, /\.snpm\/secrets\/access-token\.md/);
+  assert.match(result.nextCommands[1].command, /--raw-secret-output/);
+  assert.match(result.nextCommands[2].command, /npm run access-token-diff/);
+  assert.match(result.nextCommands[3].command, /npm run access-token-push/);
   assert.equal("migrationGuidance" in result, false);
 });
 

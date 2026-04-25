@@ -10,6 +10,7 @@ import {
   inferDocSurface,
   writeReviewArtifacts,
 } from "../src/commands/operational-output.mjs";
+import { SECRET_REDACTION_MARKER } from "../src/commands/secret-output-safety.mjs";
 
 test("inferDocSurface distinguishes project, template, and workspace docs", () => {
   assert.equal(inferDocSurface({ projectName: "SNPM", docPath: "Root > Overview" }), "project-docs");
@@ -81,6 +82,49 @@ test("writeReviewArtifacts writes markdown snapshots plus metadata", () => {
     assert.equal(metadata.authMode, "project-token");
     assert.equal(metadata.managedState, "managed");
     assert.equal(metadata.timestamp, "04-06-2026 18:00:00");
+  } finally {
+    rmSync(reviewDir, { recursive: true, force: true });
+  }
+});
+
+test("writeReviewArtifacts redacts secret-bearing access snapshots and diffs", () => {
+  const reviewDir = mkdtempSync(path.join(tmpdir(), "snpm-secret-review-"));
+
+  try {
+    const explanation = buildOperationalExplanation({
+      surface: "secret-record",
+      targetPath: "Projects > SNPM > Access > App & Backend > GEMINI_API_KEY",
+      authMode: "project-token",
+      managedState: "managed",
+      preserveChildren: true,
+      normalizationsApplied: ["lf-newlines"],
+      warnings: [],
+    });
+
+    writeReviewArtifacts({
+      reviewOutput: reviewDir,
+      command: "secret-record-diff",
+      surface: "secret-record",
+      result: {
+        targetPath: "Projects > SNPM > Access > App & Backend > GEMINI_API_KEY",
+        authMode: "project-token",
+        currentBodyMarkdown: "## Raw Value\n```plain text\nold-secret\n```\n",
+        nextBodyMarkdown: "## Raw Value\n```plain text\nnew-secret\n```\n",
+        diff: "diff --git a/current.md b/next.md\n@@\n-old-secret\n+new-secret\n",
+        hasDiff: true,
+        applied: false,
+      },
+      explanation,
+      nowTimestampImpl: () => "04-25-2026 12:00:00",
+    });
+
+    assert.doesNotMatch(readFileSync(path.join(reviewDir, "current.md"), "utf8"), /old-secret/);
+    assert.doesNotMatch(readFileSync(path.join(reviewDir, "next.md"), "utf8"), /new-secret/);
+    assert.doesNotMatch(readFileSync(path.join(reviewDir, "diff.patch"), "utf8"), /old-secret|new-secret/);
+    assert.match(readFileSync(path.join(reviewDir, "current.md"), "utf8"), new RegExp(SECRET_REDACTION_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    const metadata = JSON.parse(readFileSync(path.join(reviewDir, "metadata.json"), "utf8"));
+    assert.equal(metadata.redaction.applied, true);
+    assert.equal(metadata.redaction.marker, SECRET_REDACTION_MARKER);
   } finally {
     rmSync(reviewDir, { recursive: true, force: true });
   }

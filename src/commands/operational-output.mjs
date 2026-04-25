@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { nowTimestamp } from "../notion/env.mjs";
+import { isSecretBearingSurface, redactSecretResultForOutput } from "./secret-output-safety.mjs";
 
 const TARGET_RESOLUTION_DETAILS = {
   planning: "Approved planning pages resolve only under Projects > <Project> > Planning and stay limited to the four planning pages.",
@@ -87,27 +88,37 @@ export function writeReviewArtifacts({
   nowTimestampImpl = nowTimestamp,
 }) {
   mkdirSyncImpl(reviewOutput, { recursive: true });
+  const safeResult = redactSecretResultForOutput(result, { surface });
+  const redaction = isSecretBearingSurface(surface)
+    ? safeResult.redaction
+    : null;
 
   const currentPath = path.join(reviewOutput, "current.md");
   const nextPath = path.join(reviewOutput, "next.md");
   const diffPath = path.join(reviewOutput, "diff.patch");
   const metadataPath = path.join(reviewOutput, "metadata.json");
 
-  writeFileSyncImpl(currentPath, result.currentBodyMarkdown || "", "utf8");
-  writeFileSyncImpl(nextPath, result.nextBodyMarkdown || result.currentBodyMarkdown || "", "utf8");
-  writeFileSyncImpl(diffPath, result.diff || "", "utf8");
+  writeFileSyncImpl(currentPath, safeResult.currentBodyMarkdown || "", "utf8");
+  writeFileSyncImpl(nextPath, safeResult.nextBodyMarkdown || safeResult.currentBodyMarkdown || "", "utf8");
+  writeFileSyncImpl(diffPath, safeResult.diff || "", "utf8");
   writeFileSyncImpl(metadataPath, `${JSON.stringify({
     command,
     surface,
-    targetPath: result.targetPath,
-    authMode: result.authMode,
+    targetPath: safeResult.targetPath,
+    authMode: safeResult.authMode,
     managedState: explanation.managedState,
-    timestamp: result.timestamp || nowTimestampImpl(),
+    timestamp: safeResult.timestamp || nowTimestampImpl(),
     normalizationsApplied: explanation.normalizationsApplied,
     preserveChildren: explanation.preserveChildren,
-    warnings: explanation.warnings,
-    hasDiff: result.hasDiff,
-    applied: result.applied || false,
+    warnings: [
+      ...new Set([
+        ...(Array.isArray(explanation.warnings) ? explanation.warnings : []),
+        ...(Array.isArray(safeResult.warnings) ? safeResult.warnings : []),
+      ]),
+    ],
+    hasDiff: safeResult.hasDiff,
+    applied: safeResult.applied || false,
+    ...(redaction ? { redaction } : {}),
   }, null, 2)}\n`, "utf8");
 
   return {

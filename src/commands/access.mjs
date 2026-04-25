@@ -1,3 +1,6 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   adoptAccessDomain,
@@ -18,6 +21,24 @@ import {
 } from "../notion/project-pages.mjs";
 import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
+import {
+  assertNoSecretRedactionMarkers,
+  redactSecretMarkdown,
+  validateSecretPullOutputPolicy,
+} from "./secret-output-safety.mjs";
+
+function ensureOutputParentDirectory(outputPath, { mkdirSyncImpl = mkdirSync } = {}) {
+  if (outputPath === "-") {
+    return;
+  }
+
+  const directory = path.dirname(outputPath);
+  if (!directory || directory === ".") {
+    return;
+  }
+
+  mkdirSyncImpl(directory, { recursive: true });
+}
 
 export async function runAccessDomainCreate({
   apply = false,
@@ -187,6 +208,7 @@ export async function runSecretRecordCreate({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record create" });
 
   return createSecretRecord({
     apply,
@@ -219,16 +241,30 @@ export async function runSecretRecordAdopt({
 }
 
 export async function runSecretRecordPull({
+  allowRepoSecretOutput = false,
   domainTitle,
+  loadWorkspaceConfigImpl = loadWorkspaceConfig,
   metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
+  pullSecretRecordBodyImpl = pullSecretRecordBody,
+  rawSecretOutput = false,
   title,
+  workspaceConfig,
   workspaceName = "infrastructure-hq",
+  mkdirSyncImpl = mkdirSync,
+  writeCommandMetadataSidecarImpl = writeCommandMetadataSidecar,
+  writeCommandOutputImpl = writeCommandOutput,
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const result = await pullSecretRecordBody({
+  const outputPolicy = validateSecretPullOutputPolicy({
+    outputPath,
+    metadataOutputPath,
+    rawSecretOutput,
+    allowRepoSecretOutput,
+  });
+  const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
+  const result = await pullSecretRecordBodyImpl({
     config,
     domainTitle,
     projectName,
@@ -238,9 +274,13 @@ export async function runSecretRecordPull({
     workspaceName,
   });
 
-  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
-  const metadataResult = outputPath !== "-" || metadataOutputPath
-    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+  const outputBodyMarkdown = outputPolicy.raw
+    ? result.bodyMarkdown
+    : redactSecretMarkdown(result.bodyMarkdown);
+  ensureOutputParentDirectory(outputPath, { mkdirSyncImpl });
+  const outputResult = writeCommandOutputImpl(outputPath, outputBodyMarkdown);
+  const metadataResult = outputPolicy.raw && (outputPath !== "-" || metadataOutputPath)
+    ? writeCommandMetadataSidecarImpl(outputPath, result.metadata, { metadataPath: metadataOutputPath })
     : { metadataPath: null };
 
   return {
@@ -249,6 +289,9 @@ export async function runSecretRecordPull({
     targetPath: result.targetPath,
     authMode: result.authMode,
     metadata: result.metadata,
+    redacted: outputPolicy.redacted,
+    rawSecretOutput: outputPolicy.raw,
+    warnings: outputPolicy.warnings,
     ...metadataResult,
     ...outputResult,
   };
@@ -264,6 +307,7 @@ export async function runSecretRecordDiff({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record diff" });
 
   return diffSecretRecordBody({
     config,
@@ -287,6 +331,7 @@ export async function runSecretRecordPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record push" });
   const metadata = apply
     ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
     : undefined;
@@ -335,7 +380,10 @@ export async function runSecretRecordEdit({
       apply: shouldApply,
       config,
       domainTitle,
-      fileBodyMarkdown,
+      fileBodyMarkdown: (() => {
+        assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record edit" });
+        return fileBodyMarkdown;
+      })(),
       metadata,
       projectName,
       projectTokenEnv,
@@ -357,6 +405,7 @@ export async function runAccessTokenCreate({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token create" });
 
   return createAccessToken({
     apply,
@@ -389,16 +438,30 @@ export async function runAccessTokenAdopt({
 }
 
 export async function runAccessTokenPull({
+  allowRepoSecretOutput = false,
   domainTitle,
+  loadWorkspaceConfigImpl = loadWorkspaceConfig,
   metadataOutputPath,
   outputPath,
   projectName,
   projectTokenEnv,
+  pullAccessTokenBodyImpl = pullAccessTokenBody,
+  rawSecretOutput = false,
   title,
+  workspaceConfig,
   workspaceName = "infrastructure-hq",
+  mkdirSyncImpl = mkdirSync,
+  writeCommandMetadataSidecarImpl = writeCommandMetadataSidecar,
+  writeCommandOutputImpl = writeCommandOutput,
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const result = await pullAccessTokenBody({
+  const outputPolicy = validateSecretPullOutputPolicy({
+    outputPath,
+    metadataOutputPath,
+    rawSecretOutput,
+    allowRepoSecretOutput,
+  });
+  const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
+  const result = await pullAccessTokenBodyImpl({
     config,
     domainTitle,
     projectName,
@@ -408,9 +471,13 @@ export async function runAccessTokenPull({
     workspaceName,
   });
 
-  const outputResult = writeCommandOutput(outputPath, result.bodyMarkdown);
-  const metadataResult = outputPath !== "-" || metadataOutputPath
-    ? writeCommandMetadataSidecar(outputPath, result.metadata, { metadataPath: metadataOutputPath })
+  const outputBodyMarkdown = outputPolicy.raw
+    ? result.bodyMarkdown
+    : redactSecretMarkdown(result.bodyMarkdown);
+  ensureOutputParentDirectory(outputPath, { mkdirSyncImpl });
+  const outputResult = writeCommandOutputImpl(outputPath, outputBodyMarkdown);
+  const metadataResult = outputPolicy.raw && (outputPath !== "-" || metadataOutputPath)
+    ? writeCommandMetadataSidecarImpl(outputPath, result.metadata, { metadataPath: metadataOutputPath })
     : { metadataPath: null };
 
   return {
@@ -419,6 +486,9 @@ export async function runAccessTokenPull({
     targetPath: result.targetPath,
     authMode: result.authMode,
     metadata: result.metadata,
+    redacted: outputPolicy.redacted,
+    rawSecretOutput: outputPolicy.raw,
+    warnings: outputPolicy.warnings,
     ...metadataResult,
     ...outputResult,
   };
@@ -434,6 +504,7 @@ export async function runAccessTokenDiff({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token diff" });
 
   return diffAccessTokenBody({
     config,
@@ -457,6 +528,7 @@ export async function runAccessTokenPush({
 }) {
   const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = await readCommandInput(filePath);
+  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token push" });
   const metadata = apply
     ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
     : undefined;
@@ -505,7 +577,10 @@ export async function runAccessTokenEdit({
       apply: shouldApply,
       config,
       domainTitle,
-      fileBodyMarkdown,
+      fileBodyMarkdown: (() => {
+        assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token edit" });
+        return fileBodyMarkdown;
+      })(),
       metadata,
       projectName,
       projectTokenEnv,

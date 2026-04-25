@@ -48,6 +48,7 @@ import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
 import { buildOperationalExplanation, buildOperationalPayload, inferDocSurface, writeReviewArtifacts } from "./commands/operational-output.mjs";
+import { redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
 import {
   runRunbookAdopt,
   runRunbookCreate,
@@ -83,7 +84,7 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["apply", "bundle", "explain", "refresh-sidecars"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 export {
   commandUsage,
@@ -292,15 +293,16 @@ function buildOperationalResponse({
   explain = false,
   reviewOutput = null,
 }) {
+  const outputResult = redactSecretResultForOutput(result, { surface });
   const explanation = buildOperationalExplanation({
     surface,
-    targetPath: result.targetPath,
-    authMode: result.authMode,
-    authScope: result.authScope,
-    managedState: result.managedState,
-    preserveChildren: result.preserveChildren,
-    normalizationsApplied: result.normalizationsApplied || [],
-    warnings: result.warnings || [],
+    targetPath: outputResult.targetPath,
+    authMode: outputResult.authMode,
+    authScope: outputResult.authScope,
+    managedState: outputResult.managedState,
+    preserveChildren: outputResult.preserveChildren,
+    normalizationsApplied: outputResult.normalizationsApplied || [],
+    warnings: outputResult.warnings || [],
     includeDetails: explain,
   });
 
@@ -309,7 +311,7 @@ function buildOperationalResponse({
       reviewOutput,
       command,
       surface,
-      result,
+      result: outputResult,
       explanation,
     })
     : null;
@@ -317,7 +319,7 @@ function buildOperationalResponse({
   return buildOperationalPayload({
     command,
     surface,
-    result,
+    result: outputResult,
     explain,
     reviewArtifacts,
     explanation,
@@ -860,8 +862,9 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "secret-record-create", surface: "secret-record" });
-    printDiff(result.diff);
-    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-create", result }), null, 2));
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    printDiff(outputResult.diff);
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-create", result: outputResult }), null, 2));
     return;
   }
 
@@ -874,8 +877,9 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "secret-record-adopt", surface: "secret-record" });
-    printDiff(result.diff);
-    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-adopt", result }), null, 2));
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    printDiff(outputResult.diff);
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "secret-record-adopt", result: outputResult }), null, 2));
     return;
   }
 
@@ -886,6 +890,8 @@ async function main() {
       metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
+      rawSecretOutput: options["raw-secret-output"] === true,
+      allowRepoSecretOutput: options["allow-repo-secret-output"] === true,
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
@@ -906,11 +912,12 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-diff",
       surface: "secret-record",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));
@@ -928,11 +935,12 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "secret-record-push", surface: "secret-record" });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-push",
       surface: "secret-record",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));
@@ -949,11 +957,12 @@ async function main() {
       workspaceName,
       editorCommand: process.env.EDITOR,
     }), { command: "secret-record-edit", surface: "secret-record" });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "secret-record-edit",
       surface: "secret-record",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));
@@ -970,8 +979,9 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "access-token-create", surface: "access-token" });
-    printDiff(result.diff);
-    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-create", result }), null, 2));
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    printDiff(outputResult.diff);
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-create", result: outputResult }), null, 2));
     return;
   }
 
@@ -984,8 +994,9 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "access-token-adopt", surface: "access-token" });
-    printDiff(result.diff);
-    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-adopt", result }), null, 2));
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    printDiff(outputResult.diff);
+    console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-adopt", result: outputResult }), null, 2));
     return;
   }
 
@@ -996,6 +1007,8 @@ async function main() {
       metadataOutputPath: options["metadata-output"],
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
+      rawSecretOutput: options["raw-secret-output"] === true,
+      allowRepoSecretOutput: options["allow-repo-secret-output"] === true,
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
@@ -1016,11 +1029,12 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-diff",
       surface: "access-token",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));
@@ -1038,11 +1052,12 @@ async function main() {
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
       workspaceName,
     }), { command: "access-token-push", surface: "access-token" });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-push",
       surface: "access-token",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));
@@ -1059,11 +1074,12 @@ async function main() {
       workspaceName,
       editorCommand: process.env.EDITOR,
     }), { command: "access-token-edit", surface: "access-token" });
-    printDiff(result.diff);
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    printDiff(outputResult.diff);
     console.log(JSON.stringify(buildOperationalResponse({
       command: "access-token-edit",
       surface: "access-token",
-      result,
+      result: outputResult,
       explain: options.explain === true,
       reviewOutput: options["review-output"],
     }), null, 2));

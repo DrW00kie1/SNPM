@@ -627,7 +627,7 @@ function routeAccessRecord({
     return Promise.resolve(findAccessRecordTarget(projectName, domainTitle, title, config, client)).then((recordTarget) => {
       if (!recordTarget) {
         const scriptName = recordType === "token" ? "access-token-create" : "secret-record-create";
-        const fileName = recordType === "token" ? "access-token.md" : "secret-record.md";
+        const fileName = recordType === "token" ? ".snpm/secrets/access-token.md" : ".snpm/secrets/secret-record.md";
         return createBaseResult({
           diagnosis,
           intent: recordType,
@@ -651,7 +651,7 @@ function routeAccessRecord({
       }
 
       const prefix = recordType === "token" ? "access-token" : "secret-record";
-      const fileName = recordType === "token" ? "access-token.md" : "secret-record.md";
+      const fileName = recordType === "token" ? ".snpm/secrets/access-token.md" : ".snpm/secrets/secret-record.md";
       return createBaseResult({
         diagnosis,
         intent: recordType,
@@ -662,13 +662,21 @@ function routeAccessRecord({
         warnings: baseWarnings,
         nextCommands: [
           buildCommandStep(
-            buildCommand(`${prefix}-pull`, [
+            buildCommand(`${prefix}-edit`, [
+              ["project", projectName],
+              ["domain", domainTitle],
+              ["title", title],
+            ], projectTokenEnv),
+            `Use the temp editor-backed ${recordType === "token" ? "access token" : "secret record"} loop for the normal workflow.`,
+          ),
+          buildCommandStep(
+            `${buildCommand(`${prefix}-pull`, [
               ["project", projectName],
               ["domain", domainTitle],
               ["title", title],
               ["output", fileName],
-            ], projectTokenEnv),
-            `Pull the current managed ${recordType === "token" ? "access token" : "secret record"} body before editing.`,
+            ], projectTokenEnv)} --raw-secret-output`,
+            `Only if a raw local file is required, pull it into the gitignored .snpm/secrets quarantine path.`,
           ),
           buildCommandStep(
             buildCommand(`${prefix}-diff`, [
