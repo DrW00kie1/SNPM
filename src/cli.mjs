@@ -18,12 +18,14 @@ import {
   runAccessTokenCreate,
   runAccessTokenDiff,
   runAccessTokenEdit,
+  runAccessTokenExec,
   runAccessTokenPull,
   runAccessTokenPush,
   runSecretRecordAdopt,
   runSecretRecordCreate,
   runSecretRecordDiff,
   runSecretRecordEdit,
+  runSecretRecordExec,
   runSecretRecordPull,
   runSecretRecordPush,
 } from "./commands/access.mjs";
@@ -48,7 +50,8 @@ import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
 import { buildOperationalExplanation, buildOperationalPayload, inferDocSurface, writeReviewArtifacts } from "./commands/operational-output.mjs";
-import { redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
+import { RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE, redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
+import { SECRET_EXEC_LEAK_WARNING } from "./commands/secret-exec.mjs";
 import {
   runRunbookAdopt,
   runRunbookCreate,
@@ -84,8 +87,18 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
+const SECRET_EXEC_COMMANDS = new Set([
+  "access-token exec",
+  "access-token-exec",
+  "secret-record exec",
+  "secret-record-exec",
+]);
+const DEPRECATED_RAW_SECRET_FLAGS = [
+  "raw-secret-output",
+  "allow-repo-secret-output",
+];
 export {
   commandUsage,
   findCommandHelp,
@@ -210,6 +223,65 @@ function parsePositiveInteger(value, defaultValue) {
   return parsed;
 }
 
+function isSecretExecCommand(command) {
+  return SECRET_EXEC_COMMANDS.has(command);
+}
+
+function formatFlagList(flags) {
+  return flags.map((flag) => `--${flag}`).join(" and ");
+}
+
+function failIfDeprecatedRawSecretFlags(options) {
+  const usedFlags = DEPRECATED_RAW_SECRET_FLAGS.filter((flag) => options[flag] === true);
+  if (usedFlags.length === 0) {
+    return;
+  }
+
+  throw new Error(`${formatFlagList(usedFlags)} ${usedFlags.length === 1 ? "is" : "are"} unsupported: ${RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE}`);
+}
+
+function requirePassthroughArgs(options, command) {
+  if (!Array.isArray(options.passthroughArgs) || options.passthroughArgs.length === 0) {
+    throw new Error(`Provide a child command after -- for ${command}.`);
+  }
+
+  return options.passthroughArgs;
+}
+
+function writeExecResult(result) {
+  if (!result || typeof result !== "object") {
+    return;
+  }
+
+  if (typeof result.stdout === "string" && result.stdout.length > 0) {
+    process.stdout.write(result.stdout);
+  }
+
+  if (typeof result.stderr === "string" && result.stderr.length > 0) {
+    process.stderr.write(result.stderr);
+  }
+
+  if (result.spawnError) {
+    process.stderr.write(`SNPM child process failed: ${result.spawnError}\n`);
+  }
+
+  if (result.leakDetected) {
+    process.stderr.write(`${SECRET_EXEC_LEAK_WARNING}\n`);
+  }
+
+  const exitCode = Number.isInteger(result.exitCode)
+    ? result.exitCode
+    : Number.isInteger(result.status)
+      ? result.status
+      : result.ok === false
+        ? 1
+        : undefined;
+
+  if (exitCode !== undefined) {
+    process.exitCode = exitCode;
+  }
+}
+
 export function parseArgs(argv) {
   const commandParts = [];
   let index = 0;
@@ -222,15 +294,25 @@ export function parseArgs(argv) {
   const command = commandParts.join(" ");
   const rest = argv.slice(index);
   const options = {};
+  const passthroughIndex = rest.indexOf("--");
+  const optionTokens = passthroughIndex === -1 ? rest : rest.slice(0, passthroughIndex);
 
-  for (let i = 0; i < rest.length; i += 1) {
-    const token = rest[i];
+  if (passthroughIndex !== -1) {
+    if (!isSecretExecCommand(command)) {
+      throw new Error("The literal -- child-command delimiter is only supported for secret-record exec and access-token exec.");
+    }
+
+    options.passthroughArgs = rest.slice(passthroughIndex + 1);
+  }
+
+  for (let i = 0; i < optionTokens.length; i += 1) {
+    const token = optionTokens[i];
     if (!token.startsWith("--")) {
       throw new Error(`Unexpected argument: ${token}`);
     }
 
     const key = token.slice(2);
-    const value = rest[i + 1];
+    const value = optionTokens[i + 1];
 
     if ((!value || value.startsWith("--")) && BOOLEAN_FLAGS.has(key)) {
       options[key] = true;
@@ -371,6 +453,7 @@ async function main() {
   }
 
   const { command, options } = parseArgs(argv);
+  failIfDeprecatedRawSecretFlags(options);
   if (!command) {
     printUsage();
     return;
@@ -856,7 +939,7 @@ async function main() {
     const result = finalizeMutationResult(await runSecretRecordCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      filePath: options.file,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -883,6 +966,23 @@ async function main() {
     return;
   }
 
+  if (command === "secret-record exec" || command === "secret-record-exec") {
+    const passthroughArgs = requirePassthroughArgs(options, "secret-record exec");
+    const result = await runSecretRecordExec({
+      childArgs: passthroughArgs,
+      cwd: options.cwd,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      envName: options["env-name"],
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      stdinSecret: options["stdin-secret"] === true,
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    writeExecResult(result);
+    return;
+  }
+
   if (command === "secret-record pull" || command === "secret-record-pull") {
     const result = await runSecretRecordPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
@@ -904,68 +1004,17 @@ async function main() {
   }
 
   if (command === "secret-record diff" || command === "secret-record-diff") {
-    const result = await runSecretRecordDiff({
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-    });
-    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "secret-record-diff",
-      surface: "secret-record",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runSecretRecordDiff();
     return;
   }
 
   if (command === "secret-record push" || command === "secret-record-push") {
-    const result = finalizeMutationResult(await runSecretRecordPush({
-      apply: options.apply === true,
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
-      metadataPath: options.metadata,
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-    }), { command: "secret-record-push", surface: "secret-record" });
-    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "secret-record-push",
-      surface: "secret-record",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runSecretRecordPush();
     return;
   }
 
   if (command === "secret-record edit" || command === "secret-record-edit") {
-    const result = finalizeMutationResult(await runSecretRecordEdit({
-      apply: options.apply === true,
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-      editorCommand: process.env.EDITOR,
-    }), { command: "secret-record-edit", surface: "secret-record" });
-    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "secret-record-edit",
-      surface: "secret-record",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runSecretRecordEdit();
     return;
   }
 
@@ -973,7 +1022,7 @@ async function main() {
     const result = finalizeMutationResult(await runAccessTokenCreate({
       apply: options.apply === true,
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
+      filePath: options.file,
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
       title: requireOption(options, "title", 'Provide --title "Record Title".'),
@@ -1000,6 +1049,23 @@ async function main() {
     return;
   }
 
+  if (command === "access-token exec" || command === "access-token-exec") {
+    const passthroughArgs = requirePassthroughArgs(options, "access-token exec");
+    const result = await runAccessTokenExec({
+      childArgs: passthroughArgs,
+      cwd: options.cwd,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      envName: options["env-name"],
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      stdinSecret: options["stdin-secret"] === true,
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    });
+    writeExecResult(result);
+    return;
+  }
+
   if (command === "access-token pull" || command === "access-token-pull") {
     const result = await runAccessTokenPull({
       domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
@@ -1021,68 +1087,17 @@ async function main() {
   }
 
   if (command === "access-token diff" || command === "access-token-diff") {
-    const result = await runAccessTokenDiff({
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-    });
-    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "access-token-diff",
-      surface: "access-token",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runAccessTokenDiff();
     return;
   }
 
   if (command === "access-token push" || command === "access-token-push") {
-    const result = finalizeMutationResult(await runAccessTokenPush({
-      apply: options.apply === true,
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      filePath: requireOption(options, "file", "Provide --file <path|->."),
-      metadataPath: options.metadata,
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-    }), { command: "access-token-push", surface: "access-token" });
-    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "access-token-push",
-      surface: "access-token",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runAccessTokenPush();
     return;
   }
 
   if (command === "access-token edit" || command === "access-token-edit") {
-    const result = finalizeMutationResult(await runAccessTokenEdit({
-      apply: options.apply === true,
-      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      title: requireOption(options, "title", 'Provide --title "Record Title".'),
-      workspaceName,
-      editorCommand: process.env.EDITOR,
-    }), { command: "access-token-edit", surface: "access-token" });
-    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
-    printDiff(outputResult.diff);
-    console.log(JSON.stringify(buildOperationalResponse({
-      command: "access-token-edit",
-      surface: "access-token",
-      result: outputResult,
-      explain: options.explain === true,
-      reviewOutput: options["review-output"],
-    }), null, 2));
+    await runAccessTokenEdit();
     return;
   }
 

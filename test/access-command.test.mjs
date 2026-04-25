@@ -5,9 +5,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import {
+  runAccessTokenCreate,
+  runAccessTokenDiff,
+  runAccessTokenEdit,
   runAccessTokenPull,
+  runAccessTokenPush,
+  runSecretRecordCreate,
   runSecretRecordDiff,
+  runSecretRecordEdit,
   runSecretRecordPull,
+  runSecretRecordPush,
 } from "../src/commands/access.mjs";
 import { SECRET_REDACTION_MARKER } from "../src/commands/secret-output-safety.mjs";
 
@@ -42,7 +49,7 @@ const PULL_RESULT = {
   },
 };
 
-test("secret-record pull writes redacted output by default and no metadata sidecar", async () => {
+test("secret-record pull writes redacted output only and no metadata sidecar", async () => {
   const writes = [];
   const metadataWrites = [];
 
@@ -72,38 +79,13 @@ test("secret-record pull writes redacted output by default and no metadata sidec
   assert.equal(metadataWrites.length, 0);
 });
 
-test("secret-record raw stdout pull can write explicit metadata sidecar", async () => {
-  const writes = [];
-  const metadataWrites = [];
+test("secret-bearing pull rejects metadata sidecars and deprecated raw output flags before pulling", async () => {
+  let pulled = false;
+  const pullImpl = async () => {
+    pulled = true;
+    return PULL_RESULT;
+  };
 
-  const result = await runSecretRecordPull({
-    domainTitle: "App & Backend",
-    outputPath: "-",
-    metadataOutputPath: "secret.md.snpm-meta.json",
-    projectName: "SNPM",
-    rawSecretOutput: true,
-    title: "GEMINI_API_KEY",
-    workspaceConfig: {},
-    pullSecretRecordBodyImpl: async () => PULL_RESULT,
-    writeCommandOutputImpl: (outputPath, bodyText) => {
-      writes.push({ outputPath, bodyText });
-      return { outputPath, wroteToStdout: true };
-    },
-    writeCommandMetadataSidecarImpl: (outputPath, metadata, options) => {
-      metadataWrites.push({ outputPath, metadata, options });
-      return { metadataPath: options.metadataPath };
-    },
-  });
-
-  assert.equal(result.redacted, false);
-  assert.equal(result.rawSecretOutput, true);
-  assert.equal(result.metadataPath, "secret.md.snpm-meta.json");
-  assert.match(writes[0].bodyText, /sk-live-secret/);
-  assert.equal(metadataWrites.length, 1);
-  assert.deepEqual(metadataWrites[0].metadata, PULL_RESULT.metadata);
-});
-
-test("access-token redacted pull rejects metadata sidecar request", async () => {
   await assert.rejects(
     () => runAccessTokenPull({
       domainTitle: "App & Backend",
@@ -112,27 +94,83 @@ test("access-token redacted pull rejects metadata sidecar request", async () => 
       projectName: "SNPM",
       title: "Project Token",
       workspaceConfig: {},
-      pullAccessTokenBodyImpl: async () => PULL_RESULT,
+      pullAccessTokenBodyImpl: pullImpl,
     }),
-    /metadata-output requires --raw-secret-output/i,
+    /metadata-output is unsupported/i,
   );
+  assert.equal(pulled, false);
+
+  await assert.rejects(
+    () => runSecretRecordPull({
+      domainTitle: "App & Backend",
+      outputPath: "-",
+      projectName: "SNPM",
+      rawSecretOutput: true,
+      allowRepoSecretOutput: true,
+      title: "GEMINI_API_KEY",
+      workspaceConfig: {},
+      pullSecretRecordBodyImpl: pullImpl,
+    }),
+    /raw secret export is unsupported/i,
+  );
+  assert.equal(pulled, false);
 });
 
-test("secret-record diff rejects redacted-marker input before Notion work", async () => {
-  const tempDir = mkdtempSync(path.join(tmpdir(), "snpm-redacted-input-"));
-  const filePath = path.join(tempDir, "secret.md");
+test("secret-record and access-token diff push edit are disabled before local file or Notion work", async () => {
+  const disabledCases = [
+    ["secret-record diff", () => runSecretRecordDiff({ filePath: "missing.md" })],
+    ["secret-record push", () => runSecretRecordPush({ apply: true, filePath: "missing.md" })],
+    ["secret-record edit", () => runSecretRecordEdit({
+      openEditorImpl: () => {
+        throw new Error("editor should not open");
+      },
+    })],
+    ["access-token diff", () => runAccessTokenDiff({ filePath: "missing.md" })],
+    ["access-token push", () => runAccessTokenPush({ apply: true, filePath: "missing.md" })],
+    ["access-token edit", () => runAccessTokenEdit({
+      openEditorImpl: () => {
+        throw new Error("editor should not open");
+      },
+    })],
+  ];
+
+  for (const [command, run] of disabledCases) {
+    await assert.rejects(
+      run,
+      new RegExp(`${command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} is disabled\\..*Local Markdown edit/diff/push is disabled`, "i"),
+    );
+  }
+});
+
+test("secret-bearing create rejects non-placeholder local Raw Value input", async () => {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "snpm-raw-secret-create-"));
+  const secretPath = path.join(tempDir, "secret.md");
+  const tokenPath = path.join(tempDir, "token.md");
 
   try {
-    writeFileSync(filePath, `## Raw Value\n${SECRET_REDACTION_MARKER}\n`, "utf8");
+    writeFileSync(secretPath, "## Raw Value\n```plain text\nsk-live-secret\n```\n", "utf8");
+    writeFileSync(tokenPath, "## Raw Value\n```plain text\nntn_live_secret\n```\n", "utf8");
 
     await assert.rejects(
-      () => runSecretRecordDiff({
+      () => runSecretRecordCreate({
         domainTitle: "App & Backend",
-        filePath,
+        filePath: secretPath,
         projectName: "SNPM",
         title: "GEMINI_API_KEY",
       }),
-      /Refusing to use redacted secret output for secret-record diff/i,
+      (error) => /Refusing local raw secret value for secret-record create/i.test(error.message)
+        && !error.message.includes("sk-live-secret"),
+    );
+
+    await assert.rejects(
+      () => runAccessTokenCreate({
+        domainTitle: "App & Backend",
+        filePath: tokenPath,
+        projectName: "SNPM",
+        title: "Project Token",
+      }),
+      (error) => /Refusing local raw secret value for access-token create/i.test(error.message)
+        && !error.message.includes("ntn_live_secret"),
     );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });

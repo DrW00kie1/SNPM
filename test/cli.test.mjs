@@ -295,23 +295,52 @@ test("npm run examples in help capabilities have registered package scripts", ()
   }
 });
 
-test("secret-bearing access help and capabilities document redacted local output", () => {
+test("secret-bearing access help and capabilities document consume-only output", () => {
   const secretPull = findCommandHelp("secret-record pull");
+  const secretExec = findCommandHelp("secret-record exec");
   const tokenPull = findCommandHelp("access-token pull");
+  const tokenExec = findCommandHelp("access-token exec");
+  const secretDiff = findCommandHelp("secret-record diff");
   const capabilities = buildCapabilityMap();
   const secretPullCapability = capabilities.commands.find((command) => command.canonical === "secret-record pull");
+  const secretExecCapability = capabilities.commands.find((command) => command.canonical === "secret-record exec");
+  const secretDiffCapability = capabilities.commands.find((command) => command.canonical === "secret-record diff");
 
   assert.ok(secretPull);
+  assert.ok(secretExec);
   assert.ok(tokenPull);
-  assert.match(commandText(secretPull), /--raw-secret-output/);
-  assert.match(commandText(secretPull), /--allow-repo-secret-output/);
-  assert.match(commandText(secretPull), /redacted by default/i);
-  assert.match(commandText(secretPull), /\.snpm\/secrets/);
-  assert.match(commandText(tokenPull), /--raw-secret-output/);
-  assert.equal(secretPullCapability.secretOutput, "redacted-by-default");
-  assert.equal(secretPullCapability.rawSecretOutput, "explicit-raw-secret-output-flag");
-  assert.equal(secretPullCapability.repoSecretOutputGuard, ".snpm/secrets-or-allow-repo-secret-output");
+  assert.ok(tokenExec);
+  assert.ok(secretDiff);
+  assert.doesNotMatch(commandText(secretPull), /--raw-secret-output/);
+  assert.doesNotMatch(commandText(secretPull), /--allow-repo-secret-output/);
+  assert.doesNotMatch(commandText(secretPull), /\.snpm\/secrets/);
+  assert.match(commandText(secretPull), /redacted-only|redacted by default/i);
+  assert.match(commandText(secretPull), /exec/i);
+  assert.doesNotMatch(commandText(tokenPull), /--raw-secret-output/);
+  assert.match(commandText(secretExec), /--env-name ENV_NAME/);
+  assert.match(commandText(secretExec), /--stdin-secret/);
+  assert.match(commandText(secretExec), / -- <command> \[args\.\.\.\]/);
+  assert.match(commandText(tokenExec), /--env-name ENV_NAME/);
+  assert.match(commandText(secretDiff), /Unsupported/i);
+  assert.equal(secretPullCapability.secretOutput, "redacted-only");
+  assert.equal(secretPullCapability.rawSecretExport, "unsupported");
+  assert.equal(secretPullCapability.localSecretPersistence, "unsupported");
+  assert.equal(secretPullCapability.rawSecretOutput, undefined);
+  assert.equal(secretPullCapability.repoSecretOutputGuard, undefined);
   assert.equal(secretPullCapability.reviewOutputRedaction, "secret-bearing-surfaces-redacted");
+  assert.equal(secretPullCapability.secretConsumption, "exec-only");
+  assert.equal(secretExecCapability.secretConsumption, "exec-only");
+  assert.deepEqual(secretExecCapability.secretDeliveryModes, ["env", "stdin"]);
+  assert.equal(secretExecCapability.childProcessExecution, "shell-false");
+  assert.equal(secretExecCapability.childOutputRedaction, "exact-secret-redaction-fail-closed");
+  assert.equal(secretDiffCapability.supported, false);
+  assert.equal(secretDiffCapability.replacementCommand, "secret-record exec");
+  assert.equal(packageJson.scripts["secret-record-exec"], "node src/cli.mjs secret-record exec");
+  assert.equal(packageJson.scripts["access-token-exec"], "node src/cli.mjs access-token exec");
+  assert.equal(packageJson.scripts["secret-record-diff"], "node src/cli.mjs secret-record diff");
+  assert.equal(packageJson.scripts["secret-record-push"], "node src/cli.mjs secret-record push");
+  assert.equal(packageJson.scripts["access-token-diff"], "node src/cli.mjs access-token diff");
+  assert.equal(packageJson.scripts["access-token-push"], "node src/cli.mjs access-token push");
 });
 
 test("sync check, pull, and push help document manifest v2 boundaries", () => {
@@ -728,7 +757,9 @@ test("parseArgs supports access-domain and nested record subcommands", () => {
   assert.equal(tokenParsed.command, "access-token adopt");
   assert.equal(tokenParsed.options.domain, "App & Backend");
   assert.equal(tokenParsed.options.apply, true);
+});
 
+test("parseArgs recognizes deprecated raw secret flags for runtime rejection", () => {
   const rawPullParsed = parseArgs([
     "secret-record",
     "pull",
@@ -746,6 +777,65 @@ test("parseArgs supports access-domain and nested record subcommands", () => {
   assert.equal(rawPullParsed.command, "secret-record pull");
   assert.equal(rawPullParsed.options["raw-secret-output"], true);
   assert.equal(rawPullParsed.options["allow-repo-secret-output"], true);
+});
+
+test("parseArgs supports literal passthrough only for secret exec commands", () => {
+  const secretParsed = parseArgs([
+    "secret-record",
+    "exec",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "GEMINI_API_KEY",
+    "--env-name",
+    "GEMINI_API_KEY",
+    "--cwd",
+    "C:\\repo",
+    "--",
+    "node",
+    "-e",
+    "console.log(process.env.GEMINI_API_KEY)",
+    "--child-flag",
+  ]);
+  const tokenParsed = parseArgs([
+    "access-token-exec",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "SNPM_NOTION_TOKEN",
+    "--stdin-secret",
+    "--",
+    "--version",
+  ]);
+
+  assert.equal(secretParsed.command, "secret-record exec");
+  assert.equal(secretParsed.options.project, "SNPM");
+  assert.equal(secretParsed.options["env-name"], "GEMINI_API_KEY");
+  assert.equal(secretParsed.options.cwd, "C:\\repo");
+  assert.deepEqual(secretParsed.options.passthroughArgs, [
+    "node",
+    "-e",
+    "console.log(process.env.GEMINI_API_KEY)",
+    "--child-flag",
+  ]);
+  assert.equal(tokenParsed.command, "access-token-exec");
+  assert.equal(tokenParsed.options["stdin-secret"], true);
+  assert.deepEqual(tokenParsed.options.passthroughArgs, ["--version"]);
+
+  assert.throws(
+    () => parseArgs([
+      "doctor",
+      "--project",
+      "SNPM",
+      "--",
+      "node",
+    ]),
+    /literal -- child-command delimiter is only supported for secret-record exec and access-token exec/i,
+  );
 });
 
 test("parseArgs supports build-record subcommands", () => {
@@ -1031,21 +1121,104 @@ test("cli scaffold-docs help prints registry-only command help", () => {
   assert.equal(result.stderr, "");
 });
 
-test("cli secret-bearing pull help documents raw-output guardrails", () => {
+test("cli secret-bearing help documents consume-only exec guidance", () => {
   const secretResult = runCli(["secret-record", "pull", "--help"]);
+  const secretExecResult = runCli(["secret-record", "exec", "--help"]);
   const tokenResult = runCli(["access-token", "pull", "--help"]);
+  const tokenExecResult = runCli(["access-token", "exec", "--help"]);
 
   assert.equal(secretResult.status, 0);
-  assert.match(secretResult.stdout, /--raw-secret-output/);
-  assert.match(secretResult.stdout, /--allow-repo-secret-output/);
-  assert.match(secretResult.stdout, /redacted by default/i);
-  assert.match(secretResult.stdout, /\.snpm\/secrets/);
+  assert.doesNotMatch(secretResult.stdout, /--raw-secret-output/);
+  assert.doesNotMatch(secretResult.stdout, /--allow-repo-secret-output/);
+  assert.match(secretResult.stdout, /redacted-only|redacted by default/i);
+  assert.match(secretResult.stdout, /exec/i);
   assert.equal(secretResult.stderr, "");
 
   assert.equal(tokenResult.status, 0);
-  assert.match(tokenResult.stdout, /--raw-secret-output/);
-  assert.match(tokenResult.stdout, /redacted by default/i);
+  assert.doesNotMatch(tokenResult.stdout, /--raw-secret-output/);
+  assert.match(tokenResult.stdout, /redacted-only|redacted by default/i);
   assert.equal(tokenResult.stderr, "");
+
+  assert.equal(secretExecResult.status, 0);
+  assert.match(secretExecResult.stdout, /Command: secret-record exec/);
+  assert.match(secretExecResult.stdout, /--env-name ENV_NAME/);
+  assert.match(secretExecResult.stdout, /--stdin-secret/);
+  assert.match(secretExecResult.stdout, / -- <command> \[args\.\.\.\]/);
+  assert.equal(secretExecResult.stderr, "");
+
+  assert.equal(tokenExecResult.status, 0);
+  assert.match(tokenExecResult.stdout, /Command: access-token exec/);
+  assert.match(tokenExecResult.stdout, /--env-name ENV_NAME/);
+  assert.equal(tokenExecResult.stderr, "");
+});
+
+test("cli deprecated raw secret flags fail with exec-only guidance", () => {
+  const secretResult = runCli([
+    "secret-record",
+    "pull",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "GEMINI_API_KEY",
+    "--output",
+    "-",
+    "--raw-secret-output",
+  ]);
+  const tokenResult = runCli([
+    "access-token",
+    "pull",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "SNPM_NOTION_TOKEN",
+    "--output",
+    "-",
+    "--allow-repo-secret-output",
+  ]);
+
+  assert.equal(secretResult.status, 1);
+  assert.equal(secretResult.stdout, "");
+  assert.match(secretResult.stderr, /--raw-secret-output (?:is no longer supported|is unsupported)/i);
+  assert.match(secretResult.stderr, /secret-record exec(?: or |\/)access-token exec/i);
+
+  assert.equal(tokenResult.status, 1);
+  assert.equal(tokenResult.stdout, "");
+  assert.match(tokenResult.stderr, /--allow-repo-secret-output (?:is no longer supported|is unsupported)/i);
+  assert.match(tokenResult.stderr, /raw secret export/i);
+});
+
+test("cli rejects passthrough delimiter outside exec and requires exec child command", () => {
+  const nonExecResult = runCli([
+    "doctor",
+    "--project",
+    "SNPM",
+    "--",
+    "node",
+  ]);
+  const execWithoutChild = runCli([
+    "secret-record",
+    "exec",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "GEMINI_API_KEY",
+    "--env-name",
+    "GEMINI_API_KEY",
+  ]);
+
+  assert.equal(nonExecResult.status, 1);
+  assert.equal(nonExecResult.stdout, "");
+  assert.match(nonExecResult.stderr, /literal -- child-command delimiter is only supported/i);
+
+  assert.equal(execWithoutChild.status, 1);
+  assert.equal(execWithoutChild.stdout, "");
+  assert.match(execWithoutChild.stderr, /Provide a child command after -- for secret-record exec/i);
 });
 
 test("cli capabilities prints JSON only", () => {

@@ -27,8 +27,8 @@ Stable baseline on `main`:
 - `runbook-edit`
 - `doc-edit`
 - `access-domain-edit`
-- `secret-record-edit`
-- `access-token-edit`
+- `secret-record-exec`
+- `access-token-exec`
 - `verify-workspace-docs`
 - `doctor`
 - `recommend`

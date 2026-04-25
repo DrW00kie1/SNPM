@@ -256,7 +256,7 @@ test("recommend routes unmanaged secret records to adopt first with migration gu
   assert.equal(result.migrationGuidance[0].patternId, "unmanaged-secret-record");
 });
 
-test("recommend routes managed access tokens to pull diff push commands", async () => {
+test("recommend routes managed access tokens to exec and redacted pull commands", async () => {
   const childrenMap = makeBaseChildrenMap();
   childrenMap.set("access", [
     childPage("app-backend", "App & Backend"),
@@ -286,13 +286,15 @@ test("recommend routes managed access tokens to pull diff push commands", async 
   assert.equal(result.ok, true);
   assert.equal(result.recommendedHome, "notion");
   assert.equal(result.targetPath, "Projects > SNPM > Access > App & Backend > Project Token");
-  assert.equal(result.nextCommands.length, 4);
-  assert.match(result.nextCommands[0].command, /npm run access-token-edit/);
+  assert.equal(result.nextCommands.length, 2);
+  assert.match(result.nextCommands[0].command, /npm run access-token-exec/);
+  assert.match(result.nextCommands[0].command, /--env-name "PROJECT_TOKEN"/);
+  assert.match(result.nextCommands[0].command, /-- <command> \[args\.\.\.\]/);
   assert.match(result.nextCommands[1].command, /npm run access-token-pull/);
-  assert.match(result.nextCommands[1].command, /\.snpm\/secrets\/access-token\.md/);
-  assert.match(result.nextCommands[1].command, /--raw-secret-output/);
-  assert.match(result.nextCommands[2].command, /npm run access-token-diff/);
-  assert.match(result.nextCommands[3].command, /npm run access-token-push/);
+  assert.match(result.nextCommands[1].command, /access-token-redacted\.md/);
+  assert.doesNotMatch(result.nextCommands[1].command, /--raw-secret-output/);
+  assert.doesNotMatch(result.nextCommands.map((step) => step.command).join("\n"), /\.snpm\/secrets/);
+  assert.doesNotMatch(result.nextCommands.map((step) => step.command).join("\n"), /access-token-(?:edit|diff|push)/);
   assert.equal("migrationGuidance" in result, false);
 });
 

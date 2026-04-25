@@ -12,9 +12,8 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, and policy-pack foundation promoted through `4b010d5`
-- promotion trace branches: `codex/manifest-v2-diagnostics-parity`, `codex/project-policy-packs`
-- active feature branch: `codex/bootstrap-doc-scaffolding` adds preview-first starter doc scaffolding without adding hidden Notion mutation
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, policy-pack foundation, bootstrap doc scaffolding, and consume-only Access secret handling
+- recent promotion trace branches: `codex/bootstrap-doc-scaffolding`, `codex/access-secret-hardening`
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -25,7 +24,8 @@ Supported narrow-band baseline on `main`:
 - planning-page sync for the four approved planning pages
 - managed runbooks
 - managed Access records
-- low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, and `access-token-edit`
+- low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, and `access-domain-edit`
+- consume-only secret runtime helpers via `secret-record-exec` and `access-token-exec`
 - curated managed docs for:
   - project root docs
   - `Templates > Project Templates` and its non-reserved descendants
@@ -45,7 +45,7 @@ Supported narrow-band baseline on `main`:
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
-Current Sprint 4.2 branch addition:
+Recently promoted bootstrap doc scaffolding:
 - `scaffold-docs` consumes the promoted policy-pack foundation instead of hardcoding a one-off bootstrap shape
 - workspace config can derive starter scaffold policy from the existing fields or declare an explicit optional `policyPack` v1 object for reviewable policy changes
 - optional `policyPack.starterDocScaffold` declares starter documentation drafts for approved project docs and planning pages
@@ -221,14 +221,14 @@ Access workflow:
 ```bash
 npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run access-domain-adopt -- --project "Project Name" --title "Legacy Access Domain" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output .snpm/secrets/secret-record.md --raw-secret-output --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-diff -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run secret-record-push -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run secret-record-edit -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --explain --review-output review\access
+npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record-shell.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record-redacted.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-exec -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --env-name GEMINI_API_KEY --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/use-secret.mjs
+npm run access-token-exec -- --project "Project Name" --domain "App & Backend" --title "Project Token" --stdin-secret --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/read-token-from-stdin.mjs
 ```
 
-`secret-record-*` and `access-token-*` are secret-bearing surfaces. Pulls are redacted by default and do not create push-ready sidecars unless `--raw-secret-output` is explicit. Keep exceptional raw local copies under gitignored `.snpm/secrets/`; terminal diffs and `--review-output` artifacts are redacted by default.
+`secret-record-*` and `access-token-*` are secret-bearing consume-only surfaces. Pulls are redacted-only and do not create sidecars or push-ready editing bases. Raw local export, local markdown diff, push, and edit are unsupported for these records; runtime use goes through `secret-record-exec` or `access-token-exec`, which injects the raw value into one child process and redacts child output.
 
 Managed-doc workflow on `main`:
 

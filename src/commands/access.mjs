@@ -10,22 +10,21 @@ import {
   createAccessToken,
   createSecretRecord,
   diffAccessDomainBody,
-  diffAccessTokenBody,
-  diffSecretRecordBody,
   pullAccessDomainBody,
   pullAccessTokenBody,
   pullSecretRecordBody,
   pushAccessDomainBody,
-  pushAccessTokenBody,
-  pushSecretRecordBody,
 } from "../notion/project-pages.mjs";
 import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
 import {
-  assertNoSecretRedactionMarkers,
+  SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE,
+  assertNoLocalRawSecretValue,
+  extractRawSecretValueFromMarkdown,
   redactSecretMarkdown,
   validateSecretPullOutputPolicy,
 } from "./secret-output-safety.mjs";
+import { runSecretExec } from "./secret-exec.mjs";
 
 function ensureOutputParentDirectory(outputPath, { mkdirSyncImpl = mkdirSync } = {}) {
   if (outputPath === "-") {
@@ -207,8 +206,8 @@ export async function runSecretRecordCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record create" });
+  const fileBodyMarkdown = filePath ? await readCommandInput(filePath) : "";
+  assertNoLocalRawSecretValue(fileBodyMarkdown, { command: "secret-record create" });
 
   return createSecretRecord({
     apply,
@@ -254,11 +253,9 @@ export async function runSecretRecordPull({
   workspaceConfig,
   workspaceName = "infrastructure-hq",
   mkdirSyncImpl = mkdirSync,
-  writeCommandMetadataSidecarImpl = writeCommandMetadataSidecar,
   writeCommandOutputImpl = writeCommandOutput,
 }) {
   const outputPolicy = validateSecretPullOutputPolicy({
-    outputPath,
     metadataOutputPath,
     rawSecretOutput,
     allowRepoSecretOutput,
@@ -274,14 +271,9 @@ export async function runSecretRecordPull({
     workspaceName,
   });
 
-  const outputBodyMarkdown = outputPolicy.raw
-    ? result.bodyMarkdown
-    : redactSecretMarkdown(result.bodyMarkdown);
+  const outputBodyMarkdown = redactSecretMarkdown(result.bodyMarkdown);
   ensureOutputParentDirectory(outputPath, { mkdirSyncImpl });
   const outputResult = writeCommandOutputImpl(outputPath, outputBodyMarkdown);
-  const metadataResult = outputPolicy.raw && (outputPath !== "-" || metadataOutputPath)
-    ? writeCommandMetadataSidecarImpl(outputPath, result.metadata, { metadataPath: metadataOutputPath })
-    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
@@ -290,108 +282,70 @@ export async function runSecretRecordPull({
     authMode: result.authMode,
     metadata: result.metadata,
     redacted: outputPolicy.redacted,
-    rawSecretOutput: outputPolicy.raw,
+    rawSecretOutput: false,
     warnings: outputPolicy.warnings,
-    ...metadataResult,
+    metadataPath: null,
     ...outputResult,
   };
 }
 
-export async function runSecretRecordDiff({
+export async function runSecretRecordExec({
+  childArgs,
+  cwd,
   domainTitle,
-  filePath,
+  env,
+  envName,
+  loadWorkspaceConfigImpl = loadWorkspaceConfig,
   projectName,
   projectTokenEnv,
+  pullSecretRecordBodyImpl = pullSecretRecordBody,
+  spawnSyncImpl,
+  stdinSecret = false,
   title,
+  workspaceConfig,
   workspaceName = "infrastructure-hq",
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record diff" });
-
-  return diffSecretRecordBody({
+  const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
+  const result = await pullSecretRecordBodyImpl({
     config,
     domainTitle,
-    fileBodyMarkdown,
-    projectName,
-    projectTokenEnv,
-    title,
-  });
-}
-
-export async function runSecretRecordPush({
-  apply = false,
-  domainTitle,
-  filePath,
-  metadataPath,
-  projectName,
-  projectTokenEnv,
-  title,
-  workspaceName = "infrastructure-hq",
-}) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record push" });
-  const metadata = apply
-    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
-    : undefined;
-
-  return pushSecretRecordBody({
-    apply,
-    config,
-    domainTitle,
-    fileBodyMarkdown,
-    metadata,
     projectName,
     projectTokenEnv,
     title,
     commandFamily: "secret-record",
     workspaceName,
   });
+  const secretValue = extractRawSecretValueFromMarkdown(result.bodyMarkdown, { command: "secret-record exec" });
+  const execResult = runSecretExec({
+    childArgs,
+    cwd,
+    env,
+    envName,
+    secretValue,
+    spawnSyncImpl,
+    stdinSecret,
+  });
+
+  return {
+    pageId: result.pageId,
+    projectId: result.projectId,
+    targetPath: result.targetPath,
+    authMode: result.authMode,
+    redacted: execResult.leakDetected,
+    ...execResult,
+  };
 }
 
-export async function runSecretRecordEdit({
-  apply = false,
-  domainTitle,
-  projectName,
-  projectTokenEnv,
-  title,
-  workspaceName = "infrastructure-hq",
-  editorCommand,
-  openEditorImpl,
-}) {
-  const config = loadWorkspaceConfig(workspaceName);
+export async function runSecretRecordDiff({} = {}) {
+  throw new Error(`secret-record diff is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
+}
 
-  return runManagedEditLoop({
-    apply,
-    fileLabel: "secret-record.md",
-    editorCommand,
-    openEditorImpl,
-    pullImpl: () => pullSecretRecordBody({
-      config,
-      domainTitle,
-      projectName,
-      projectTokenEnv,
-      title,
-      commandFamily: "secret-record",
-      workspaceName,
-    }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushSecretRecordBody({
-      apply: shouldApply,
-      config,
-      domainTitle,
-      fileBodyMarkdown: (() => {
-        assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "secret-record edit" });
-        return fileBodyMarkdown;
-      })(),
-      metadata,
-      projectName,
-      projectTokenEnv,
-      title,
-      commandFamily: "secret-record",
-      workspaceName,
-    }),
-  });
+export async function runSecretRecordPush({} = {}) {
+  throw new Error(`secret-record push is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
+}
+
+export async function runSecretRecordEdit({} = {}) {
+  throw new Error(`secret-record edit is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
 }
 
 export async function runAccessTokenCreate({
@@ -404,8 +358,8 @@ export async function runAccessTokenCreate({
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token create" });
+  const fileBodyMarkdown = filePath ? await readCommandInput(filePath) : "";
+  assertNoLocalRawSecretValue(fileBodyMarkdown, { command: "access-token create" });
 
   return createAccessToken({
     apply,
@@ -451,11 +405,9 @@ export async function runAccessTokenPull({
   workspaceConfig,
   workspaceName = "infrastructure-hq",
   mkdirSyncImpl = mkdirSync,
-  writeCommandMetadataSidecarImpl = writeCommandMetadataSidecar,
   writeCommandOutputImpl = writeCommandOutput,
 }) {
   const outputPolicy = validateSecretPullOutputPolicy({
-    outputPath,
     metadataOutputPath,
     rawSecretOutput,
     allowRepoSecretOutput,
@@ -471,14 +423,9 @@ export async function runAccessTokenPull({
     workspaceName,
   });
 
-  const outputBodyMarkdown = outputPolicy.raw
-    ? result.bodyMarkdown
-    : redactSecretMarkdown(result.bodyMarkdown);
+  const outputBodyMarkdown = redactSecretMarkdown(result.bodyMarkdown);
   ensureOutputParentDirectory(outputPath, { mkdirSyncImpl });
   const outputResult = writeCommandOutputImpl(outputPath, outputBodyMarkdown);
-  const metadataResult = outputPolicy.raw && (outputPath !== "-" || metadataOutputPath)
-    ? writeCommandMetadataSidecarImpl(outputPath, result.metadata, { metadataPath: metadataOutputPath })
-    : { metadataPath: null };
 
   return {
     pageId: result.pageId,
@@ -487,106 +434,68 @@ export async function runAccessTokenPull({
     authMode: result.authMode,
     metadata: result.metadata,
     redacted: outputPolicy.redacted,
-    rawSecretOutput: outputPolicy.raw,
+    rawSecretOutput: false,
     warnings: outputPolicy.warnings,
-    ...metadataResult,
+    metadataPath: null,
     ...outputResult,
   };
 }
 
-export async function runAccessTokenDiff({
+export async function runAccessTokenExec({
+  childArgs,
+  cwd,
   domainTitle,
-  filePath,
+  env,
+  envName,
+  loadWorkspaceConfigImpl = loadWorkspaceConfig,
   projectName,
   projectTokenEnv,
+  pullAccessTokenBodyImpl = pullAccessTokenBody,
+  spawnSyncImpl,
+  stdinSecret = false,
   title,
+  workspaceConfig,
   workspaceName = "infrastructure-hq",
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token diff" });
-
-  return diffAccessTokenBody({
+  const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
+  const result = await pullAccessTokenBodyImpl({
     config,
     domainTitle,
-    fileBodyMarkdown,
-    projectName,
-    projectTokenEnv,
-    title,
-  });
-}
-
-export async function runAccessTokenPush({
-  apply = false,
-  domainTitle,
-  filePath,
-  metadataPath,
-  projectName,
-  projectTokenEnv,
-  title,
-  workspaceName = "infrastructure-hq",
-}) {
-  const config = loadWorkspaceConfig(workspaceName);
-  const fileBodyMarkdown = await readCommandInput(filePath);
-  assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token push" });
-  const metadata = apply
-    ? readCommandMetadataSidecar(filePath, { metadataPath }).metadata
-    : undefined;
-
-  return pushAccessTokenBody({
-    apply,
-    config,
-    domainTitle,
-    fileBodyMarkdown,
-    metadata,
     projectName,
     projectTokenEnv,
     title,
     commandFamily: "access-token",
     workspaceName,
   });
+  const secretValue = extractRawSecretValueFromMarkdown(result.bodyMarkdown, { command: "access-token exec" });
+  const execResult = runSecretExec({
+    childArgs,
+    cwd,
+    env,
+    envName,
+    secretValue,
+    spawnSyncImpl,
+    stdinSecret,
+  });
+
+  return {
+    pageId: result.pageId,
+    projectId: result.projectId,
+    targetPath: result.targetPath,
+    authMode: result.authMode,
+    redacted: execResult.leakDetected,
+    ...execResult,
+  };
 }
 
-export async function runAccessTokenEdit({
-  apply = false,
-  domainTitle,
-  projectName,
-  projectTokenEnv,
-  title,
-  workspaceName = "infrastructure-hq",
-  editorCommand,
-  openEditorImpl,
-}) {
-  const config = loadWorkspaceConfig(workspaceName);
+export async function runAccessTokenDiff({} = {}) {
+  throw new Error(`access-token diff is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
+}
 
-  return runManagedEditLoop({
-    apply,
-    fileLabel: "access-token.md",
-    editorCommand,
-    openEditorImpl,
-    pullImpl: () => pullAccessTokenBody({
-      config,
-      domainTitle,
-      projectName,
-      projectTokenEnv,
-      title,
-      commandFamily: "access-token",
-      workspaceName,
-    }),
-    pushImpl: ({ apply: shouldApply, fileBodyMarkdown, metadata }) => pushAccessTokenBody({
-      apply: shouldApply,
-      config,
-      domainTitle,
-      fileBodyMarkdown: (() => {
-        assertNoSecretRedactionMarkers(fileBodyMarkdown, { command: "access-token edit" });
-        return fileBodyMarkdown;
-      })(),
-      metadata,
-      projectName,
-      projectTokenEnv,
-      title,
-      commandFamily: "access-token",
-      workspaceName,
-    }),
-  });
+export async function runAccessTokenPush({} = {}) {
+  throw new Error(`access-token push is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
+}
+
+export async function runAccessTokenEdit({} = {}) {
+  throw new Error(`access-token edit is disabled. ${SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE}`);
 }

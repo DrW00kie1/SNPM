@@ -7,8 +7,9 @@ const OPT_REVIEW_OUTPUT = "--review-output <dir>";
 const OPT_OUTPUT_DIR = "--output-dir <dir>";
 const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
-const OPT_RAW_SECRET_OUTPUT = "--raw-secret-output";
-const OPT_ALLOW_REPO_SECRET_OUTPUT = "--allow-repo-secret-output";
+const OPT_ENV_NAME = "--env-name ENV_NAME";
+const OPT_STDIN_SECRET = "--stdin-secret";
+const OPT_CWD = "--cwd <dir>";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
@@ -71,23 +72,59 @@ const SYNC_CAPABILITY_METADATA = {
   },
 };
 
-const SECRET_OUTPUT_CAPABILITY_METADATA = {
-  secretOutput: "redacted-by-default",
-  rawSecretOutput: "explicit-raw-secret-output-flag",
-  repoSecretOutputGuard: ".snpm/secrets-or-allow-repo-secret-output",
+const SECRET_CONSUME_ONLY_CAPABILITY_METADATA = {
+  secretOutput: "redacted-only",
+  rawSecretExport: "unsupported",
+  localSecretPersistence: "unsupported",
   reviewOutputRedaction: "secret-bearing-surfaces-redacted",
+  secretConsumption: "exec-only",
+};
+
+const SECRET_EXEC_CAPABILITY_METADATA = {
+  notionMutation: "none",
+  localFileWrites: "none",
+  journalWrites: "none",
+  secretConsumption: "exec-only",
+  secretDeliveryModes: ["env", "stdin"],
+  rawSecretExport: "unsupported",
+  localSecretPersistence: "none",
+  childProcessExecution: "shell-false",
+  childOutputRedaction: "exact-secret-redaction-fail-closed",
+};
+
+const SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA = {
+  supported: false,
+  supportStatus: "unsupported-secret-consume-only",
+  rawSecretExport: "unsupported",
+  localSecretPersistence: "unsupported",
+  secretConsumption: "exec-only",
 };
 
 const SECRET_REVIEW_NOTES = [
   "Secret-bearing Access output is redacted in terminal diffs and review artifacts by default.",
   "Inputs containing the SNPM redaction marker are rejected so redacted pull output cannot overwrite a live secret.",
+  "Raw local secret export is unsupported; use the exec subcommand for runtime consumption.",
 ];
 
 const SECRET_PULL_NOTES = [
-  "Secret-bearing Access pulls are redacted by default and do not write metadata sidecars because redacted files are not push-ready editing bases.",
-  "Use --raw-secret-output only when an explicit raw local copy is required. Raw output inside this repo is allowed under .snpm/secrets/ or with --allow-repo-secret-output.",
+  "Secret-bearing Access pulls are redacted-only and do not write metadata sidecars because redacted files are not push-ready editing bases.",
+  "Raw local secret export is unsupported; deprecated raw-output flags fail with exec-only guidance.",
   "When a pull command uses --output -, the markdown body is written to stdout and the structured metadata is written to stderr.",
-  "Raw pulls write <output>.snpm-meta.json by default; use --metadata-output to override or when streaming raw markdown to stdout.",
+  "Use the exec subcommand to consume the raw value in a child process without persisting it to a local markdown file.",
+];
+
+const SECRET_EXEC_NOTES = [
+  "Exec extracts exactly one raw value from the managed Notion record in memory and injects it into one child process.",
+  "Use --env-name ENV_NAME to inject the value into the child environment, or --stdin-secret to pass it on stdin.",
+  "The child command must appear after a literal -- delimiter and runs with shell: false.",
+  "SNPM redacts exact secret values from child stdout and stderr and fails closed if redaction was required.",
+  "Exec does not mutate Notion, write local secret files, or append mutation journal entries.",
+];
+
+const SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES = [
+  "Unsupported for secret-bearing Access records under the consume-only model.",
+  "Raw local markdown edit, diff, and push flows are disabled until a metadata-only edit design exists.",
+  "Use the exec subcommand for runtime secret consumption.",
 ];
 
 function createCommandSpec({
@@ -886,27 +923,30 @@ const COMPOUND_COMMAND_SPECS = [
     subcommands: [
       {
         name: "create",
-        summary: "Create a managed project secret record or preview the body diff from a local markdown file.",
+        summary: "Create a managed project secret-record shell from local markdown without persisting raw secret values.",
         usageLines: [
-          'node src/cli.mjs secret-record create --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs secret-record create --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--file <file|->] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--domain "Access Domain Title"',
           '--title "Record Title"',
-          "--file <file|->",
         ],
         optionalFlags: [
+          "--file <file|->",
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs secret-record create --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file -',
-          'npm run secret-record-create -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --apply',
+          'npm run secret-record-create -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record-shell.md --apply',
         ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        notes: [
+          "Create is for record shells or placeholder raw-value content only; non-placeholder local raw values are rejected.",
+          ...SECRET_REVIEW_NOTES,
+        ],
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
       },
       {
         name: "adopt",
@@ -929,13 +969,13 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run secret-record-adopt -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
         ],
         notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
       },
       {
         name: "pull",
-        summary: "Pull a managed project secret record to a file or stream the markdown body to stdout.",
+        summary: "Pull a redacted managed project secret record to a file or stream the redacted markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--raw-secret-output] [--allow-repo-secret-output] [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs secret-record pull --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -945,21 +985,44 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
-          OPT_RAW_SECRET_OUTPUT,
-          OPT_ALLOW_REPO_SECRET_OUTPUT,
-          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs secret-record pull --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output -',
-          'npm run secret-record-pull -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output .snpm/secrets/secret-record.md --raw-secret-output',
+          'npm run secret-record-pull -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record-redacted.md',
         ],
         notes: SECRET_PULL_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
+      },
+      {
+        name: "exec",
+        summary: "Consume a managed project secret record by injecting its raw value into one child process without local export.",
+        usageLines: [
+          'node src/cli.mjs secret-record exec --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" (--env-name ENV_NAME | --stdin-secret) [--cwd <dir>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq] -- <command> [args...]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          `${OPT_ENV_NAME} or ${OPT_STDIN_SECRET}`,
+          "-- <command> [args...]",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_CWD,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'npm run secret-record-exec -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --env-name GEMINI_API_KEY -- node scripts/check-gemini.mjs',
+          'node src/cli.mjs secret-record exec --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --stdin-secret -- node scripts/read-secret-from-stdin.mjs',
+        ],
+        notes: SECRET_EXEC_NOTES,
+        mutationMode: "read-only",
+        capabilityMetadata: SECRET_EXEC_CAPABILITY_METADATA,
       },
       {
         name: "diff",
-        summary: "Diff a managed project secret record against a local markdown file.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown diff is disabled.",
         usageLines: [
           'node src/cli.mjs secret-record diff --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -975,16 +1038,18 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs secret-record diff --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --explain',
-          'npm run secret-record-diff -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --review-output review',
-        ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "secret-record exec",
+        },
       },
       {
         name: "push",
-        summary: "Preview or apply project secret-record updates from a local markdown file.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown push is disabled.",
         usageLines: [
           'node src/cli.mjs secret-record push --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -1002,19 +1067,18 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs secret-record push --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md',
-          'npm run secret-record-push -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --file .snpm/secrets/secret-record.md --apply',
-        ],
-        notes: [
-          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
-          ...SECRET_REVIEW_NOTES,
-        ],
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "secret-record exec",
+        },
       },
       {
         name: "edit",
-        summary: "Open a project secret record in the editor-backed review loop.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown edit is disabled.",
         usageLines: [
           'node src/cli.mjs secret-record edit --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -1030,12 +1094,14 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs secret-record edit --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY"',
-          'npm run secret-record-edit -- --project "SNPM" --domain "App & Backend" --title "GEMINI_API_KEY" --apply',
-        ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "secret-record exec",
+        },
       },
     ],
   }),
@@ -1044,27 +1110,30 @@ const COMPOUND_COMMAND_SPECS = [
     subcommands: [
       {
         name: "create",
-        summary: "Create a managed project access-token record or preview the body diff from a local markdown file.",
+        summary: "Create a managed project access-token shell from local markdown without persisting raw token values.",
         usageLines: [
-          'node src/cli.mjs access-token create --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-token create --project "Project Name" --domain "App & Backend" --title "Project Token" [--file <file|->] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
           '--domain "Access Domain Title"',
           '--title "Record Title"',
-          "--file <file|->",
         ],
         optionalFlags: [
+          "--file <file|->",
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs access-token create --project "SNPM" --domain "App & Backend" --title "Project Token" --file -',
-          'npm run access-token-create -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --apply',
+          'npm run access-token-create -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file access-token-shell.md --apply',
         ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        notes: [
+          "Create is for record shells or placeholder raw-value content only; non-placeholder local raw values are rejected.",
+          ...SECRET_REVIEW_NOTES,
+        ],
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
       },
       {
         name: "adopt",
@@ -1087,13 +1156,13 @@ const COMPOUND_COMMAND_SPECS = [
           'npm run access-token-adopt -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
         ],
         notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
       },
       {
         name: "pull",
-        summary: "Pull a managed project access-token record to a file or stream the markdown body to stdout.",
+        summary: "Pull a redacted managed project access-token record to a file or stream the redacted markdown body to stdout.",
         usageLines: [
-          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--raw-secret-output] [--allow-repo-secret-output] [--metadata-output <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+          'node src/cli.mjs access-token pull --project "Project Name" --domain "App & Backend" --title "Project Token" --output <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           OPT_PROJECT,
@@ -1103,21 +1172,44 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         optionalFlags: [
           OPT_PROJECT_TOKEN,
-          OPT_RAW_SECRET_OUTPUT,
-          OPT_ALLOW_REPO_SECRET_OUTPUT,
-          OPT_METADATA_OUTPUT,
           OPT_WORKSPACE,
         ],
         examples: [
           'node src/cli.mjs access-token pull --project "SNPM" --domain "App & Backend" --title "Project Token" --output -',
-          'npm run access-token-pull -- --project "SNPM" --domain "App & Backend" --title "Project Token" --output .snpm/secrets/access-token.md --raw-secret-output',
+          'npm run access-token-pull -- --project "SNPM" --domain "App & Backend" --title "Project Token" --output access-token-redacted.md',
         ],
         notes: SECRET_PULL_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
+      },
+      {
+        name: "exec",
+        summary: "Consume a managed project access-token record by injecting its raw value into one child process without local export.",
+        usageLines: [
+          'node src/cli.mjs access-token exec --project "Project Name" --domain "App & Backend" --title "Project Token" (--env-name ENV_NAME | --stdin-secret) [--cwd <dir>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq] -- <command> [args...]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          `${OPT_ENV_NAME} or ${OPT_STDIN_SECRET}`,
+          "-- <command> [args...]",
+        ],
+        optionalFlags: [
+          OPT_PROJECT_TOKEN,
+          OPT_CWD,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'npm run access-token-exec -- --project "SNPM" --domain "App & Backend" --title "Project Token" --env-name PROJECT_TOKEN -- node scripts/check-project-token.mjs',
+          'node src/cli.mjs access-token exec --project "SNPM" --domain "App & Backend" --title "Project Token" --stdin-secret -- node scripts/read-token-from-stdin.mjs',
+        ],
+        notes: SECRET_EXEC_NOTES,
+        mutationMode: "read-only",
+        capabilityMetadata: SECRET_EXEC_CAPABILITY_METADATA,
       },
       {
         name: "diff",
-        summary: "Diff a managed project access-token record against a local markdown file.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown diff is disabled.",
         usageLines: [
           'node src/cli.mjs access-token diff --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -1133,16 +1225,18 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs access-token diff --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --explain',
-          'npm run access-token-diff -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --review-output review',
-        ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "access-token exec",
+        },
       },
       {
         name: "push",
-        summary: "Preview or apply project access-token updates from a local markdown file.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown push is disabled.",
         usageLines: [
           'node src/cli.mjs access-token push --project "Project Name" --domain "App & Backend" --title "Project Token" --file <file|-> [--metadata <path>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -1160,19 +1254,18 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs access-token push --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md',
-          'npm run access-token-push -- --project "SNPM" --domain "App & Backend" --title "Project Token" --file .snpm/secrets/access-token.md --apply',
-        ],
-        notes: [
-          "Apply reads <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
-          ...SECRET_REVIEW_NOTES,
-        ],
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "access-token exec",
+        },
       },
       {
         name: "edit",
-        summary: "Open a project access-token record in the editor-backed review loop.",
+        summary: "Unsupported for secret-bearing consume-only records; local markdown edit is disabled.",
         usageLines: [
           'node src/cli.mjs access-token edit --project "Project Name" --domain "App & Backend" --title "Project Token" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--explain] [--review-output <dir>] [--workspace infrastructure-hq]',
         ],
@@ -1188,12 +1281,14 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_REVIEW_OUTPUT,
           OPT_WORKSPACE,
         ],
-        examples: [
-          'node src/cli.mjs access-token edit --project "SNPM" --domain "App & Backend" --title "Project Token"',
-          'npm run access-token-edit -- --project "SNPM" --domain "App & Backend" --title "Project Token" --apply',
-        ],
-        notes: SECRET_REVIEW_NOTES,
-        capabilityMetadata: SECRET_OUTPUT_CAPABILITY_METADATA,
+        examples: [],
+        notes: SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES,
+        mutationMode: "unsupported",
+        stability: "deprecated",
+        capabilityMetadata: {
+          ...SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA,
+          replacementCommand: "access-token exec",
+        },
       },
     ],
   }),
@@ -1965,8 +2060,8 @@ const GLOBAL_COMMAND_GROUPS = [
     title: "Project Operations:",
     entries: [
       ["access-domain <create|adopt|pull|diff|push|edit>", "Managed Access domain pages."],
-      ["secret-record <create|adopt|pull|diff|push|edit>", "Managed secret records under an Access domain."],
-      ["access-token <create|adopt|pull|diff|push|edit>", "Managed access-token records under an Access domain."],
+      ["secret-record <create|adopt|pull|exec>", "Managed consume-only secret records under an Access domain."],
+      ["access-token <create|adopt|pull|exec>", "Managed consume-only access-token records under an Access domain."],
       ["runbook <create|adopt|pull|diff|push|edit>", "Managed project runbooks."],
       ["build-record <create|pull|diff|push>", "Managed project build records."],
       ["journal <list>", "Read recent local mutation journal entries as JSON."],
@@ -2038,9 +2133,16 @@ function copyOptionalCapabilityFields(target, spec) {
     "supportedScaffoldKinds",
     "scaffoldTargets",
     "secretOutput",
-    "rawSecretOutput",
-    "repoSecretOutputGuard",
+    "rawSecretExport",
+    "localSecretPersistence",
     "reviewOutputRedaction",
+    "secretConsumption",
+    "secretDeliveryModes",
+    "childProcessExecution",
+    "childOutputRedaction",
+    "supported",
+    "supportStatus",
+    "replacementCommand",
   ];
 
   for (const field of optionalFields) {
@@ -2153,6 +2255,7 @@ export function usage() {
     '  Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
     '  Workspace-scoped doc paths are limited to the curated exact pages plus "Templates > Project Templates" and descendants under it.',
     "  Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
+    "  Secret-bearing Access records are consume-only: pull output is redacted-only, raw local export is unsupported, and runtime use goes through secret-record exec or access-token exec.",
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",

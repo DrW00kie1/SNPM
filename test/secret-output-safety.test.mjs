@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 
 import {
+  RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE,
   SECRET_REDACTION_MARKER,
+  assertNoLocalRawSecretValue,
   assertNoSecretRedactionMarkers,
+  extractRawSecretValueFromMarkdown,
   redactSecretDiff,
   redactSecretMarkdown,
   validateSecretPullOutputPolicy,
@@ -68,44 +68,127 @@ test("validateSecretPullOutputPolicy rejects redacted metadata sidecars", () => 
       outputPath: "secret.md",
       metadataOutputPath: "secret.md.snpm-meta.json",
     }),
-    /metadata-output requires --raw-secret-output/i,
+    /metadata-output is unsupported/i,
   );
 });
 
-test("validateSecretPullOutputPolicy refuses raw repo output outside .snpm secrets without override", () => {
-  const repoDir = path.join(tmpdir(), `snpm-secret-policy-${Date.now()}`);
-  mkdirSync(path.join(repoDir, ".git"), { recursive: true });
+test("validateSecretPullOutputPolicy rejects deprecated raw export flags", () => {
+  assert.throws(
+    () => validateSecretPullOutputPolicy({ rawSecretOutput: true }),
+    new RegExp(RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
 
-  try {
-    assert.throws(
-      () => validateSecretPullOutputPolicy({
-        outputPath: "secret.md",
-        rawSecretOutput: true,
-        cwd: repoDir,
-      }),
-      /Refusing raw secret output inside repo/i,
-    );
-
-    assert.equal(validateSecretPullOutputPolicy({
-      outputPath: ".snpm/secrets/secret.md",
-      rawSecretOutput: true,
-      cwd: repoDir,
-    }).raw, true);
-
-    assert.equal(validateSecretPullOutputPolicy({
-      outputPath: "secret.md",
-      rawSecretOutput: true,
-      allowRepoSecretOutput: true,
-      cwd: repoDir,
-    }).raw, true);
-  } finally {
-    rmSync(repoDir, { recursive: true, force: true });
-  }
+  assert.throws(
+    () => validateSecretPullOutputPolicy({ allowRepoSecretOutput: true }),
+    new RegExp(RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
 });
 
 test("assertNoSecretRedactionMarkers rejects redacted markdown input", () => {
   assert.throws(
     () => assertNoSecretRedactionMarkers(`## Raw Value\n${SECRET_REDACTION_MARKER}\n`, { command: "secret-record push" }),
     /Refusing to use redacted secret output for secret-record push/i,
+  );
+});
+
+test("assertNoLocalRawSecretValue allows omitted and placeholder Raw Value sections", () => {
+  assert.doesNotThrow(() => assertNoLocalRawSecretValue("## Secret Record\n- Secret Name: GEMINI_API_KEY\n", {
+    command: "secret-record create",
+  }));
+
+  assert.doesNotThrow(() => assertNoLocalRawSecretValue([
+    "## Raw Value",
+    "Raw Value",
+    "```plain text",
+    "<paste secret here>",
+    "```",
+    "",
+  ].join("\n"), {
+    command: "secret-record create",
+  }));
+});
+
+test("assertNoLocalRawSecretValue rejects non-placeholder Raw Value without echoing it", () => {
+  const rawSecret = "sk-live-secret";
+
+  assert.throws(
+    () => assertNoLocalRawSecretValue([
+      "## Raw Value",
+      "```plain text",
+      rawSecret,
+      "```",
+      "",
+    ].join("\n"), {
+      command: "secret-record create",
+    }),
+    (error) => /Refusing local raw secret value for secret-record create/i.test(error.message)
+      && !error.message.includes(rawSecret),
+  );
+});
+
+test("extractRawSecretValueFromMarkdown returns exact fenced value content", () => {
+  const markdown = [
+    "Purpose: test",
+    "---",
+    "",
+    "## Raw Value",
+    "Raw Value",
+    "```plain text",
+    "line-one",
+    "line-two",
+    "",
+    "```",
+    "",
+    "## Rotation / Reset",
+    "- rotate",
+  ].join("\n");
+
+  assert.equal(
+    extractRawSecretValueFromMarkdown(markdown, { command: "secret-record exec" }),
+    "line-one\nline-two\n",
+  );
+});
+
+test("extractRawSecretValueFromMarkdown rejects missing or ambiguous fenced Raw Value blocks", () => {
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Purpose\nnone\n", { command: "secret-record exec" }),
+    /requires exactly one ## Raw Value section/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\none\n```\n## Raw Value\n```text\ntwo\n```\n"),
+    /requires exactly one ## Raw Value section/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\none\n```\n```text\ntwo\n```\n"),
+    /requires exactly one fenced value/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\nRaw Value\nplaintext-secret\n```text\none\n```\n"),
+    /no additional plaintext value/i,
+  );
+});
+
+test("extractRawSecretValueFromMarkdown rejects empty placeholder and redacted values", () => {
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\n\n```\n"),
+    /empty Raw Value/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\n<paste secret here>\n```\n"),
+    /placeholder Raw Value/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown(`## Raw Value\n\`\`\`text\n${SECRET_REDACTION_MARKER}\n\`\`\`\n`),
+    /redacted Raw Value/i,
+  );
+
+  assert.throws(
+    () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\n[redacted]\n```\n"),
+    /redacted Raw Value/i,
   );
 });

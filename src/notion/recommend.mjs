@@ -57,6 +57,19 @@ function buildRepoStep(repoPath, reason) {
   };
 }
 
+function envNameFromRecordTitle(title, fallback) {
+  const normalized = String(title || "")
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+  if (!normalized) {
+    return fallback;
+  }
+  return /^[A-Z_]/.test(normalized) ? normalized : `${fallback}_${normalized}`;
+}
+
 function createBaseResult({
   diagnosis,
   intent,
@@ -627,7 +640,6 @@ function routeAccessRecord({
     return Promise.resolve(findAccessRecordTarget(projectName, domainTitle, title, config, client)).then((recordTarget) => {
       if (!recordTarget) {
         const scriptName = recordType === "token" ? "access-token-create" : "secret-record-create";
-        const fileName = recordType === "token" ? ".snpm/secrets/access-token.md" : ".snpm/secrets/secret-record.md";
         return createBaseResult({
           diagnosis,
           intent: recordType,
@@ -642,16 +654,16 @@ function routeAccessRecord({
                 ["project", projectName],
                 ["domain", domainTitle],
                 ["title", title],
-                ["file", fileName],
               ], projectTokenEnv),
-              `Create a new managed ${recordType === "token" ? "access token" : "secret record"} under the Access domain.`,
+              `Create a new managed ${recordType === "token" ? "access token" : "secret record"} shell under the Access domain, then paste the raw value directly into Notion.`,
             ),
           ],
         });
       }
 
       const prefix = recordType === "token" ? "access-token" : "secret-record";
-      const fileName = recordType === "token" ? ".snpm/secrets/access-token.md" : ".snpm/secrets/secret-record.md";
+      const fileName = recordType === "token" ? "access-token-redacted.md" : "secret-record-redacted.md";
+      const envName = envNameFromRecordTitle(title, recordType === "token" ? "ACCESS_TOKEN" : "SECRET_VALUE");
       return createBaseResult({
         diagnosis,
         intent: recordType,
@@ -662,39 +674,22 @@ function routeAccessRecord({
         warnings: baseWarnings,
         nextCommands: [
           buildCommandStep(
-            buildCommand(`${prefix}-edit`, [
+            `${buildCommand(`${prefix}-exec`, [
               ["project", projectName],
               ["domain", domainTitle],
               ["title", title],
-            ], projectTokenEnv),
-            `Use the temp editor-backed ${recordType === "token" ? "access token" : "secret record"} loop for the normal workflow.`,
+              ["env-name", envName],
+            ], projectTokenEnv)} -- <command> [args...]`,
+            `Consume the managed ${recordType === "token" ? "access token" : "secret record"} at runtime without exporting the raw value.`,
           ),
           buildCommandStep(
-            `${buildCommand(`${prefix}-pull`, [
+            buildCommand(`${prefix}-pull`, [
               ["project", projectName],
               ["domain", domainTitle],
               ["title", title],
               ["output", fileName],
-            ], projectTokenEnv)} --raw-secret-output`,
-            `Only if a raw local file is required, pull it into the gitignored .snpm/secrets quarantine path.`,
-          ),
-          buildCommandStep(
-            buildCommand(`${prefix}-diff`, [
-              ["project", projectName],
-              ["domain", domainTitle],
-              ["title", title],
-              ["file", fileName],
             ], projectTokenEnv),
-            `Diff a proposed ${recordType === "token" ? "access token" : "secret record"} body against Notion.`,
-          ),
-          buildCommandStep(
-            buildCommand(`${prefix}-push`, [
-              ["project", projectName],
-              ["domain", domainTitle],
-              ["title", title],
-              ["file", fileName],
-            ], projectTokenEnv),
-            `Preview or apply the managed ${recordType === "token" ? "access token" : "secret record"} update through SNPM.`,
+            "Pull a redacted inspection copy only; it is not a push-ready editing base and writes no raw secret value.",
           ),
         ],
       });

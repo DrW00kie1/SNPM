@@ -33,14 +33,14 @@ How to use it:
 - Why it exists: teams stored canonical secrets in the right place before SNPM had a first-class secret-record flow.
 - Exact next command: `npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN`
 - Manual steps: none.
-- Verify afterward: rerun `doctor`, then prefer `secret-record-edit` for changes. Use `secret-record-pull --raw-secret-output --output .snpm/secrets/secret-record.md` only when an explicit raw local editing base is required.
+- Verify afterward: rerun `doctor`, then use `secret-record-exec` for runtime consumption. `secret-record-pull` is redacted-only, and raw local export/edit/diff/push are unsupported for secret-bearing records.
 
 ### `unmanaged-access-token`
 - Detected when: a token page exists under an Access domain but is not managed yet.
 - Why it exists: the project-local token is already stored canonically in Notion, but it predates the managed token record contract.
 - Exact next command: `npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" --project-token-env PROJECT_NAME_NOTION_TOKEN`
 - Manual steps: none.
-- Verify afterward: rerun `doctor`, then prefer `access-token-edit` for changes. Use `access-token-pull --raw-secret-output --output .snpm/secrets/access-token.md` only when an explicit raw local editing base is required.
+- Verify afterward: rerun `doctor`, then use `access-token-exec` for runtime consumption. `access-token-pull` is redacted-only, and raw local export/edit/diff/push are unsupported for secret-bearing records.
 
 ### `project-token-not-checked`
 - Detected when: `doctor` found actionable project-local work, but you did not provide `--project-token-env`.
@@ -85,4 +85,4 @@ How to use it:
 - `recommend --intent secret ...` or `recommend --intent token ...` can return targeted migration guidance even when `doctor` has no project-wide legacy issue yet.
 - This happens when the requested Access domain does not exist at all.
 - Exact next command: `npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md --project-token-env PROJECT_NAME_NOTION_TOKEN`
-- Verify afterward: rerun the same `recommend --intent ...` request and confirm it moves to create/adopt/pull/diff/push guidance for the nested record.
+- Verify afterward: rerun the same `recommend --intent ...` request and confirm it moves to create/adopt plus exec/redacted-pull guidance for the nested record.

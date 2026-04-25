@@ -396,7 +396,7 @@ Milestone 1 implementation status:
 - `plan-change` is implemented as a deterministic read-only target-file planner
 - managed pull commands now write strict metadata sidecars, and apply paths reject missing, mismatched, stale, archived, or trashed metadata before mutation
 - applied mutations now append redacted local journal entries with command, surface, target, page, revision, timestamp, and diff hash/stat metadata
-- secret-bearing Access commands now redact local pull/review output by default and require explicit raw export for push-ready local secret files
+- secret-bearing Access commands are moving to consume-only runtime access with redacted-only pulls; raw local export and local markdown edit/diff/push are unsupported for secret/token records
 - the next development phase should start with generalized manifest sync rather than expanding ad hoc page mutation
 
 ## Deferred Work

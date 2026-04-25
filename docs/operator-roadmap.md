@@ -15,7 +15,7 @@ Supported on the current active line:
 - curated managed docs for project root docs, curated template docs, and curated workspace-global docs
 - editor-backed operational edit loops
 - `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
-- `page-edit`, `runbook-edit`, `doc-edit`, `access-domain-edit`, `secret-record-edit`, `access-token-edit`
+- `page-edit`, `runbook-edit`, `doc-edit`, and `access-domain-edit`
 - `verify-workspace-docs`
 - `doctor`
 - intent-driven `recommend`
@@ -26,7 +26,7 @@ Supported on the current active line:
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
-- redacted-by-default local output and review artifacts for `secret-record-*` and `access-token-*`; raw local exports require `--raw-secret-output`
+- consume-only `secret-record-exec` and `access-token-exec` for runtime secret use, with redacted-only pulls and no supported raw local export
 - EOF-stable managed-page round-trips
 - manifest v2 `sync check` for read-only mixed-surface comparison
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata

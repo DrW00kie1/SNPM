@@ -1,10 +1,9 @@
-import { existsSync, statSync } from "node:fs";
-import path from "node:path";
-
 import { diffMarkdownText } from "../notion/page-markdown.mjs";
 
 export const SECRET_REDACTION_MARKER = "[SNPM REDACTED SECRET OUTPUT]";
-export const SECRET_REDACTION_WARNING = "Secret-bearing Access output was redacted by default. Use --raw-secret-output only when an explicit local raw copy is required.";
+export const SECRET_REDACTION_WARNING = "Secret-bearing Access output was redacted by default. Raw local export is unsupported; use secret-record exec/access-token exec for runtime consumption.";
+export const RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE = "raw secret export is unsupported; use secret-record exec/access-token exec.";
+export const SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE = "Local Markdown edit/diff/push is disabled for secret-bearing Access records. Update raw values in Notion and use secret-record exec/access-token exec for runtime consumption.";
 
 const SECRET_BEARING_SURFACES = new Set(["secret-record", "access-token"]);
 const SAFE_LABELS = new Set([
@@ -46,7 +45,7 @@ export function assertNoSecretRedactionMarkers(text, { command } = {}) {
 
   const commandLabel = command ? ` for ${command}` : "";
   throw new Error(
-    `Refusing to use redacted secret output${commandLabel}. Re-pull with --raw-secret-output into .snpm/secrets/ when a push-ready raw editing base is required.`,
+    `Refusing to use redacted secret output${commandLabel}. Redacted local files are not push-ready; update raw values in Notion and use secret-record exec/access-token exec for runtime consumption.`,
   );
 }
 
@@ -209,104 +208,206 @@ export function redactSecretResultForOutput(result, { surface } = {}) {
   return redacted;
 }
 
-function existingParent(candidatePath, { existsSyncImpl = existsSync, statSyncImpl = statSync } = {}) {
-  let cursor = path.resolve(candidatePath);
-
-  while (!existsSyncImpl(cursor)) {
-    const parent = path.dirname(cursor);
-    if (parent === cursor) {
-      return cursor;
-    }
-    cursor = parent;
-  }
-
-  try {
-    return statSyncImpl(cursor).isDirectory() ? cursor : path.dirname(cursor);
-  } catch {
-    return path.dirname(cursor);
-  }
-}
-
-function findGitRoot(startPath, options = {}) {
-  const { existsSyncImpl = existsSync } = options;
-  let cursor = existingParent(startPath, options);
-
-  while (true) {
-    if (existsSyncImpl(path.join(cursor, ".git"))) {
-      return cursor;
-    }
-
-    const parent = path.dirname(cursor);
-    if (parent === cursor) {
-      return null;
-    }
-    cursor = parent;
-  }
-}
-
-function isPathInside(candidatePath, rootPath) {
-  const relative = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
 export function validateSecretPullOutputPolicy({
-  outputPath,
   metadataOutputPath,
   rawSecretOutput = false,
   allowRepoSecretOutput = false,
-  cwd = process.cwd(),
-  existsSyncImpl = existsSync,
-  statSyncImpl = statSync,
 } = {}) {
-  if (!rawSecretOutput) {
-    if (metadataOutputPath) {
-      throw new Error("--metadata-output requires --raw-secret-output for secret-bearing Access pulls; redacted pull output is not a push-ready editing base.");
-    }
-
-    return {
-      raw: false,
-      redacted: true,
-      warnings: [SECRET_REDACTION_WARNING],
-    };
+  if (rawSecretOutput || allowRepoSecretOutput) {
+    throw new Error(RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE);
   }
 
-  if (outputPath === "-") {
-    return {
-      raw: true,
-      redacted: false,
-      warnings: [],
-    };
-  }
-
-  const resolvedOutputPath = path.resolve(cwd, outputPath);
-  const cwdRepoRoot = findGitRoot(cwd, { existsSyncImpl, statSyncImpl });
-  const outputRepoRoot = findGitRoot(path.dirname(resolvedOutputPath), { existsSyncImpl, statSyncImpl });
-  const repoRoots = [...new Set([cwdRepoRoot, outputRepoRoot].filter(Boolean).map((root) => path.resolve(root)))];
-
-  for (const repoRoot of repoRoots) {
-    if (!isPathInside(resolvedOutputPath, repoRoot)) {
-      continue;
-    }
-
-    const quarantineRoot = path.join(repoRoot, ".snpm", "secrets");
-    if (isPathInside(resolvedOutputPath, quarantineRoot)) {
-      return {
-        raw: true,
-        redacted: false,
-        warnings: [],
-      };
-    }
-
-    if (!allowRepoSecretOutput) {
-      throw new Error(
-        `Refusing raw secret output inside repo "${repoRoot}". Write under .snpm/secrets/ or add --allow-repo-secret-output with --raw-secret-output.`,
-      );
-    }
+  if (metadataOutputPath) {
+    throw new Error("--metadata-output is unsupported for secret-bearing Access pulls; redacted pull output is not a push-ready editing base.");
   }
 
   return {
-    raw: true,
-    redacted: false,
-    warnings: [],
+    raw: false,
+    redacted: true,
+    warnings: [SECRET_REDACTION_WARNING],
   };
+}
+
+function findRawValueSections(markdown) {
+  const lines = normalizeNewlines(markdown).split("\n");
+  const sections = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!isRawValueHeading(lines[index])) {
+      continue;
+    }
+
+    let end = index + 1;
+    while (end < lines.length && !isSectionHeading(lines[end])) {
+      end += 1;
+    }
+    sections.push(lines.slice(index + 1, end).join("\n"));
+  }
+
+  return sections;
+}
+
+function parseFenceOpen(line) {
+  const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    char: match[1][0],
+    length: match[1].length,
+    info: match[2].trim(),
+  };
+}
+
+function isFenceClose(line, opener) {
+  const trimmed = line.trim();
+  const match = /^(`+|~+)/.exec(trimmed);
+  if (!match) {
+    return false;
+  }
+
+  return match[1][0] === opener.char
+    && match[1].length >= opener.length
+    && trimmed.slice(match[1].length).trim() === "";
+}
+
+function isAllowedRawValueSectionText(line) {
+  return line.trim() === "" || /^Raw Value\s*$/i.test(line.trim());
+}
+
+function plaintextRawValue(sectionMarkdown) {
+  return sectionMarkdown
+    .split("\n")
+    .filter((line) => !isAllowedRawValueSectionText(line))
+    .join("\n")
+    .trim();
+}
+
+function extractFencedValues(sectionMarkdown, { rejectPlaintext = false } = {}) {
+  const lines = sectionMarkdown.split("\n");
+  const values = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const opening = parseFenceOpen(lines[index]);
+    if (!opening) {
+      if (rejectPlaintext && !isAllowedRawValueSectionText(lines[index])) {
+        throw new Error("Raw Value must contain exactly one fenced code block and no additional plaintext value.");
+      }
+      continue;
+    }
+
+    const contentStart = index + 1;
+    let close = contentStart;
+    while (close < lines.length && !isFenceClose(lines[close], opening)) {
+      close += 1;
+    }
+
+    if (close >= lines.length) {
+      values.push(null);
+      break;
+    }
+
+    values.push(lines.slice(contentStart, close).join("\n"));
+    index = close;
+  }
+
+  return values;
+}
+
+export function isPlaceholderRawSecretValue(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  const lower = trimmed.toLowerCase();
+  return lower === "<paste secret here>"
+    || lower === "<paste scoped token here>"
+    || (/^<[^>\n]+>$/.test(trimmed) && /(api\s*key|client\s*secret|paste|password|scoped\s*token|secret|token|value)/i.test(trimmed))
+    || /^(?:change[-_ ]?me|example[-_ ]?(?:secret|token|value)|n\/a|none|null|placeholder|replace[-_ ]?me|tbd|todo)$/i.test(trimmed);
+}
+
+function isRedactedRawSecretValue(value) {
+  const raw = String(value || "");
+  const trimmed = raw.trim();
+  if (raw.includes(SECRET_REDACTION_MARKER)) {
+    return true;
+  }
+
+  if (/^(?:\[?redacted\]?|<redacted>|hidden|masked|secret redacted|token redacted)$/i.test(trimmed)) {
+    return true;
+  }
+
+  return /^[*xX]{6,}$/.test(trimmed);
+}
+
+export function extractRawSecretValueFromMarkdown(markdown, { command = "secret exec" } = {}) {
+  const sections = findRawValueSections(markdown);
+  if (sections.length !== 1) {
+    throw new Error(`${command} requires exactly one ## Raw Value section with one fenced value.`);
+  }
+
+  let fencedValues;
+  try {
+    fencedValues = extractFencedValues(sections[0], { rejectPlaintext: true });
+  } catch (error) {
+    throw new Error(`${command} ${error.message}`);
+  }
+
+  if (fencedValues.length !== 1 || fencedValues[0] === null) {
+    throw new Error(`${command} requires exactly one fenced value under ## Raw Value.`);
+  }
+
+  const value = String(fencedValues[0]);
+  if (!value.trim()) {
+    throw new Error(`${command} cannot consume an empty Raw Value.`);
+  }
+
+  if (isRedactedRawSecretValue(value)) {
+    throw new Error(`${command} cannot consume redacted Raw Value output.`);
+  }
+
+  if (isPlaceholderRawSecretValue(value)) {
+    throw new Error(`${command} cannot consume a placeholder Raw Value.`);
+  }
+
+  return value;
+}
+
+export function assertNoLocalRawSecretValue(markdown, { command = "secret-record create" } = {}) {
+  assertNoSecretRedactionMarkers(markdown, { command });
+
+  const sections = findRawValueSections(markdown);
+  if (sections.length === 0) {
+    return;
+  }
+
+  if (sections.length !== 1) {
+    throw new Error(`Refusing local raw secret value for ${command}: expected at most one ## Raw Value section.`);
+  }
+
+  const fencedValues = extractFencedValues(sections[0]);
+  if (fencedValues.some((value) => value === null)) {
+    throw new Error(`Refusing local raw secret value for ${command}: ambiguous ## Raw Value blocks are not supported.`);
+  }
+
+  if (fencedValues.length === 0) {
+    const plaintextValue = plaintextRawValue(sections[0]);
+    if (plaintextValue && !isPlaceholderRawSecretValue(plaintextValue)) {
+      throw new Error(`Refusing local raw secret value for ${command}. Paste raw values directly into Notion and use secret-record exec/access-token exec for runtime consumption.`);
+    }
+    return;
+  }
+
+  if (fencedValues.length !== 1) {
+    throw new Error(`Refusing local raw secret value for ${command}: ambiguous ## Raw Value blocks are not supported.`);
+  }
+
+  const value = String(fencedValues[0]).trim();
+  if (!value || isPlaceholderRawSecretValue(value)) {
+    return;
+  }
+
+  throw new Error(`Refusing local raw secret value for ${command}. Paste raw values directly into Notion and use secret-record exec/access-token exec for runtime consumption.`);
 }
