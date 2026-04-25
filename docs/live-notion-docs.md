@@ -147,6 +147,25 @@ Supported Sprint 3.3B operator behavior:
 
 Manifest v2 diagnostics are recovery metadata only. Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
 
+## Consistency Audit Updates
+
+Use the consistency audit after the project structure verifies and before coordinated planning/runbook/access documentation edits:
+
+```powershell
+npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --consistency-audit
+```
+
+`doctor --consistency-audit` is an advisory read-only doctor extension. It reports explicit cross-document contradictions across approved project surfaces, such as Roadmap/Current Cycle active-marker mismatches, explicit runbook references that do not resolve to a runbook page, and explicit Access references that do not resolve in structural Access inventory.
+
+The audit does not mutate Notion, write local files, write sidecars, append mutation journal entries, apply manifests, inspect raw Access secret/token bodies, generate fixes, change default `doctor` output, change top-level `ok` or exit behavior, or make findings blocking. Treat findings as review input, then use the owning `page-*`, `runbook-*`, `access-domain-*`, `secret-record-*`, or `access-token-*` family for any approved remediation.
+
+Durable Notion closeout targets for this sprint:
+- `Projects > SNPM > Planning > Decision Log`
+- `Projects > SNPM > Planning > Roadmap`
+- `Projects > SNPM > Planning > Current Cycle`
+- `Runbooks > Notion Workspace Workflow`
+
 ## Verification
 
 Project-scoped verification:
@@ -155,11 +174,14 @@ Project-scoped verification:
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --truth-audit
+npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 ```
 
 Use `doctor --truth-audit` when the project structure verifies but the durable Notion truth may need attention. The audit is read-only and reports stale `Last Updated` headers, placeholder or empty important surfaces, and roadmap/current-cycle freshness concerns. It does not mutate Notion, refresh sidecars, apply manifest entries, export raw Access values, or perform semantic cross-document consistency checks.
 
-Address truth-audit findings through the owning command family:
+Use `doctor --consistency-audit` when the project structure verifies but approved project docs may contradict one another. The audit is read-only and reports explicit contradictions only; it does not inspect raw Access secret/token bodies and it does not change default doctor or blocking behavior.
+
+Address audit findings through the owning command family:
 - `doc-*` for curated project, template, and workspace docs
 - `page-*` for `Planning > Roadmap` and `Planning > Current Cycle`
 - `runbook-*` for runbooks

@@ -19,6 +19,7 @@ Supported on the current active line:
 - `verify-workspace-docs`
 - `doctor`
 - read-only `doctor --truth-audit` for truth-quality audit findings
+- read-only `doctor --consistency-audit` for advisory cross-document contradiction findings
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
@@ -67,16 +68,21 @@ Recently promoted truth-quality audit behavior on `main`:
 - audit findings cover stale `Last Updated` metadata, placeholder or empty important surfaces, and freshness of `Planning > Roadmap` and `Planning > Current Cycle`
 - remediation remains explicit through the owning command family; truth-audit does not mutate Notion, apply manifests, refresh sidecars, export secrets, or perform cross-document semantic consistency checks
 
-Current `codex/generated-secret-ingestion` branch addition:
+Generated-secret ingestion behavior carried into this branch:
 - `secret-record-generate` and `access-token-generate` give coding agents a write-only path for generated credentials
 - preview mode validates target feasibility but does not run the generator
 - applied mode runs one child generator command, stores one generated stdout value directly in Notion, and keeps the raw value out of chat, local markdown, sidecars, review artifacts, terminal output, and mutation journals
 - raw local export and secret-bearing local edit/diff/push remain unsupported
 
+Current `codex/consistency-audit` branch addition:
+- `doctor --consistency-audit` and `npm run consistency-audit` add an advisory read-only project-health audit for explicit cross-document contradictions
+- initial findings cover Roadmap/Current Cycle active-marker alignment, explicit runbook references, and explicit Access references where the target can be resolved structurally
+- the audit does not mutate Notion, write local files, write sidecars, append mutation journal entries, apply manifests, inspect raw Access secret/token bodies, generate fixes, change default `doctor` output, change top-level `ok` or exit behavior, or make findings blocking
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
-- policy-pack-driven mutation, cross-document consistency checks, and broad batch apply
+- policy-pack-driven mutation, hard/blocking cross-document consistency gates, and broad batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -166,7 +172,7 @@ Those surfaces continue to use their own command families.
 
 ### Phase 4: Expand Only Proven Surfaces
 - add new surfaces only when repeated demand justifies them
-- use `doctor --truth-audit` as the read-only freshness check before adding stronger consistency gates
+- use `doctor --truth-audit` as the read-only freshness check and `doctor --consistency-audit` as the read-only contradiction check before adding stronger consistency gates
 - use write-only generated Access ingestion for agent-created credentials instead of reopening raw local secret files
 - avoid generic arbitrary workspace CRUD
 - keep the product boundary explicit
@@ -179,6 +185,7 @@ Keep these boundaries:
 - curated doc families stay config-backed and explicit
 - policy packs describe approved structure, routing boundaries, and optional starter doc scaffold declarations; they do not by themselves audit freshness, check semantic consistency, mutate Notion, or apply batches
 - `doctor --truth-audit` reports truth-quality findings only; it does not rewrite stale pages, classify secrets for local export, apply generated fixes, or replace the owning command families
+- `doctor --consistency-audit` reports advisory contradiction findings only; it does not mutate Notion, inspect raw Access secret/token bodies, generate fixes, change default doctor behavior, or block ordinary safe mutations
 - secret-bearing Access records allow consume-only runtime access and write-only generated ingestion; they still do not allow raw local export, local markdown edit/diff/push, sidecars, manifest v2 entries, or review-output artifacts
 - `scaffold-docs` is preview-first and must not broaden approved starter targets or bypass managed-surface safety checks
 - repo sync stays selective

@@ -112,7 +112,7 @@ async function inspectManagedPage({
   };
 }
 
-async function inferAccessRecordKind(page, pageId, targetPath, client) {
+async function inferAccessRecordKind(page, pageId, targetPath, client, { allowBodyInspection = true } = {}) {
   if (iconMatches(page.icon, ACCESS_TOKEN_ICON)) {
     return "access-token";
   }
@@ -121,7 +121,7 @@ async function inferAccessRecordKind(page, pageId, targetPath, client) {
     return "secret-record";
   }
 
-  const markdown = await safeFetchPageMarkdown(pageId, targetPath, client);
+  const markdown = allowBodyInspection ? await safeFetchPageMarkdown(pageId, targetPath, client) : "";
 
   if (/## Token Record|Shared Root Page:|Capabilities:/i.test(markdown)) {
     return "access-token";
@@ -138,13 +138,17 @@ async function inferAccessRecordKind(page, pageId, targetPath, client) {
   return "secret-record";
 }
 
-async function looksLikeAccessRecordAtRoot(page, pageId, targetPath, client) {
+async function looksLikeAccessRecordAtRoot(page, pageId, targetPath, client, { allowBodyInspection = true } = {}) {
   if (iconMatches(page.icon, ACCESS_TOKEN_ICON) || iconMatches(page.icon, SECRET_RECORD_ICON)) {
     return true;
   }
 
   if (/[A-Z0-9_]{6,}/.test(targetPath.split(" > ").at(-1) || "")) {
     return true;
+  }
+
+  if (!allowBodyInspection) {
+    return false;
   }
 
   const markdown = await safeFetchPageMarkdown(pageId, targetPath, client);
@@ -184,6 +188,10 @@ function buildProjectDocCommandPath(pathTitles) {
 
 async function loadTruthAuditHelpers() {
   return import("./truth-audit.mjs");
+}
+
+async function loadConsistencyAuditHelpers() {
+  return import("./consistency-audit.mjs");
 }
 
 function addTruthAuditCandidate(candidates, candidate) {
@@ -347,27 +355,11 @@ async function analyzePlanningPages({
 }
 
 async function buildDoctorTruthAudit({
-  candidates,
-  client,
+  pages,
   staleAfterDays,
   analyzeManagedPageTruthImpl,
   buildTruthAuditSummaryImpl,
 }) {
-  const pages = [];
-  for (const candidate of candidates) {
-    try {
-      pages.push({
-        ...candidate,
-        markdown: await fetchPageMarkdown(candidate.pageId, candidate.targetPath, client),
-      });
-    } catch (error) {
-      pages.push({
-        ...candidate,
-        readFailure: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
   if (analyzeManagedPageTruthImpl && buildTruthAuditSummaryImpl) {
     const analyses = [];
     for (const page of pages) {
@@ -385,6 +377,66 @@ async function buildDoctorTruthAudit({
   return helpers.auditTruthPages(pages, {
     staleAfterDays,
   });
+}
+
+async function fetchManagedAuditPages({ candidates, client }) {
+  const pages = [];
+  for (const candidate of candidates || []) {
+    try {
+      pages.push({
+        ...candidate,
+        markdown: await fetchPageMarkdown(candidate.pageId, candidate.targetPath, client),
+      });
+    } catch (error) {
+      pages.push({
+        ...candidate,
+        readFailure: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return pages;
+}
+
+async function buildDoctorConsistencyAudit({
+  pages,
+  projectName,
+  projectTokenEnv,
+  runbookInventory,
+  accessInventory,
+  auditConsistencyImpl,
+  buildConsistencyAuditSummaryImpl,
+}) {
+  const context = {
+    projectName,
+    projectTokenEnv,
+    pages,
+    managedPages: pages,
+    runbookInventory,
+    accessInventory,
+    inventory: {
+      runbooks: runbookInventory,
+      access: accessInventory,
+    },
+  };
+
+  if (auditConsistencyImpl) {
+    const analysis = await auditConsistencyImpl(context);
+    return buildConsistencyAuditSummaryImpl
+      ? buildConsistencyAuditSummaryImpl(analysis, context)
+      : analysis;
+  }
+
+  const helpers = await loadConsistencyAuditHelpers();
+  const analyze = helpers.auditConsistency || helpers.analyzeConsistencyAudit;
+  if (typeof analyze !== "function") {
+    throw new Error("Consistency audit analyzer must export auditConsistency or analyzeConsistencyAudit.");
+  }
+
+  const analysis = await analyze(context);
+  return typeof helpers.buildConsistencyAuditSummary === "function"
+    ? helpers.buildConsistencyAuditSummary(analysis, context)
+    : analysis;
 }
 
 async function analyzeProjectDocBranch({
@@ -568,6 +620,7 @@ async function analyzeRunbooks({
   migrationGuidanceKeys,
   truthAuditCandidates,
   staleAfterDays,
+  runbookInventory,
 }) {
   const targetPath = projectPath(projectName, ["Runbooks"]);
   const target = await findProjectPathTarget(projectName, ["Runbooks"], config, client);
@@ -581,6 +634,15 @@ async function analyzeRunbooks({
       managedCount: 0,
       unmanagedCount: 0,
     };
+    if (runbookInventory) {
+      runbookInventory.targetPath = targetPath;
+      runbookInventory.present = false;
+      runbookInventory.empty = true;
+      runbookInventory.totalCount = 0;
+      runbookInventory.managedCount = 0;
+      runbookInventory.unmanagedCount = 0;
+      runbookInventory.runbooks = [];
+    }
     addIssue(result, issueKeys, "runbooks", targetPath, `Required surface "${targetPath}" is missing.`);
     return;
   }
@@ -594,6 +656,11 @@ async function analyzeRunbooks({
     managedCount: 0,
     unmanagedCount: 0,
   };
+  if (runbookInventory) {
+    runbookInventory.targetPath = targetPath;
+    runbookInventory.present = true;
+    runbookInventory.runbooks = [];
+  }
 
   for (const child of children) {
     const title = child.child_page.title;
@@ -604,6 +671,16 @@ async function analyzeRunbooks({
       expectedIcon: RUNBOOK_ICON,
       client,
     });
+    const inventoryEntry = runbookInventory ? {
+      title,
+      pageId: child.id,
+      targetPath: inspection.targetPath,
+      status: inspection.status,
+      managed: inspection.status === "managed",
+    } : null;
+    if (inventoryEntry) {
+      runbookInventory.runbooks.push(inventoryEntry);
+    }
 
     if (inspection.status === "managed") {
       summary.managedCount += 1;
@@ -655,6 +732,14 @@ async function analyzeRunbooks({
   }
 
   result.surfaces.runbooks = summary;
+  if (runbookInventory) {
+    Object.assign(runbookInventory, {
+      empty: summary.empty,
+      totalCount: summary.totalCount,
+      managedCount: summary.managedCount,
+      unmanagedCount: summary.unmanagedCount,
+    });
+  }
 }
 
 async function analyzeBuilds({
@@ -966,11 +1051,26 @@ async function analyzeAccess({
   adoptableKeys,
   recommendationKeys,
   migrationGuidanceKeys,
+  accessInventory,
+  inspectAccessBodies = true,
 }) {
   const targetPath = projectPath(projectName, ["Access"]);
   const target = await findProjectPathTarget(projectName, ["Access"], config, client);
 
   if (!target) {
+    if (accessInventory) {
+      Object.assign(accessInventory, {
+        targetPath,
+        present: false,
+        empty: true,
+        domainCount: 0,
+        managedDomainCount: 0,
+        unmanagedDomainCount: 0,
+        managedRecordCount: 0,
+        unmanagedRecordCount: 0,
+        domains: [],
+      });
+    }
     result.surfaces.access = {
       targetPath,
       present: false,
@@ -996,6 +1096,13 @@ async function analyzeAccess({
     managedRecordCount: 0,
     unmanagedRecordCount: 0,
   };
+  if (accessInventory) {
+    Object.assign(accessInventory, {
+      targetPath,
+      present: true,
+      domains: [],
+    });
+  }
 
   for (const domain of domains) {
     const title = domain.child_page.title;
@@ -1007,13 +1114,26 @@ async function analyzeAccess({
       expectedIcon: ACCESS_DOMAIN_ICON,
       client,
     });
+    const domainInventory = accessInventory ? {
+      title,
+      pageId: domain.id,
+      targetPath: domainPath,
+      status: inspection.status,
+      managed: inspection.status === "managed",
+      records: [],
+    } : null;
+    if (domainInventory) {
+      accessInventory.domains.push(domainInventory);
+    }
 
     if (inspection.status === "managed") {
       summary.managedDomainCount += 1;
       for (const message of inspection.issues) {
         addIssue(result, issueKeys, "access", inspection.targetPath, message);
       }
-    } else if (await looksLikeAccessRecordAtRoot(inspection.page, domain.id, domainPath, client)) {
+    } else if (await looksLikeAccessRecordAtRoot(inspection.page, domain.id, domainPath, client, {
+      allowBodyInspection: inspectAccessBodies,
+    })) {
       addIssue(
         result,
         issueKeys,
@@ -1057,7 +1177,9 @@ async function analyzeAccess({
       const recordTitle = record.child_page.title;
       const recordPath = `${domainPath} > ${recordTitle}`;
       const page = await client.request("GET", `pages/${record.id}`);
-      const kind = await inferAccessRecordKind(page, record.id, recordPath, client);
+      const kind = await inferAccessRecordKind(page, record.id, recordPath, client, {
+        allowBodyInspection: inspectAccessBodies,
+      });
       const expectedIcon = kind === "access-token" ? ACCESS_TOKEN_ICON : SECRET_RECORD_ICON;
       const recordInspection = await inspectManagedPage({
         pageId: record.id,
@@ -1066,6 +1188,17 @@ async function analyzeAccess({
         expectedIcon,
         client,
       });
+      const recordInventory = domainInventory ? {
+        title: recordTitle,
+        pageId: record.id,
+        targetPath: recordInspection.targetPath,
+        kind,
+        status: recordInspection.status,
+        managed: recordInspection.status === "managed",
+      } : null;
+      if (recordInventory) {
+        domainInventory.records.push(recordInventory);
+      }
 
       if (recordInspection.status === "managed") {
         summary.managedRecordCount += 1;
@@ -1111,6 +1244,16 @@ async function analyzeAccess({
   }
 
   result.surfaces.access = summary;
+  if (accessInventory) {
+    Object.assign(accessInventory, {
+      empty: summary.empty,
+      domainCount: summary.domainCount,
+      managedDomainCount: summary.managedDomainCount,
+      unmanagedDomainCount: summary.unmanagedDomainCount,
+      managedRecordCount: summary.managedRecordCount,
+      unmanagedRecordCount: summary.unmanagedRecordCount,
+    });
+  }
 }
 
 function maybeAddProjectTokenRecommendation({
@@ -1147,6 +1290,7 @@ export async function diagnoseProject({
   projectName,
   projectTokenEnv,
   truthAudit = false,
+  consistencyAudit = false,
   staleAfterDays = DEFAULT_DOCTOR_TRUTH_AUDIT_STALE_AFTER_DAYS,
   workspaceClient,
   makeNotionClientImpl = makeNotionClient,
@@ -1155,6 +1299,8 @@ export async function diagnoseProject({
   verifyValidationSessionsSurfaceImpl = verifyValidationSessionsSurface,
   analyzeManagedPageTruthImpl,
   buildTruthAuditSummaryImpl,
+  auditConsistencyImpl,
+  buildConsistencyAuditSummaryImpl,
 }) {
   const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
   const projectRoot = await resolveProjectRootTarget(projectName, config, client);
@@ -1174,7 +1320,9 @@ export async function diagnoseProject({
   const adoptableKeys = new Set();
   const recommendationKeys = new Set();
   const migrationGuidanceKeys = new Set();
-  const truthAuditCandidates = truthAudit ? [] : null;
+  const auditCandidates = truthAudit || consistencyAudit ? [] : null;
+  const runbookInventory = consistencyAudit ? {} : null;
+  const accessInventory = consistencyAudit ? {} : null;
 
   if (projectTokenEnv) {
     const scopeFailures = await verifyScopeImpl(projectRoot.pageId, projectName, config, projectTokenEnv);
@@ -1197,7 +1345,7 @@ export async function diagnoseProject({
     issueKeys,
     adoptableKeys,
     recommendationKeys,
-    truthAuditCandidates,
+    truthAuditCandidates: auditCandidates,
     staleAfterDays,
   });
   await analyzePlanningPages({
@@ -1206,7 +1354,7 @@ export async function diagnoseProject({
     client,
     result,
     issueKeys,
-    truthAuditCandidates,
+    truthAuditCandidates: auditCandidates,
     projectTokenEnv,
     staleAfterDays,
   });
@@ -1220,8 +1368,9 @@ export async function diagnoseProject({
     adoptableKeys,
     recommendationKeys,
     migrationGuidanceKeys,
-    truthAuditCandidates,
+    truthAuditCandidates: auditCandidates,
     staleAfterDays,
+    runbookInventory,
   });
   await analyzeBuilds({
     config,
@@ -1255,6 +1404,8 @@ export async function diagnoseProject({
     adoptableKeys,
     recommendationKeys,
     migrationGuidanceKeys,
+    accessInventory,
+    inspectAccessBodies: !consistencyAudit,
   });
   maybeAddProjectTokenRecommendation({
     projectName,
@@ -1264,13 +1415,29 @@ export async function diagnoseProject({
     migrationGuidanceKeys,
   });
   result.migrationGuidance = sortMigrationGuidance(result.migrationGuidance);
+  const auditPages = truthAudit || consistencyAudit
+    ? await fetchManagedAuditPages({
+      candidates: auditCandidates,
+      client,
+    })
+    : null;
   if (truthAudit) {
     result.truthAudit = await buildDoctorTruthAudit({
-      candidates: truthAuditCandidates,
-      client,
+      pages: auditPages,
       staleAfterDays,
       analyzeManagedPageTruthImpl,
       buildTruthAuditSummaryImpl,
+    });
+  }
+  if (consistencyAudit) {
+    result.consistencyAudit = await buildDoctorConsistencyAudit({
+      pages: auditPages,
+      projectName,
+      projectTokenEnv,
+      runbookInventory,
+      accessInventory,
+      auditConsistencyImpl,
+      buildConsistencyAuditSummaryImpl,
     });
   }
 

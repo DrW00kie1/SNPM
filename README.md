@@ -13,7 +13,7 @@ GitHub remote:
 
 Current branch reality:
 - active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, policy-pack foundation, bootstrap doc scaffolding, consume-only Access secret handling, and read-only `doctor --truth-audit` truth-quality checks
-- active development branch: `codex/generated-secret-ingestion`, adding write-only generated secret/token ingestion without raw local export
+- active development branch: `codex/consistency-audit`, layered on generated-secret ingestion and adding advisory read-only cross-document consistency findings through `doctor --consistency-audit` and `npm run consistency-audit`
 - recent promotion trace branches: `codex/bootstrap-doc-scaffolding`, `codex/access-secret-hardening`
 - historical RC snapshot: `v0.1.0-rc.1`
 
@@ -40,6 +40,7 @@ Supported narrow-band baseline on this active line:
 - `verify-workspace-docs`
 - `doctor`
 - read-only `doctor --truth-audit` for truth-quality audit findings
+- read-only `doctor --consistency-audit` for advisory cross-document contradiction findings
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - stdin/stdout ergonomics on the core band
@@ -73,7 +74,12 @@ Recently promoted truth-quality audit behavior on `main`:
 - the audit reports stale managed-page `Last Updated` values, placeholder or empty content on important project surfaces, and freshness concerns for `Planning > Roadmap` and `Planning > Current Cycle`
 - truth-audit findings are advisory project-health output; they do not mutate Notion, rewrite pages, refresh sidecars, apply manifests, or perform cross-document semantic consistency checks
 
-Active generated-secret ingestion branch behavior:
+Current consistency-audit branch behavior:
+- `doctor --consistency-audit` and `npm run consistency-audit` are read-only and project-scoped
+- the audit reports explicit contradictions across approved project surfaces, including Roadmap/Current Cycle alignment and explicit Runbook or Access references when those references can be resolved structurally
+- consistency-audit findings are advisory only; they do not mutate Notion, write local files, write sidecars, append mutation journal entries, apply manifests, inspect raw Access secret/token bodies, generate fixes, change default `doctor` output, change top-level `ok` or exit behavior, or block ordinary safe mutations
+
+Generated-secret ingestion behavior carried into this branch:
 - `secret-record-generate` and `access-token-generate` are apply-gated write-only commands for agent-generated credentials
 - preview mode validates target state and does not run the generator
 - `--apply` runs one child generator command, captures stdout in memory, stores the generated value in Notion, and suppresses/redacts child output
@@ -84,7 +90,7 @@ Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families instead of treating them as generic managed docs
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
-- policy-pack-driven mutation, cross-document consistency checks, and broad batch apply
+- policy-pack-driven mutation, hard/blocking cross-document consistency gates, and broad batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -155,9 +161,13 @@ Inspect a project safely before mutation:
 npm run doctor -- --project "Project Name"
 npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --truth-audit
+npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --consistency-audit
+npm run consistency-audit -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 ```
 
 `doctor --truth-audit` extends the read-only project health scan with truth-quality findings. Use it when the project shape is valid but the durable Notion truth may be stale or underfilled: old `Last Updated` headers, placeholder/empty important surfaces, and roadmap/current-cycle content that no longer looks current. It is an audit surface only; publish fixes through the owning `doc-*`, `page-*`, or `runbook-*` family after review.
+
+`doctor --consistency-audit` extends the same read-only project health scan with advisory cross-document contradiction findings. Use it when the durable pages may disagree with each other: Roadmap and Current Cycle active markers, explicit runbook references, or explicit Access references. The audit uses managed page content plus structural Access inventory only; it does not inspect raw secret/token bodies and it does not change default doctor output, top-level `ok`, exit behavior, or blocking behavior. Publish any reviewed fixes through the owning command family.
 
 Get a deterministic routing answer before editing:
 
@@ -316,6 +326,7 @@ Safe live SNPM checks:
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --truth-audit
+npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run verify-workspace-docs
 ```
 
@@ -345,6 +356,7 @@ Hybrid only when justified:
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
 - use read-only `doctor --truth-audit` to surface stale or underfilled durable Notion truth before editing
+- use read-only `doctor --consistency-audit` to surface explicit cross-document contradictions before editing, without making findings blocking
 - use `secret-record-generate` and `access-token-generate` when a coding agent must create or rotate a credential value without pasting it into chat or writing it locally
 - use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, targeted selectors, review artifacts, mutation limits, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
 - keep policy packs focused on explicit reusable policy for existing approved surfaces, including preview-first starter doc scaffold declarations

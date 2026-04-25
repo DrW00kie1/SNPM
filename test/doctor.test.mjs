@@ -147,6 +147,7 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
   assert.equal(result.authMode, "workspace-token");
   assert.equal(result.projectTokenChecked, false);
   assert.equal("truthAudit" in result, false);
+  assert.equal("consistencyAudit" in result, false);
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "planning" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "project-docs" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "implementation-truth" && entry.recommendedHome === "repo"));
@@ -514,4 +515,411 @@ test("doctor includes project-token scope only when requested", async () => {
   assert.equal(withToken.surfaces.projectTokenScope.ok, false);
   assert.ok(withToken.issues.some((issue) => issue.surface === "project-token-scope"));
   assert.equal(withToken.migrationGuidance.some((entry) => entry.patternId === "project-token-not-checked"), false);
+});
+
+test("doctor consistency audit is opt-in, advisory, and avoids raw Access record markdown", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project", [
+    childPage("access", "Access"),
+    childPage("ops", "Ops"),
+    childPage("planning", "Planning"),
+    childPage("runbooks", "Runbooks"),
+    childPage("overview", "Overview"),
+    paragraph("Canonical Source: Projects > SNPM"),
+  ]);
+  childrenMap.set("planning", [
+    childPage("roadmap", "Roadmap"),
+    childPage("current-cycle", "Current Cycle"),
+    paragraph("Canonical Source: Projects > SNPM > Planning"),
+  ]);
+  childrenMap.set("roadmap", [
+    paragraph("Canonical Source: Projects > SNPM > Planning > Roadmap"),
+  ]);
+  childrenMap.set("current-cycle", [
+    paragraph("Canonical Source: Projects > SNPM > Planning > Current Cycle"),
+  ]);
+  childrenMap.set("overview", [
+    paragraph("Canonical Source: Projects > SNPM > Overview"),
+  ]);
+  childrenMap.set("runbooks", [
+    childPage("release-runbook", "Release"),
+    paragraph("Canonical Source: Projects > SNPM > Runbooks"),
+  ]);
+  childrenMap.set("release-runbook", [
+    paragraph("Canonical Source: Projects > SNPM > Runbooks > Release"),
+  ]);
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("app-backend", [
+    childPage("database-url", "DATABASE_URL"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("planning", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("roadmap", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("current-cycle", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("overview", { icon: { type: "emoji", emoji: "📄" } });
+  pageMap.set("release-runbook", { icon: RUNBOOK_ICON });
+  pageMap.set("app-backend", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("database-url", { icon: SECRET_RECORD_ICON });
+
+  const markdownMap = new Map([
+    ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-25\n---\nProject summary."],
+    ["overview", "Canonical Source: Projects > SNPM > Overview\nLast Updated: 2026-04-25\n---\nUse `Access > App & Backend > DATABASE_URL`."],
+    ["planning", "Canonical Source: Projects > SNPM > Planning\nLast Updated: 2026-04-25\n---\nPlanning index."],
+    ["roadmap", "Canonical Source: Projects > SNPM > Planning > Roadmap\nLast Updated: 2026-04-25\n---\n## Milestones\n- Active Sprint: Sprint 5.2A\n- See `Runbooks > Missing Release Runbook`."],
+    ["current-cycle", "Canonical Source: Projects > SNPM > Planning > Current Cycle\nLast Updated: 2026-04-25\n---\n## Current Focus\n- Active Sprint: Sprint 5.3A"],
+    ["release-runbook", "Canonical Source: Projects > SNPM > Runbooks > Release\nLast Updated: 2026-04-25\n---\nRelease steps."],
+    ["database-url", "Canonical Source: Projects > SNPM > Access > App & Backend > DATABASE_URL\nLast Updated: 2026-04-25\n---\n## Raw Value\n```text\nsuper-secret\n```"],
+  ]);
+  const markdownRequests = [];
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap,
+      markdownRequests,
+    }),
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    verifyScopeImpl: async () => [],
+    consistencyAudit: true,
+  });
+
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.consistencyAudit.advisory, true);
+  assert.equal(result.consistencyAudit.status, "findings");
+  assert.deepEqual(
+    result.consistencyAudit.findings.map((finding) => finding.code).sort(),
+    [
+      "consistency.roadmap-current-cycle.active-marker-mismatch",
+      "consistency.runbook-reference.missing",
+    ],
+  );
+  assert.equal(markdownRequests.includes("database-url"), false);
+  assert.doesNotMatch(JSON.stringify(result.consistencyAudit), /super-secret/);
+});
+
+test("doctor can run truth audit and consistency audit together from one managed-page fetch set", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project", [
+    childPage("planning", "Planning"),
+    childPage("access", "Access"),
+    childPage("ops", "Ops"),
+    childPage("runbooks", "Runbooks"),
+    paragraph("Canonical Source: Projects > SNPM"),
+  ]);
+  childrenMap.set("planning", [
+    childPage("roadmap", "Roadmap"),
+    childPage("current-cycle", "Current Cycle"),
+    paragraph("Canonical Source: Projects > SNPM > Planning"),
+  ]);
+  childrenMap.set("roadmap", [
+    paragraph("Canonical Source: Projects > SNPM > Planning > Roadmap"),
+  ]);
+  childrenMap.set("current-cycle", [
+    paragraph("Canonical Source: Projects > SNPM > Planning > Current Cycle"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("planning", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("roadmap", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("current-cycle", { icon: { type: "emoji", emoji: "🗓️" } });
+  const markdownMap = new Map([
+    ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-25\n---\nProject summary."],
+    ["planning", "Canonical Source: Projects > SNPM > Planning\nLast Updated: 2026-04-25\n---\nPlanning index."],
+    ["roadmap", "Canonical Source: Projects > SNPM > Planning > Roadmap\nLast Updated: 2026-04-25\n---\n## Milestones\n- Active Sprint: Sprint 5.2A"],
+    ["current-cycle", "Canonical Source: Projects > SNPM > Planning > Current Cycle\nLast Updated: 2026-04-25\n---\n## Current Focus\n- Active Sprint: Sprint 5.2A"],
+  ]);
+  const markdownRequests = [];
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap,
+      markdownRequests,
+    }),
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    verifyScopeImpl: async () => [],
+    truthAudit: true,
+    consistencyAudit: true,
+  });
+
+  assert.ok(result.truthAudit);
+  assert.ok(result.consistencyAudit);
+  assert.equal(result.consistencyAudit.status, "clean");
+  assert.equal(new Set(markdownRequests).size, markdownRequests.length);
+});
+
+test("doctor consistency audit is opt-in and receives managed pages plus structural inventories", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project", [
+    childPage("access", "Access"),
+    childPage("ops", "Ops"),
+    childPage("runbooks", "Runbooks"),
+    childPage("overview", "Overview"),
+    paragraph("Canonical Source: Projects > SNPM"),
+  ]);
+  childrenMap.set("overview", [
+    paragraph("Canonical Source: Projects > SNPM > Overview"),
+  ]);
+  childrenMap.set("runbooks", [
+    childPage("release-runbook", "Release"),
+    paragraph("Canonical Source: Projects > SNPM > Runbooks"),
+  ]);
+  childrenMap.set("release-runbook", [
+    paragraph("Canonical Source: Projects > SNPM > Runbooks > Release"),
+  ]);
+  childrenMap.set("access", [
+    childPage("prod-domain", "Production"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("prod-domain", [
+    childPage("prod-secret", "PROD_SECRET"),
+    childPage("project-token", "PROJECT_TOKEN"),
+    paragraph("Canonical Source: Projects > SNPM > Access > Production"),
+  ]);
+  childrenMap.set("prod-secret", [
+    paragraph("Canonical Source: Projects > SNPM > Access > Production > PROD_SECRET"),
+  ]);
+  childrenMap.set("project-token", [
+    paragraph("Canonical Source: Projects > SNPM > Access > Production > PROJECT_TOKEN"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("overview", { icon: { type: "emoji", emoji: "📄" } });
+  pageMap.set("release-runbook", { icon: RUNBOOK_ICON });
+  pageMap.set("prod-domain", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("prod-secret", { icon: SECRET_RECORD_ICON });
+  pageMap.set("project-token", { icon: ACCESS_TOKEN_ICON });
+
+  const markdownMap = new Map([
+    ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-24\n---\nProject body."],
+    ["overview", "Canonical Source: Projects > SNPM > Overview\nLast Updated: 2026-04-24\n---\nOverview body."],
+    ["release-runbook", "Canonical Source: Projects > SNPM > Runbooks > Release\nLast Updated: 2026-04-24\n---\nRelease body."],
+  ]);
+  const markdownRequests = [];
+  let capturedContext = null;
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap,
+      markdownRequests,
+    }),
+    consistencyAudit: true,
+    auditConsistencyImpl: async (context) => {
+      capturedContext = context;
+      return {
+        advisory: true,
+        ruleset: { id: "test-consistency" },
+        checkedCount: context.pages.length,
+        cleanCount: context.pages.length,
+        findingCount: 0,
+        severityCounts: {},
+        findings: [],
+      };
+    },
+  });
+
+  assert.equal("truthAudit" in result, false);
+  assert.equal(result.consistencyAudit.advisory, true);
+  assert.ok(capturedContext.pages.some((page) => page.targetPath === "Projects > SNPM > Overview"));
+  assert.ok(capturedContext.pages.every((page) => typeof page.markdown === "string" || typeof page.readFailure === "string"));
+  assert.deepEqual(capturedContext.runbookInventory.runbooks.map((entry) => entry.title), ["Release"]);
+  assert.equal(capturedContext.runbookInventory.runbooks[0].managed, true);
+  assert.equal(capturedContext.accessInventory.domains[0].title, "Production");
+  assert.deepEqual(
+    capturedContext.accessInventory.domains[0].records.map((entry) => [entry.title, entry.kind, entry.managed]),
+    [
+      ["PROD_SECRET", "secret-record", true],
+      ["PROJECT_TOKEN", "access-token", true],
+    ],
+  );
+  assert.deepEqual(markdownRequests.sort(), ["overview", "project", "release-runbook"]);
+});
+
+test("doctor truth audit and consistency audit reuse managed markdown fetches", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project", [
+    childPage("access", "Access"),
+    childPage("ops", "Ops"),
+    childPage("runbooks", "Runbooks"),
+    childPage("overview", "Overview"),
+    paragraph("Canonical Source: Projects > SNPM"),
+  ]);
+  childrenMap.set("overview", [
+    paragraph("Canonical Source: Projects > SNPM > Overview"),
+  ]);
+  childrenMap.set("runbooks", [
+    childPage("release-runbook", "Release"),
+    paragraph("Canonical Source: Projects > SNPM > Runbooks"),
+  ]);
+  childrenMap.set("release-runbook", [
+    paragraph("Canonical Source: Projects > SNPM > Runbooks > Release"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("overview", { icon: { type: "emoji", emoji: "📄" } });
+  pageMap.set("release-runbook", { icon: RUNBOOK_ICON });
+
+  const markdownMap = new Map([
+    ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-24\n---\nProject body."],
+    ["overview", "Canonical Source: Projects > SNPM > Overview\nLast Updated: 2026-04-24\n---\nOverview body."],
+    ["release-runbook", "Canonical Source: Projects > SNPM > Runbooks > Release\nLast Updated: 2026-04-24\n---\nRelease body."],
+  ]);
+  const markdownRequests = [];
+  let consistencyPageCount = 0;
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap,
+      markdownRequests,
+    }),
+    truthAudit: true,
+    consistencyAudit: true,
+    analyzeManagedPageTruthImpl: async (page) => ({
+      ...page,
+      status: "clean",
+      findings: [],
+    }),
+    buildTruthAuditSummaryImpl: (analyses) => ({
+      checkedCount: analyses.length,
+      cleanCount: analyses.length,
+      staleCount: 0,
+      placeholderCount: 0,
+      missingHeaderCount: 0,
+      findings: [],
+      recommendations: [],
+    }),
+    auditConsistencyImpl: async (context) => {
+      consistencyPageCount = context.pages.length;
+      return {
+        advisory: true,
+        checkedCount: context.pages.length,
+        cleanCount: context.pages.length,
+        findingCount: 0,
+        severityCounts: {},
+        findings: [],
+      };
+    },
+  });
+
+  assert.equal(result.truthAudit.checkedCount, 3);
+  assert.equal(result.consistencyAudit.checkedCount, 3);
+  assert.equal(consistencyPageCount, result.truthAudit.checkedCount);
+  assert.deepEqual(markdownRequests.sort(), ["overview", "project", "release-runbook"]);
+});
+
+test("doctor consistency audit findings remain advisory and do not add structural issues", async () => {
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap: makeBaseChildrenMap(),
+      pageMap: makeBasePageMap(),
+      markdownMap: new Map([
+        ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-24\n---\nProject body."],
+      ]),
+    }),
+    consistencyAudit: true,
+    auditConsistencyImpl: async () => ({
+      advisory: true,
+      checkedCount: 1,
+      cleanCount: 0,
+      findingCount: 1,
+      severityCounts: { warning: 1 },
+      findings: [{
+        code: "consistency-audit.test-warning",
+        severity: "warning",
+        surface: "planning",
+        targetPath: "Projects > SNPM > Planning > Current Cycle",
+        message: "Advisory mismatch.",
+        safeNextCommand: "npm run page-pull -- --project \"SNPM\" --page \"Planning > Current Cycle\" --output current-cycle.md",
+        recoveryAction: "Review the referenced pages before updating.",
+      }],
+    }),
+  });
+
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.consistencyAudit.findingCount, 1);
+  assert.equal(result.consistencyAudit.findings[0].severity, "warning");
+});
+
+test("doctor consistency audit does not fetch raw secret or token bodies for Access inventory", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("app-backend", [
+    childPage("api-key", "API_KEY"),
+    childPage("project-token", "PROJECT_TOKEN"),
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend"),
+  ]);
+  childrenMap.set("api-key", [
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend > API_KEY"),
+  ]);
+  childrenMap.set("project-token", [
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend > PROJECT_TOKEN"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("app-backend", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("api-key", { icon: null });
+  pageMap.set("project-token", { icon: null });
+
+  const markdownRequests = [];
+  let accessInventory = null;
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownRequests,
+      markdownMap: new Map([
+        ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-24\n---\nProject body."],
+        ["api-key", "## Secret Record\n## Raw Value\n```text\nsuper-secret\n```"],
+        ["project-token", "## Token Record\n## Raw Value\n```text\nntn_live_secret\n```"],
+      ]),
+    }),
+    consistencyAudit: true,
+    auditConsistencyImpl: async (context) => {
+      accessInventory = context.accessInventory;
+      return {
+        advisory: true,
+        checkedCount: context.pages.length,
+        cleanCount: context.pages.length,
+        findingCount: 0,
+        severityCounts: {},
+        findings: [],
+      };
+    },
+  });
+
+  assert.equal("consistencyAudit" in result, true);
+  assert.equal(markdownRequests.includes("api-key"), false);
+  assert.equal(markdownRequests.includes("project-token"), false);
+  assert.deepEqual(
+    accessInventory.domains[0].records.map((entry) => [entry.title, entry.kind]),
+    [
+      ["API_KEY", "secret-record"],
+      ["PROJECT_TOKEN", "access-token"],
+    ],
+  );
 });

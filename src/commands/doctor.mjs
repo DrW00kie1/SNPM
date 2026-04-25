@@ -6,6 +6,7 @@ export async function runDoctor({
   projectName,
   projectTokenEnv,
   truthAudit = false,
+  consistencyAudit = false,
   staleAfterDays,
   workspaceName = "infrastructure-hq",
 }) {
@@ -15,6 +16,7 @@ export async function runDoctor({
     projectName,
     projectTokenEnv,
     truthAudit,
+    consistencyAudit,
     staleAfterDays,
   });
 }

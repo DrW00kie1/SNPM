@@ -37,7 +37,7 @@ Development should follow these rules:
 Current policy-pack foundation scope:
 - make the existing Infrastructure HQ project starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
 - preserve existing command behavior and the current workspace config contract
-- do not add policy-pack-driven mutation, cross-document consistency checks, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
+- do not add policy-pack-driven mutation, policy-pack-owned consistency checks, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
 
 Sprint 4.2 extends that policy layer with preview-first starter doc scaffolding. The scaffold contract is policy data; `scaffold-docs` writes only local review files with `--output-dir` and leaves Notion mutation to the generated owning command-family steps.
 
@@ -366,6 +366,13 @@ Deliverables:
 
 Exit criteria:
 - SNPM can report likely contradictions without blocking ordinary safe mutations prematurely
+
+Status:
+- Sprint 5.2A introduces the first advisory read-only slice through `doctor --consistency-audit` and `npm run consistency-audit`
+- the audit reports explicit cross-document contradictions across approved project surfaces, including Roadmap/Current Cycle active-marker alignment, explicit runbook references, and explicit Access references
+- Access checks use structural domain/record inventory only; the audit must not inspect raw Access secret/token bodies or add raw local export/edit/diff/push behavior
+- findings are advisory project-health output only and do not mutate Notion, write local files, write sidecars, append mutation journal entries, apply manifests, generate fixes, change default `doctor` output, change top-level `ok` or exit behavior, or introduce blocking gates
+- hard failures, automatic remediation, planner quality gates, broader semantic inference, and consistency checks outside the explicit v1 rule set remain future work
 
 Feature goals covered:
 - cross-document consistency verifier

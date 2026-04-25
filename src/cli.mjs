@@ -89,7 +89,7 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
@@ -619,13 +619,15 @@ async function main() {
   }
 
   if (command === "doctor") {
+    const consistencyAudit = options["consistency-audit"] === true;
     const truthAudit = options["truth-audit"] === true;
-    const staleAfterDays = truthAudit || options["stale-after-days"] !== undefined
+    const staleAfterDays = truthAudit || consistencyAudit || options["stale-after-days"] !== undefined
       ? parseStaleAfterDaysOption(options["stale-after-days"])
       : undefined;
     const result = await runDoctor({
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
+      ...(consistencyAudit ? { consistencyAudit, staleAfterDays } : {}),
       ...(truthAudit ? { truthAudit, staleAfterDays } : {}),
       workspaceName,
     });

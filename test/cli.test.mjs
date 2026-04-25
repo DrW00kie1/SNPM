@@ -241,7 +241,7 @@ test("capabilities command help and npm script are registered", () => {
   assert.deepEqual(parsedJson, capabilities);
 });
 
-test("doctor help, truth-audit capability metadata, and npm script are registered", () => {
+test("doctor help, audit capability metadata, and npm scripts are registered", () => {
   const spec = findCommandHelp("doctor");
   const capabilities = buildCapabilityMap();
   const command = capabilities.commands.find((candidate) => candidate.canonical === "doctor");
@@ -251,18 +251,30 @@ test("doctor help, truth-audit capability metadata, and npm script are registere
   assert.equal(spec?.authScope, "project-token-optional");
   assert.equal(spec?.mutationMode, "read-only");
   assert.match(commandText(spec), /--truth-audit/);
+  assert.match(commandText(spec), /--consistency-audit/);
   assert.match(commandText(spec), /--stale-after-days <positive integer>/);
   assert.match(commandText(spec), /defaults to 30/i);
+  assert.match(commandText(spec), /either audit flag/i);
   assert.match(commandText(spec), /truth-quality audit/i);
+  assert.match(commandText(spec), /cross-document consistency audit/i);
+  assert.match(commandText(spec), /Roadmap vs Current Cycle active markers/i);
+  assert.match(commandText(spec), /findings are advisory/i);
   assert.match(commandText(spec), /planning pages, project docs, managed runbooks, and curated workspace\/template docs/i);
   assert.match(commandText(spec), /excludes raw secret\/token body inspection/i);
   assert.match(commandText(spec), /does not mutate Notion/i);
   assert.ok(command);
+  assert.deepEqual(command.auditFlags, ["truth-audit", "consistency-audit"]);
+  assert.deepEqual(command.npmScripts, ["doctor", "truth-audit", "consistency-audit"]);
   assert.equal(command.notionMutation, "none");
   assert.equal(command.localFileWrites, "none");
   assert.equal(command.journalWrites, "none");
   assert.equal(command.truthAudit, "optional-read-only");
+  assert.equal(command.consistencyAudit, "optional-advisory-read-only");
   assert.equal(command.staleAfterDaysDefault, 30);
+  assert.deepEqual(command.staleAfterDaysCompatibleAuditFlags, [
+    "truth-audit",
+    "consistency-audit",
+  ]);
   assert.deepEqual(command.supportedTruthAuditSurfaces, [
     "planning-page",
     "project-doc",
@@ -285,6 +297,27 @@ test("doctor help, truth-audit capability metadata, and npm script are registere
     "retries",
     "generic-batch-apply",
   ]);
+  assert.deepEqual(command.supportedConsistencyAuditRules, [
+    "roadmap-current-cycle-active-marker",
+    "runbook-reference-resolution",
+    "access-structural-reference-resolution",
+  ]);
+  assert.deepEqual(command.consistencyAuditExclusions, [
+    "secret-record-body",
+    "access-token-body",
+  ]);
+  assert.deepEqual(command.consistencyAuditNonGoals, [
+    "notion-mutation",
+    "local-file-output",
+    "sidecar-writes",
+    "mutation-journal",
+    "auto-fix",
+    "top-level-failure-on-advisory-findings",
+    "rollback",
+    "retries",
+    "generic-batch-apply",
+  ]);
+  assert.equal(packageJson.scripts["consistency-audit"], "node src/cli.mjs doctor --consistency-audit");
   assert.equal(packageJson.scripts["truth-audit"], "node src/cli.mjs doctor --truth-audit");
 });
 
@@ -791,6 +824,20 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(truthAuditParsed.options["truth-audit"], true);
   assert.equal(truthAuditParsed.options["stale-after-days"], "45");
   assert.equal(truthAuditParsed.options.project, "SNPM");
+
+  const consistencyAuditParsed = parseArgs([
+    "doctor",
+    "--consistency-audit",
+    "--stale-after-days",
+    "45",
+    "--project",
+    "SNPM",
+  ]);
+
+  assert.equal(consistencyAuditParsed.command, "doctor");
+  assert.equal(consistencyAuditParsed.options["consistency-audit"], true);
+  assert.equal(consistencyAuditParsed.options["stale-after-days"], "45");
+  assert.equal(consistencyAuditParsed.options.project, "SNPM");
 });
 
 test("parseArgs supports doc subcommands", () => {
@@ -1300,14 +1347,18 @@ test("cli scaffold-docs help prints registry-only command help", () => {
   assert.equal(result.stderr, "");
 });
 
-test("cli doctor help documents read-only truth audit", () => {
+test("cli doctor help documents read-only advisory audits", () => {
   const result = runCli(["doctor", "--help"]);
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Command: doctor/);
   assert.match(result.stdout, /--truth-audit/);
+  assert.match(result.stdout, /--consistency-audit/);
   assert.match(result.stdout, /--stale-after-days <positive integer>/);
   assert.match(result.stdout, /defaults to 30/i);
+  assert.match(result.stdout, /either audit flag/i);
+  assert.match(result.stdout, /advisory/i);
+  assert.match(result.stdout, /Roadmap vs Current Cycle active markers/i);
   assert.match(result.stdout, /does not mutate Notion/i);
   assert.match(result.stdout, /raw secret\/token body inspection/i);
   assert.equal(result.stderr, "");
@@ -1532,23 +1583,41 @@ test("cli rejects passthrough delimiter outside secret child commands and requir
   assert.doesNotMatch(hyphenatedGenerateWithPositionalSecret.stderr, /sentinel-secret/);
 });
 
-test("cli doctor rejects invalid stale-after-days before live doctor execution", () => {
+test("cli doctor rejects invalid stale-after-days for audit flags before live doctor execution", () => {
   const invalidValues = ["0", "-1", "abc", "1.5", "30days"];
 
-  for (const value of invalidValues) {
-    const result = runCli([
-      "doctor",
-      "--project",
-      "SNPM",
-      "--truth-audit",
-      "--stale-after-days",
-      value,
-    ]);
+  for (const auditFlag of ["--truth-audit", "--consistency-audit"]) {
+    for (const value of invalidValues) {
+      const result = runCli([
+        "doctor",
+        "--project",
+        "SNPM",
+        auditFlag,
+        "--stale-after-days",
+        value,
+      ]);
 
-    assert.equal(result.status, 1, `${value} should fail`);
-    assert.equal(result.stdout, "");
-    assert.match(result.stderr, /--stale-after-days must be a positive integer/);
+      assert.equal(result.status, 1, `${auditFlag} ${value} should fail`);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /--stale-after-days must be a positive integer/);
+    }
   }
+});
+
+test("cli doctor --consistency-audit reaches the doctor command path", () => {
+  const result = runCli([
+    "doctor",
+    "--project",
+    "SNPM",
+    "--consistency-audit",
+    "--workspace",
+    "missing-consistency-audit-test",
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /Unknown workspace "missing-consistency-audit-test"/);
+  assert.doesNotMatch(result.stderr, /Missing value for --consistency-audit/);
 });
 
 test("cli capabilities prints JSON only", () => {
@@ -1564,6 +1633,9 @@ test("cli capabilities prints JSON only", () => {
   assert.ok(parsed.canonicalCommands.includes("sync"));
   assert.ok(parsed.canonicalCommands.includes("journal list"));
   assert.equal(parsed.commands.find((command) => command.canonical === "doctor")?.truthAudit, "optional-read-only");
+  assert.equal(parsed.commands.find((command) => command.canonical === "doctor")?.consistencyAudit, "optional-advisory-read-only");
+  assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.auditFlags.includes("consistency-audit"));
+  assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.npmScripts.includes("consistency-audit"));
 });
 
 test("cli journal list prints JSON only without live Notion", () => {

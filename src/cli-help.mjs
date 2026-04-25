@@ -14,6 +14,7 @@ const OPT_MODE = "--mode <create|update>";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_TRUTH_AUDIT = "--truth-audit";
+const OPT_CONSISTENCY_AUDIT = "--consistency-audit";
 const OPT_STALE_AFTER_DAYS = "--stale-after-days <positive integer>";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
 const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
@@ -341,16 +342,19 @@ const SINGLE_COMMAND_SPECS = [
   }),
   createCommandSpec({
     canonical: "doctor",
-    summary: "Run the read-only project health scan, managed-surface inventory, and optional truth-quality audit.",
+    summary: "Run the read-only project health scan, managed-surface inventory, and optional advisory audits.",
     usageLines: [
       'node src/cli.mjs doctor --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs doctor --project "Project Name" --truth-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs doctor --project "Project Name" --consistency-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs doctor --project "Project Name" --truth-audit --consistency-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
     ],
     requiredFlags: [
       OPT_PROJECT,
     ],
     optionalFlags: [
       OPT_TRUTH_AUDIT,
+      OPT_CONSISTENCY_AUDIT,
       OPT_STALE_AFTER_DAYS,
       OPT_PROJECT_TOKEN,
       OPT_WORKSPACE,
@@ -359,24 +363,35 @@ const SINGLE_COMMAND_SPECS = [
       'node src/cli.mjs doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run truth-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
     ],
     notes: [
       "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
       "Use --truth-audit to add the read-only truth-quality audit for stale Last Updated metadata and placeholder or empty managed content.",
-      "--stale-after-days defaults to 30 when --truth-audit is enabled and must be a positive integer.",
+      "Use --consistency-audit to add the advisory read-only cross-document consistency audit for active planning markers and explicit Runbooks or Access references.",
+      "--truth-audit and --consistency-audit can be combined; --stale-after-days defaults to 30 when either audit flag is enabled and must be a positive integer.",
       "Truth audit checks approved managed planning pages, project docs, managed runbooks, and curated workspace/template docs where applicable.",
       "Truth audit excludes raw secret/token body inspection and preserves consume-only Access behavior.",
+      "Consistency audit checks Roadmap vs Current Cycle active markers, explicit runbook references, and structural Access references without inspecting raw secret/token bodies.",
+      "Consistency audit findings are advisory and do not mutate Notion, write local files, write sidecars, append mutation journal entries, auto-fix content, force top-level failure by themselves, or add rollback/retry/batch-apply behavior.",
       "Truth audit does not mutate Notion, write local files, write sidecars, append mutation journal entries, auto-fix content, detect semantic contradictions, or add rollback/retry/batch-apply behavior.",
     ],
     capabilityMetadata: {
+      auditFlags: ["truth-audit", "consistency-audit"],
+      npmScripts: ["doctor", "truth-audit", "consistency-audit"],
       notionMutation: "none",
       localFileWrites: "none",
       journalWrites: "none",
       truthAudit: "optional-read-only",
+      consistencyAudit: "optional-advisory-read-only",
       staleAfterDaysDefault: 30,
+      staleAfterDaysCompatibleAuditFlags: ["truth-audit", "consistency-audit"],
       supportedTruthAuditSurfaces: ["planning-page", "project-doc", "runbook", "workspace-doc", "template-doc"],
       truthAuditExclusions: ["secret-record-body", "access-token-body"],
       truthAuditNonGoals: ["notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal", "auto-fix", "semantic-contradiction-detection", "rollback", "retries", "generic-batch-apply"],
+      supportedConsistencyAuditRules: ["roadmap-current-cycle-active-marker", "runbook-reference-resolution", "access-structural-reference-resolution"],
+      consistencyAuditExclusions: ["secret-record-body", "access-token-body"],
+      consistencyAuditNonGoals: ["notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal", "auto-fix", "top-level-failure-on-advisory-findings", "rollback", "retries", "generic-batch-apply"],
     },
   }),
   createCommandSpec({
@@ -2208,7 +2223,7 @@ const GLOBAL_COMMAND_GROUPS = [
     title: "Core Commands:",
     entries: [
       ["create-project", "Bootstrap a new project subtree in Notion."],
-      ["doctor", "Run the read-only project health scan and optional truth-quality audit."],
+      ["doctor", "Run the read-only project health scan and optional advisory audits."],
       ["recommend", "Run the read-only scan or route an intent to Notion vs repo."],
       ["verify-project", "Verify project structure and optional project-token scope."],
       ["verify-workspace-docs", "Verify curated workspace and template docs."],
@@ -2288,10 +2303,17 @@ function copyOptionalCapabilityFields(target, spec) {
     "localFileWrites",
     "journalWrites",
     "truthAudit",
+    "consistencyAudit",
+    "auditFlags",
+    "npmScripts",
     "staleAfterDaysDefault",
+    "staleAfterDaysCompatibleAuditFlags",
     "supportedTruthAuditSurfaces",
     "truthAuditExclusions",
     "truthAuditNonGoals",
+    "supportedConsistencyAuditRules",
+    "consistencyAuditExclusions",
+    "consistencyAuditNonGoals",
     "sidecarRefresh",
     "supportedManifestVersions",
     "supportedManifestV2EntryKinds",
