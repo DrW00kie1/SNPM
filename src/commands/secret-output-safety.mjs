@@ -4,6 +4,7 @@ export const SECRET_REDACTION_MARKER = "[SNPM REDACTED SECRET OUTPUT]";
 export const SECRET_REDACTION_WARNING = "Secret-bearing Access output was redacted by default. Raw local export is unsupported; use secret-record exec/access-token exec for runtime consumption.";
 export const RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE = "raw secret export is unsupported; use secret-record exec/access-token exec.";
 export const SECRET_MARKDOWN_MUTATION_UNSUPPORTED_MESSAGE = "Local Markdown edit/diff/push is disabled for secret-bearing Access records. Update raw values in Notion and use secret-record exec/access-token exec for runtime consumption.";
+export const DEFAULT_GENERATED_SECRET_MAX_BYTES = 8192;
 
 const SECRET_BEARING_SURFACES = new Set(["secret-record", "access-token"]);
 const SAFE_LABELS = new Set([
@@ -30,12 +31,51 @@ function normalizeNewlines(text) {
   return String(text || "").replace(/\r\n/g, "\n");
 }
 
+function stringifyOutput(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return Buffer.isBuffer(value) ? value.toString("utf8") : String(value);
+}
+
 export function isSecretBearingSurface(surface) {
   return SECRET_BEARING_SURFACES.has(surface);
 }
 
 export function containsSecretRedactionMarker(text) {
   return normalizeNewlines(text).includes(SECRET_REDACTION_MARKER);
+}
+
+export function redactExactSecretValue(text, secretValue) {
+  const input = stringifyOutput(text);
+  if (typeof secretValue !== "string" || secretValue === "" || !input.includes(secretValue)) {
+    return {
+      text: input,
+      redacted: false,
+    };
+  }
+
+  return {
+    text: input.split(secretValue).join(SECRET_REDACTION_MARKER),
+    redacted: true,
+  };
+}
+
+export function createExactSecretRedactor(secretValue) {
+  if (typeof secretValue !== "string" || secretValue === "") {
+    throw new Error("createExactSecretRedactor requires a non-empty secret value.");
+  }
+
+  return Object.freeze({
+    marker: SECRET_REDACTION_MARKER,
+    redact(text) {
+      return redactExactSecretValue(text, secretValue);
+    },
+    redactText(text) {
+      return redactExactSecretValue(text, secretValue).text;
+    },
+  });
 }
 
 export function assertNoSecretRedactionMarkers(text, { command } = {}) {
@@ -340,6 +380,72 @@ function isRedactedRawSecretValue(value) {
   }
 
   return /^[*xX]{6,}$/.test(trimmed);
+}
+
+function stripOneFinalNewline(value) {
+  if (value.endsWith("\r\n")) {
+    return value.slice(0, -2);
+  }
+  if (value.endsWith("\n") || value.endsWith("\r")) {
+    return value.slice(0, -1);
+  }
+
+  return value;
+}
+
+function generatedValueAppearsInArgv(value, childArgs = []) {
+  if (!Array.isArray(childArgs) || typeof value !== "string" || value === "") {
+    return false;
+  }
+
+  return childArgs.some((arg) => {
+    if (typeof arg !== "string") {
+      return false;
+    }
+
+    return arg === value || (value.length >= 8 && arg.includes(value));
+  });
+}
+
+export function validateGeneratedSecretValue(rawValue, {
+  childArgs = [],
+  command = "secret generate",
+  maxBytes = DEFAULT_GENERATED_SECRET_MAX_BYTES,
+} = {}) {
+  if (typeof rawValue !== "string" && !Buffer.isBuffer(rawValue)) {
+    throw new Error(`${command} generator must produce a string stdout value.`);
+  }
+
+  const value = stripOneFinalNewline(stringifyOutput(rawValue));
+  if (!value.trim()) {
+    throw new Error(`${command} generator produced an empty value.`);
+  }
+
+  if (value.includes("\0")) {
+    throw new Error(`${command} generator produced an invalid value.`);
+  }
+
+  if (value.includes("\n") || value.includes("\r")) {
+    throw new Error(`${command} generator produced a multiline value; v1 supports single-line generated secrets only.`);
+  }
+
+  if (Buffer.byteLength(value, "utf8") > maxBytes) {
+    throw new Error(`${command} generator produced a value larger than ${maxBytes} bytes.`);
+  }
+
+  if (isRedactedRawSecretValue(value)) {
+    throw new Error(`${command} generator produced a redacted value.`);
+  }
+
+  if (isPlaceholderRawSecretValue(value)) {
+    throw new Error(`${command} generator produced a placeholder value.`);
+  }
+
+  if (generatedValueAppearsInArgv(value, childArgs)) {
+    throw new Error(`${command} generator output appears in the generator argv; refusing chat/history-visible secret material.`);
+  }
+
+  return value;
 }
 
 export function extractRawSecretValueFromMarkdown(markdown, { command = "secret exec" } = {}) {

@@ -8,15 +8,21 @@ import {
   runAccessTokenCreate,
   runAccessTokenDiff,
   runAccessTokenEdit,
+  runAccessTokenGenerate,
   runAccessTokenPull,
   runAccessTokenPush,
   runSecretRecordCreate,
   runSecretRecordDiff,
   runSecretRecordEdit,
+  runSecretRecordGenerate,
   runSecretRecordPull,
   runSecretRecordPush,
 } from "../src/commands/access.mjs";
-import { SECRET_REDACTION_MARKER } from "../src/commands/secret-output-safety.mjs";
+import { createGeneratedSecretMaterial } from "../src/commands/secret-generate.mjs";
+import {
+  SECRET_REDACTION_MARKER,
+  createExactSecretRedactor,
+} from "../src/commands/secret-output-safety.mjs";
 
 const BODY_WITH_SECRET = [
   "## Secret Record",
@@ -140,6 +146,110 @@ test("secret-record and access-token diff push edit are disabled before local fi
       new RegExp(`${command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} is disabled\\..*Local Markdown edit/diff/push is disabled`, "i"),
     );
   }
+});
+
+test("secret-record and access-token generate wrappers preflight before generator and keep generated value out of results", async () => {
+  const calls = [];
+  const secretResult = await runSecretRecordGenerate({
+    apply: true,
+    childArgs: ["node", "scripts/generate-dsn.mjs"],
+    createGeneratedSecretRecordImpl: async (args) => {
+      calls.push(["secret", args]);
+      return {
+        applied: args.apply === true,
+        authMode: "project-token",
+        generatedSecretStored: args.apply === true,
+        mode: "create",
+        pageId: args.apply ? "secret-page" : null,
+        projectId: "project-page",
+        targetPath: "Projects > SNPM > Access > App & Backend > DATABASE_URL",
+      };
+    },
+    cwd: "C:\\repo",
+    domainTitle: "App & Backend",
+    mode: "create",
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    runGeneratedSecretCommandImpl: () => ({
+      ok: true,
+      secretMaterial: createGeneratedSecretMaterial("postgres://sentinel-secret"),
+      redactor: createExactSecretRedactor("postgres://sentinel-secret"),
+    }),
+    title: "DATABASE_URL",
+    workspaceConfig: { workspace: "fake" },
+    workspaceName: "infrastructure-hq",
+  });
+  let generatorRan = false;
+  const tokenResult = await runAccessTokenGenerate({
+    apply: false,
+    childArgs: ["node", "scripts/generate-token.mjs"],
+    domainTitle: "App & Backend",
+    runGeneratedSecretCommandImpl: () => {
+      generatorRan = true;
+      throw new Error("generator should not run in preview");
+    },
+    updateGeneratedAccessTokenImpl: async (args) => {
+      calls.push(["token", args]);
+      return {
+        applied: false,
+        authMode: "project-token",
+        targetPath: "Projects > SNPM > Access > App & Backend > Project Token",
+      };
+    },
+    mode: "update",
+    projectName: "SNPM",
+    title: "Project Token",
+    workspaceConfig: { workspace: "fake" },
+  });
+
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0][0], "secret");
+  assert.equal(calls[0][1].apply, false);
+  assert.equal(calls[0][1].generatedRawValue, undefined);
+  assert.equal(calls[1][0], "secret");
+  assert.equal(calls[1][1].apply, true);
+  assert.equal(calls[1][1].generatedRawValue, "postgres://sentinel-secret");
+  assert.equal(calls[1][1].config.workspace, "fake");
+  assert.equal(calls[1][1].projectTokenEnv, "SNPM_NOTION_TOKEN");
+  assert.equal(secretResult.generatedSecretStored, true);
+  assert.doesNotMatch(JSON.stringify(secretResult), /sentinel-secret/);
+  assert.equal(calls[2][0], "token");
+  assert.equal(calls[2][1].apply, false);
+  assert.equal(calls[2][1].generatedRawValue, undefined);
+  assert.equal(generatorRan, false);
+  assert.equal(tokenResult.generatorWillRun, false);
+});
+
+test("secret-record generate wrapper rejects invalid mode and missing child generator", async () => {
+  await assert.rejects(
+    () => runSecretRecordGenerate({
+      childArgs: ["node", "scripts/generate-dsn.mjs"],
+      domainTitle: "App & Backend",
+      createGeneratedSecretRecordImpl: async () => {
+        throw new Error("helper should not run");
+      },
+      mode: "upsert",
+      projectName: "SNPM",
+      title: "DATABASE_URL",
+      workspaceConfig: {},
+    }),
+    /secret-record generate requires --mode create or --mode update/i,
+  );
+
+  await assert.rejects(
+    () => runAccessTokenGenerate({
+      childArgs: [],
+      domainTitle: "App & Backend",
+      createGeneratedAccessTokenImpl: async () => {
+        throw new Error("helper should not run");
+      },
+      mode: "create",
+      projectName: "SNPM",
+      title: "Project Token",
+      workspaceConfig: {},
+    }),
+    /Provide a generator command after -- for access-token generate/i,
+  );
 });
 
 test("secret-bearing create rejects non-placeholder local Raw Value input", async () => {

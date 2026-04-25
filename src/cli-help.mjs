@@ -10,6 +10,7 @@ const OPT_METADATA = "--metadata <path>";
 const OPT_ENV_NAME = "--env-name ENV_NAME";
 const OPT_STDIN_SECRET = "--stdin-secret";
 const OPT_CWD = "--cwd <dir>";
+const OPT_MODE = "--mode <create|update>";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_TRUTH_AUDIT = "--truth-audit";
@@ -94,6 +95,21 @@ const SECRET_EXEC_CAPABILITY_METADATA = {
   childOutputRedaction: "exact-secret-redaction-fail-closed",
 };
 
+const SECRET_GENERATE_CAPABILITY_METADATA = {
+  notionMutation: "apply-gated",
+  localFileWrites: "none",
+  journalWrites: "apply-gated-redacted-operational-only",
+  rawSecretExport: "unsupported",
+  rawSecretInput: "child-stdout-only",
+  rawSecretArgvInput: "unsupported",
+  localSecretPersistence: "none",
+  secretConsumption: "exec-only",
+  generatedSecretIngestion: "write-only",
+  generatorExecution: "apply-only-shell-false",
+  generatorOutputPolicy: "stdout-captured-in-memory-stderr-rejected",
+  reviewOutput: "unsupported",
+};
+
 const SECRET_UNSUPPORTED_LOCAL_MARKDOWN_METADATA = {
   supported: false,
   supportStatus: "unsupported-secret-consume-only",
@@ -121,6 +137,14 @@ const SECRET_EXEC_NOTES = [
   "The child command must appear after a literal -- delimiter and runs with shell: false.",
   "SNPM redacts exact secret values from child stdout and stderr and fails closed if redaction was required.",
   "Exec does not mutate Notion, write local secret files, or append mutation journal entries.",
+];
+
+const SECRET_GENERATE_NOTES = [
+  "Preview mode does not run the child generator and does not mutate Notion.",
+  "With --apply, SNPM runs the child generator once with shell: false, captures stdout in memory, and stores the value directly in Notion.",
+  "Raw values cannot be provided through --value, stdin, env vars, local files, output paths, sidecars, or review artifacts.",
+  "Generated values are never printed, diffed, journaled, hashed, or written locally by SNPM.",
+  "Use the exec subcommand later to consume the stored value at runtime without local export.",
 ];
 
 const SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES = [
@@ -363,6 +387,7 @@ const SINGLE_COMMAND_SPECS = [
       'node src/cli.mjs recommend --project "Project Name" --intent planning --page "Roadmap" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs recommend --project "Project Name" --intent runbook --title "Runbook Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs recommend --project "Project Name" --intent secret --domain "App & Backend" --title "Record Title" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs recommend --project "Project Name" --intent generated-secret --domain "App & Backend" --title "DATABASE_URL" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs recommend --project "Project Name" --intent project-doc --path "Root > Overview" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs recommend --intent template-doc --path "Templates > Project Templates > Overview" [--workspace infrastructure-hq]',
       'node src/cli.mjs recommend --intent workspace-doc --path "Runbooks > Notion Workspace Workflow" [--workspace infrastructure-hq]',
@@ -370,7 +395,7 @@ const SINGLE_COMMAND_SPECS = [
     ],
     requiredFlags: [
       '--project "Project Name" for the read-only scan and project-backed intents',
-      '--intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output> for routed recommendations',
+      '--intent <planning|runbook|secret|token|generated-secret|generated-token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output> for routed recommendations',
       '--page "Roadmap" for the planning intent',
       '--path "<doc path>" for project-doc, template-doc, and workspace-doc intents',
       '--title "Title" for runbook, secret, and token intents',
@@ -993,6 +1018,32 @@ const COMPOUND_COMMAND_SPECS = [
         capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
       },
       {
+        name: "generate",
+        summary: "Generate a raw secret in a child process and store it directly in Notion without local raw export.",
+        usageLines: [
+          'node src/cli.mjs secret-record generate --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode <create|update> [--cwd <dir>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq] -- <generator-command> [args...]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          OPT_MODE,
+          "-- <generator-command> [args...]",
+        ],
+        optionalFlags: [
+          OPT_CWD,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs secret-record generate --project "SNPM" --domain "App & Backend" --title "DATABASE_URL" --mode create -- node scripts/generate-dsn.mjs',
+          'npm run secret-record-generate -- --project "SNPM" --domain "App & Backend" --title "DATABASE_URL" --mode update --apply -- node scripts/generate-dsn.mjs',
+        ],
+        notes: SECRET_GENERATE_NOTES,
+        capabilityMetadata: SECRET_GENERATE_CAPABILITY_METADATA,
+      },
+      {
         name: "pull",
         summary: "Pull a redacted managed project secret record to a file or stream the redacted markdown body to stdout.",
         usageLines: [
@@ -1178,6 +1229,32 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         notes: SECRET_REVIEW_NOTES,
         capabilityMetadata: SECRET_CONSUME_ONLY_CAPABILITY_METADATA,
+      },
+      {
+        name: "generate",
+        summary: "Generate a raw access token in a child process and store it directly in Notion without local raw export.",
+        usageLines: [
+          'node src/cli.mjs access-token generate --project "Project Name" --domain "App & Backend" --title "Project Token" --mode <create|update> [--cwd <dir>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--workspace infrastructure-hq] -- <generator-command> [args...]',
+        ],
+        requiredFlags: [
+          OPT_PROJECT,
+          '--domain "Access Domain Title"',
+          '--title "Record Title"',
+          OPT_MODE,
+          "-- <generator-command> [args...]",
+        ],
+        optionalFlags: [
+          OPT_CWD,
+          OPT_PROJECT_TOKEN,
+          OPT_APPLY,
+          OPT_WORKSPACE,
+        ],
+        examples: [
+          'node src/cli.mjs access-token generate --project "SNPM" --domain "App & Backend" --title "Project Token" --mode create -- node scripts/generate-token.mjs',
+          'npm run access-token-generate -- --project "SNPM" --domain "App & Backend" --title "Project Token" --mode update --apply -- node scripts/generate-token.mjs',
+        ],
+        notes: SECRET_GENERATE_NOTES,
+        capabilityMetadata: SECRET_GENERATE_CAPABILITY_METADATA,
       },
       {
         name: "pull",
@@ -1990,6 +2067,76 @@ const FAMILY_COMMAND_SPECS = [
     mutationMode: "mixed",
   }),
   createCommandSpec({
+    canonical: "secret-record",
+    summary: "Show the secret-record command family for consume-only records and write-only generated secret ingestion.",
+    usageLines: [
+      'node src/cli.mjs secret-record <create|adopt|generate|pull|exec> --project "Project Name" --domain "Access Domain Title" --title "Record Title" [options]',
+      "node src/cli.mjs secret-record --help",
+      "node src/cli.mjs help secret-record",
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+      '--domain "Access Domain Title"',
+      '--title "Record Title"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs secret-record generate --help",
+      'npm run secret-record-exec -- --project "SNPM" --domain "App & Backend" --title "DATABASE_URL" --env-name DATABASE_URL -- node scripts/check-db.mjs',
+    ],
+    notes: [
+      "Secret-record pulls are redacted-only; raw local export and local markdown diff/push/edit are unsupported.",
+      "Use secret-record generate to store a newly generated value directly in Notion without local raw files.",
+      "Use secret-record exec to consume the stored value at runtime without exporting it.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+    capabilityMetadata: {
+      rawSecretExport: "unsupported",
+      secretConsumption: "exec-only",
+      generatedSecretIngestion: "write-only",
+      localSecretPersistence: "unsupported",
+    },
+  }),
+  createCommandSpec({
+    canonical: "access-token",
+    summary: "Show the access-token command family for consume-only records and write-only generated token ingestion.",
+    usageLines: [
+      'node src/cli.mjs access-token <create|adopt|generate|pull|exec> --project "Project Name" --domain "Access Domain Title" --title "Record Title" [options]',
+      "node src/cli.mjs access-token --help",
+      "node src/cli.mjs help access-token",
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+      '--domain "Access Domain Title"',
+      '--title "Record Title"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs access-token generate --help",
+      'npm run access-token-exec -- --project "SNPM" --domain "App & Backend" --title "Project Token" --env-name PROJECT_TOKEN -- node scripts/check-token.mjs',
+    ],
+    notes: [
+      "Access-token pulls are redacted-only; raw local export and local markdown diff/push/edit are unsupported.",
+      "Use access-token generate to store a newly generated value directly in Notion without local raw files.",
+      "Use access-token exec to consume the stored value at runtime without exporting it.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+    capabilityMetadata: {
+      rawSecretExport: "unsupported",
+      secretConsumption: "exec-only",
+      generatedSecretIngestion: "write-only",
+      localSecretPersistence: "unsupported",
+    },
+  }),
+  createCommandSpec({
     canonical: "validation-session",
     summary: "Show the validation-session command family and its create/adopt/pull/diff/push subcommands.",
     usageLines: [
@@ -2081,8 +2228,8 @@ const GLOBAL_COMMAND_GROUPS = [
     title: "Project Operations:",
     entries: [
       ["access-domain <create|adopt|pull|diff|push|edit>", "Managed Access domain pages."],
-      ["secret-record <create|adopt|pull|exec>", "Managed consume-only secret records under an Access domain."],
-      ["access-token <create|adopt|pull|exec>", "Managed consume-only access-token records under an Access domain."],
+      ["secret-record <create|adopt|generate|pull|exec>", "Managed consume-only records plus write-only generated secret ingestion."],
+      ["access-token <create|adopt|generate|pull|exec>", "Managed consume-only tokens plus write-only generated token ingestion."],
       ["runbook <create|adopt|pull|diff|push|edit>", "Managed project runbooks."],
       ["build-record <create|pull|diff|push>", "Managed project build records."],
       ["journal <list>", "Read recent local mutation journal entries as JSON."],
@@ -2164,6 +2311,11 @@ function copyOptionalCapabilityFields(target, spec) {
     "reviewOutputRedaction",
     "secretConsumption",
     "secretDeliveryModes",
+    "rawSecretInput",
+    "rawSecretArgvInput",
+    "generatedSecretIngestion",
+    "generatorExecution",
+    "generatorOutputPolicy",
     "childProcessExecution",
     "childOutputRedaction",
     "supported",
@@ -2281,7 +2433,8 @@ export function usage() {
     '  Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',
     '  Workspace-scoped doc paths are limited to the curated exact pages plus "Templates > Project Templates" and descendants under it.',
     "  Access operations are limited to project-owned Access domain pages plus secret/token records nested under those domains.",
-    "  Secret-bearing Access records are consume-only: pull output is redacted-only, raw local export is unsupported, and runtime use goes through secret-record exec or access-token exec.",
+    "  Secret-bearing Access records are consume-only for local access: pull output is redacted-only, raw local export is unsupported, and runtime use goes through secret-record exec or access-token exec.",
+    "  Generated secret/token values use write-only ingestion: secret-record generate and access-token generate run a child generator only with --apply and store the value directly in Notion without local raw output.",
     "  Runbook and build-record operations are limited to project-owned surfaces under Runbooks and Ops > Builds.",
     "  Validation-session operations are limited to Ops > Validation > Validation Sessions.",
     "  Validation-session bundle verification remains the API-visible check; validation-bundle adds an experimental Chromium-only UI lane for the surrounding Notion bundle.",

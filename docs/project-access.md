@@ -57,6 +57,8 @@ Secret record commands:
 
 ```bash
 npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record-shell.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run secret-record-generate -- --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode create --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-dsn.mjs
+npm run secret-record-generate -- --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode update --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/rotate-dsn.mjs
 npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record-redacted.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run secret-record-exec -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --env-name GEMINI_API_KEY --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/use-secret.mjs
@@ -66,6 +68,8 @@ Access token commands:
 
 ```bash
 npm run access-token-create -- --project "Project Name" --domain "App & Backend" --title "Project Token" --file access-token-shell.md --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run access-token-generate -- --project "Project Name" --domain "App & Backend" --title "Project Token" --mode create --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-project-token.mjs
+npm run access-token-generate -- --project "Project Name" --domain "App & Backend" --title "Project Token" --mode update --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/rotate-project-token.mjs
 npm run access-token-adopt -- --project "Project Name" --domain "App & Backend" --title "Project Token" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run access-token-pull -- --project "Project Name" --domain "App & Backend" --title "Project Token" --output access-token-redacted.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run access-token-exec -- --project "Project Name" --domain "App & Backend" --title "Project Token" --stdin-secret --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/read-token-from-stdin.mjs
@@ -76,10 +80,27 @@ Managed workflow rules:
 - use `create` for new managed pages
 - use `adopt` only for existing headerless pages
 - use `secret-record-exec` and `access-token-exec` for runtime secret consumption
+- use `secret-record-generate` and `access-token-generate` when an agent-generated value must be stored in Notion without putting the value in chat, CLI flags, local files, sidecars, diffs, review artifacts, or journals
 - default `secret-record-pull` and `access-token-pull` output is redacted-only and is not push-ready
 - raw local export, local markdown diff, push, and edit are unsupported for secret-bearing records
 - if a domain page does not exist, create or adopt the domain first
 - SNPM-managed Access records stay inside `Projects > <Project> > Access`
+
+Write-only generated ingestion path:
+
+```bash
+npm run secret-record-generate -- --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode create --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-dsn.mjs
+npm run access-token-generate -- --project "Project Name" --domain "App & Backend" --title "Project Token" --mode update --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/rotate-project-token.mjs
+```
+
+Generated-ingestion rules:
+- omit `--apply` for preview; preview validates the domain and target mode but does not run the generator
+- put the generator command after the literal `--` delimiter
+- the generator must produce exactly one valid single-line value on stdout and no stderr
+- `--mode create` fails if the record already exists; `--mode update` fails if the record is missing, unmanaged, stale, archived, or malformed
+- SNPM stores the generated value directly in the Notion record and suppresses/redacts child output
+- generated values are never written to local markdown files, metadata sidecars, review artifacts, terminal output, or mutation journal entries
+- raw input through chat, CLI flags, stdin, env vars, or local files is not a supported ingestion path
 
 Consume-only execution path:
 

@@ -332,6 +332,28 @@ Status:
 Feature goals covered:
 - drift and staleness audit
 
+### Sprint 5.1B: Write-Only Generated Secret Ingestion
+
+Goal:
+- let coding agents create or rotate a generated secret/token and store it in Notion without exposing the raw value in chat, CLI literals, local files, sidecars, diffs, review artifacts, or journals
+
+Deliverables:
+- `secret-record-generate` and `access-token-generate` under the Access command family
+- preview mode that validates target feasibility without running the generator or mutating Notion
+- apply mode that runs one child generator command, captures one stdout value in memory, stores it directly in the managed Access record, and suppresses/redacts child output
+- create/update modes with explicit target-state checks and stale-write protection on update
+- help, capabilities, recommend output, and docs that keep consume-only runtime access separate from write-only generated ingestion
+
+Exit criteria:
+- an agent can generate a PostgreSQL DSN, project token, or similar single-line credential and store it in the correct Access record without pasting it into the thread or writing it to disk
+- secret-bearing pulls remain redacted-only, `exec` remains the runtime consumption lane, and local raw export/edit/diff/push remain unsupported
+
+Out of scope:
+- raw value flags, stdin/env/file secret input, multiline secrets, raw export, metadata sidecars, review output, manifest v2 Access entries, automatic rotation, rollback, retries, and generic credential management
+
+Durable Notion closeout draft:
+- SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.
+
 ### Sprint 5.2: Cross-Document Consistency Rules
 
 Goal:
@@ -404,7 +426,7 @@ Milestone 1 implementation status:
 - `plan-change` is implemented as a deterministic read-only target-file planner
 - managed pull commands now write strict metadata sidecars, and apply paths reject missing, mismatched, stale, archived, or trashed metadata before mutation
 - applied mutations now append redacted local journal entries with command, surface, target, page, revision, timestamp, and diff hash/stat metadata
-- secret-bearing Access commands are moving to consume-only runtime access with redacted-only pulls; raw local export and local markdown edit/diff/push are unsupported for secret/token records
+- secret-bearing Access commands use consume-only runtime access with redacted-only pulls plus write-only generated ingestion for agent-created values; raw local export and local markdown edit/diff/push are unsupported for secret/token records
 - the next development phase should start with generalized manifest sync rather than expanding ad hoc page mutation
 
 ## Deferred Work

@@ -6,9 +6,12 @@ import {
   SECRET_REDACTION_MARKER,
   assertNoLocalRawSecretValue,
   assertNoSecretRedactionMarkers,
+  createExactSecretRedactor,
   extractRawSecretValueFromMarkdown,
   redactSecretDiff,
   redactSecretMarkdown,
+  redactExactSecretValue,
+  validateGeneratedSecretValue,
   validateSecretPullOutputPolicy,
 } from "../src/commands/secret-output-safety.mjs";
 
@@ -191,4 +194,63 @@ test("extractRawSecretValueFromMarkdown rejects empty placeholder and redacted v
     () => extractRawSecretValueFromMarkdown("## Raw Value\n```text\n[redacted]\n```\n"),
     /redacted Raw Value/i,
   );
+});
+
+test("validateGeneratedSecretValue normalizes a single final newline and rejects unsafe generated values", () => {
+  assert.equal(validateGeneratedSecretValue("generated-secret\n"), "generated-secret");
+  assert.equal(validateGeneratedSecretValue(Buffer.from("generated-secret\r\n")), "generated-secret");
+
+  assert.throws(
+    () => validateGeneratedSecretValue(""),
+    /empty value/i,
+  );
+  assert.throws(
+    () => validateGeneratedSecretValue("<paste scoped token here>"),
+    /placeholder value/i,
+  );
+  assert.throws(
+    () => validateGeneratedSecretValue(SECRET_REDACTION_MARKER),
+    /redacted value/i,
+  );
+  assert.throws(
+    () => validateGeneratedSecretValue("secret\0value"),
+    /invalid value/i,
+  );
+  assert.throws(
+    () => validateGeneratedSecretValue("line-one\nline-two"),
+    /multiline value/i,
+  );
+  assert.throws(
+    () => validateGeneratedSecretValue("123456789", { maxBytes: 8 }),
+    /larger than 8 bytes/i,
+  );
+});
+
+test("validateGeneratedSecretValue rejects argv-literal outputs without echoing the value", () => {
+  const secret = "literal-secret";
+
+  assert.throws(
+    () => validateGeneratedSecretValue(secret, {
+      childArgs: ["node", "-e", `console.log("${secret}")`],
+      command: "secret-record generate",
+    }),
+    (error) => /appears in the generator argv/i.test(error.message) && !error.message.includes(secret),
+  );
+});
+
+test("exact generated-secret redactors replace exact secret occurrences only", () => {
+  const direct = redactExactSecretValue("before exact-secret after", "exact-secret");
+  assert.deepEqual(direct, {
+    text: `before ${SECRET_REDACTION_MARKER} after`,
+    redacted: true,
+  });
+
+  const missed = redactExactSecretValue("before exact_secret after", "exact-secret");
+  assert.deepEqual(missed, {
+    text: "before exact_secret after",
+    redacted: false,
+  });
+
+  const redactor = createExactSecretRedactor("exact-secret");
+  assert.equal(redactor.redactText("exact-secret exact-secret"), `${SECRET_REDACTION_MARKER} ${SECRET_REDACTION_MARKER}`);
 });

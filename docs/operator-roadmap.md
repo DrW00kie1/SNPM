@@ -28,6 +28,7 @@ Supported on the current active line:
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
 - consume-only `secret-record-exec` and `access-token-exec` for runtime secret use, with redacted-only pulls and no supported raw local export
+- write-only `secret-record-generate` and `access-token-generate` for agent-generated secret/token creation or rotation
 - EOF-stable managed-page round-trips
 - manifest v2 `sync check` for read-only mixed-surface comparison
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata
@@ -44,7 +45,7 @@ Promoted policy-pack foundation:
 - optional `policyPack.starterDocScaffold` declares approved starter doc drafts without applying them
 - policy packs do not add drift or staleness audit, consistency checks, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
 
-Current `codex/bootstrap-doc-scaffolding` branch addition:
+Promoted bootstrap doc scaffolding behavior:
 - `scaffold-docs` previews starter drafts by default, writes local scaffold files only with `--output-dir`, and never mutates Notion directly
 - the scaffold surface stays constrained to approved `project-doc` and `planning-page` starter targets
 - default scaffold targets are `Root > Overview`, `Root > Operating Model`, `Planning > Roadmap`, and `Planning > Current Cycle`
@@ -65,6 +66,12 @@ Recently promoted truth-quality audit behavior on `main`:
 - `doctor --truth-audit` is a read-only project-health audit
 - audit findings cover stale `Last Updated` metadata, placeholder or empty important surfaces, and freshness of `Planning > Roadmap` and `Planning > Current Cycle`
 - remediation remains explicit through the owning command family; truth-audit does not mutate Notion, apply manifests, refresh sidecars, export secrets, or perform cross-document semantic consistency checks
+
+Current `codex/generated-secret-ingestion` branch addition:
+- `secret-record-generate` and `access-token-generate` give coding agents a write-only path for generated credentials
+- preview mode validates target feasibility but does not run the generator
+- applied mode runs one child generator command, stores one generated stdout value directly in Notion, and keeps the raw value out of chat, local markdown, sidecars, review artifacts, terminal output, and mutation journals
+- raw local export and secret-bearing local edit/diff/push remain unsupported
 
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
@@ -160,6 +167,7 @@ Those surfaces continue to use their own command families.
 ### Phase 4: Expand Only Proven Surfaces
 - add new surfaces only when repeated demand justifies them
 - use `doctor --truth-audit` as the read-only freshness check before adding stronger consistency gates
+- use write-only generated Access ingestion for agent-created credentials instead of reopening raw local secret files
 - avoid generic arbitrary workspace CRUD
 - keep the product boundary explicit
 
@@ -171,6 +179,7 @@ Keep these boundaries:
 - curated doc families stay config-backed and explicit
 - policy packs describe approved structure, routing boundaries, and optional starter doc scaffold declarations; they do not by themselves audit freshness, check semantic consistency, mutate Notion, or apply batches
 - `doctor --truth-audit` reports truth-quality findings only; it does not rewrite stale pages, classify secrets for local export, apply generated fixes, or replace the owning command families
+- secret-bearing Access records allow consume-only runtime access and write-only generated ingestion; they still do not allow raw local export, local markdown edit/diff/push, sidecars, manifest v2 entries, or review-output artifacts
 - `scaffold-docs` is preview-first and must not broaden approved starter targets or bypass managed-surface safety checks
 - repo sync stays selective
 - manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family

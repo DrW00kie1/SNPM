@@ -256,6 +256,79 @@ test("recommend routes unmanaged secret records to adopt first with migration gu
   assert.equal(result.migrationGuidance[0].patternId, "unmanaged-secret-record");
 });
 
+test("recommend routes generated secrets to write-only Access generate commands", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("app-backend", [
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("app-backend", { icon: ACCESS_DOMAIN_ICON });
+
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    projectName: "SNPM",
+    intent: "generated-secret",
+    domainTitle: "App & Backend",
+    title: "DATABASE_URL",
+    workspaceClient: makeFakeClient({ childrenMap, pageMap }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recommendedHome, "notion");
+  assert.equal(result.surface, "access");
+  assert.equal(result.targetPath, "Projects > SNPM > Access > App & Backend > DATABASE_URL");
+  assert.equal(result.nextCommands.length, 1);
+  assert.match(result.nextCommands[0].command, /npm run secret-record-generate/);
+  assert.match(result.nextCommands[0].command, /--mode "create"/);
+  assert.match(result.nextCommands[0].command, /--apply -- <generator-command> \[args\.\.\.\]/);
+  assert.match(result.nextCommands[0].reason, /without local raw output/i);
+  assert.doesNotMatch(result.nextCommands[0].command, /--file|--output|--raw-secret-output|\.snpm\/secrets/);
+  assert.doesNotMatch(result.nextCommands[0].command, /secret-record-(?:push|diff|edit)/);
+});
+
+test("recommend routes existing generated tokens to write-only update and exec consumption", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("access", [
+    childPage("app-backend", "App & Backend"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("app-backend", [
+    childPage("project-token", "Project Token"),
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend"),
+  ]);
+  childrenMap.set("project-token", [
+    paragraph("Canonical Source: Projects > SNPM > Access > App & Backend > Project Token"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("app-backend", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("project-token", { icon: ACCESS_TOKEN_ICON });
+
+  const result = await recommendProjectUpdate({
+    config: makeConfig(),
+    projectName: "SNPM",
+    intent: "generated-token",
+    domainTitle: "App & Backend",
+    title: "Project Token",
+    workspaceClient: makeFakeClient({ childrenMap, pageMap }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recommendedHome, "notion");
+  assert.equal(result.targetPath, "Projects > SNPM > Access > App & Backend > Project Token");
+  assert.equal(result.nextCommands.length, 2);
+  assert.match(result.nextCommands[0].command, /npm run access-token-generate/);
+  assert.match(result.nextCommands[0].command, /--mode "update"/);
+  assert.match(result.nextCommands[0].command, /--apply -- <generator-command> \[args\.\.\.\]/);
+  assert.match(result.nextCommands[1].command, /npm run access-token-exec/);
+  assert.doesNotMatch(result.nextCommands.map((step) => step.command).join("\n"), /access-token-(?:push|diff|edit)|--raw-secret-output|\.snpm\/secrets/);
+});
+
 test("recommend routes managed access tokens to exec and redacted pull commands", async () => {
   const childrenMap = makeBaseChildrenMap();
   childrenMap.set("access", [

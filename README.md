@@ -13,12 +13,13 @@ GitHub remote:
 
 Current branch reality:
 - active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, policy-pack foundation, bootstrap doc scaffolding, consume-only Access secret handling, and read-only `doctor --truth-audit` truth-quality checks
+- active development branch: `codex/generated-secret-ingestion`, adding write-only generated secret/token ingestion without raw local export
 - recent promotion trace branches: `codex/bootstrap-doc-scaffolding`, `codex/access-secret-hardening`
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
 
-Supported narrow-band baseline on `main`:
+Supported narrow-band baseline on this active line:
 - `create-project`
 - `verify-project`
 - planning-page sync for the four approved planning pages
@@ -26,6 +27,7 @@ Supported narrow-band baseline on `main`:
 - managed Access records
 - low-ceremony edit loops via `page-edit`, `runbook-edit`, `doc-edit`, and `access-domain-edit`
 - consume-only secret runtime helpers via `secret-record-exec` and `access-token-exec`
+- write-only generated secret/token ingestion via `secret-record-generate` and `access-token-generate`
 - curated managed docs for:
   - project root docs
   - `Templates > Project Templates` and its non-reserved descendants
@@ -70,6 +72,13 @@ Recently promoted truth-quality audit behavior on `main`:
 - `doctor --truth-audit` is read-only and project-scoped
 - the audit reports stale managed-page `Last Updated` values, placeholder or empty content on important project surfaces, and freshness concerns for `Planning > Roadmap` and `Planning > Current Cycle`
 - truth-audit findings are advisory project-health output; they do not mutate Notion, rewrite pages, refresh sidecars, apply manifests, or perform cross-document semantic consistency checks
+
+Active generated-secret ingestion branch behavior:
+- `secret-record-generate` and `access-token-generate` are apply-gated write-only commands for agent-generated credentials
+- preview mode validates target state and does not run the generator
+- `--apply` runs one child generator command, captures stdout in memory, stores the generated value in Notion, and suppresses/redacts child output
+- the generated value is never written to local markdown, sidecars, review artifacts, stdout, stderr, or mutation journal entries
+- raw local export, local secret-bearing diff, push, and edit remain unsupported
 
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families instead of treating them as generic managed docs
@@ -171,11 +180,13 @@ npm run capabilities
 node src/cli.mjs help doc
 node src/cli.mjs help page
 node src/cli.mjs help sync
+node src/cli.mjs help secret-record
+node src/cli.mjs help access-token
 npm run plan-change -- --targets-file plan-targets.json --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run journal-list -- --limit 20
 ```
 
-Family-level help is available for the advertised command families, including `doc`, `page`, `runbook`, `sync`, and `validation-session`. Hyphenated npm scripts remain convenience wrappers around the canonical family commands.
+Family-level help is available for the advertised command families, including `doc`, `page`, `runbook`, `sync`, `validation-session`, `secret-record`, and `access-token`. Hyphenated npm scripts remain convenience wrappers around the canonical family commands.
 
 Manifest v2 mixed-surface sync:
 
@@ -231,13 +242,15 @@ Access workflow:
 npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run access-domain-adopt -- --project "Project Name" --title "Legacy Access Domain" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run secret-record-create -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --file secret-record-shell.md --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
+npm run secret-record-generate -- --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode create --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-dsn.mjs
 npm run secret-record-adopt -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
 npm run secret-record-pull -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --output secret-record-redacted.md --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run secret-record-exec -- --project "Project Name" --domain "App & Backend" --title "GEMINI_API_KEY" --env-name GEMINI_API_KEY --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/use-secret.mjs
+npm run access-token-generate -- --project "Project Name" --domain "App & Backend" --title "Project Token" --mode update --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-project-token.mjs
 npm run access-token-exec -- --project "Project Name" --domain "App & Backend" --title "Project Token" --stdin-secret --project-token-env PROJECT_NAME_NOTION_TOKEN -- node scripts/read-token-from-stdin.mjs
 ```
 
-`secret-record-*` and `access-token-*` are secret-bearing consume-only surfaces. Pulls are redacted-only and do not create sidecars or push-ready editing bases. Raw local export, local markdown diff, push, and edit are unsupported for these records; runtime use goes through `secret-record-exec` or `access-token-exec`, which injects the raw value into one child process and redacts child output.
+`secret-record-*` and `access-token-*` are secret-bearing surfaces with two safe lanes. Runtime consumption goes through `secret-record-exec` or `access-token-exec`, which injects the raw value into one child process and redacts child output. Agent-generated values go through `secret-record-generate` or `access-token-generate`; preview does not run the generator, and `--apply` stores one generated stdout value directly in Notion without writing raw local files, sidecars, diffs, review artifacts, stdout/stderr, or journal content. Pulls are redacted-only and do not create sidecars or push-ready editing bases. Raw local export, local markdown diff, push, and edit are unsupported for secret-bearing records.
 
 Managed-doc workflow on `main`:
 
@@ -273,7 +286,7 @@ Use that Chromium-only lane only when the surrounding Notion UI bundle matters. 
 
 Validation-session manifest v1 sync is documented separately from manifest v2. Use v1 only for repo-backed validation-session artifacts that need the specialized `sync-check`, `sync-pull`, or `sync-push` lane; use v2 when the goal is mixed-surface comparison, local-file refresh, or guarded existing-target push across approved surfaces. V1 validation-session sync remains a separate specialized artifact lane, not the generalized bundle workflow.
 
-The file produced by `page-pull`, `runbook-pull`, Access pull commands, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. For core-band and managed-doc flows:
+The file produced by `page-pull`, `runbook-pull`, access-domain pulls, `build-record-pull`, `validation-session-pull`, and `doc-pull` is the safe editing base. Secret-record and access-token pulls are redacted inspection artifacts only, not editing bases. For core-band and managed-doc flows:
 - `--output -` streams the body to stdout
 - `--file -` reads markdown from stdin
 - structured success metadata goes to stderr when stdout is used for body output
@@ -332,6 +345,7 @@ Hybrid only when justified:
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
 - use read-only `doctor --truth-audit` to surface stale or underfilled durable Notion truth before editing
+- use `secret-record-generate` and `access-token-generate` when a coding agent must create or rotate a credential value without pasting it into chat or writing it locally
 - use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, targeted selectors, review artifacts, mutation limits, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
 - keep policy packs focused on explicit reusable policy for existing approved surfaces, including preview-first starter doc scaffold declarations
 - keep that surface curated and explicit

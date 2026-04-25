@@ -8,12 +8,16 @@ import {
   adoptSecretRecord,
   createAccessDomain,
   createAccessToken,
+  createGeneratedAccessToken,
+  createGeneratedSecretRecord,
   createSecretRecord,
   diffAccessDomainBody,
   pullAccessDomainBody,
   pullAccessTokenBody,
   pullSecretRecordBody,
   pushAccessDomainBody,
+  updateGeneratedAccessToken,
+  updateGeneratedSecretRecord,
 } from "../notion/project-pages.mjs";
 import { runManagedEditLoop } from "./editing.mjs";
 import { readCommandInput, readCommandMetadataSidecar, writeCommandMetadataSidecar, writeCommandOutput } from "./io.mjs";
@@ -25,6 +29,10 @@ import {
   validateSecretPullOutputPolicy,
 } from "./secret-output-safety.mjs";
 import { runSecretExec } from "./secret-exec.mjs";
+import {
+  runGeneratedSecretCommand,
+  unwrapGeneratedSecretMaterial,
+} from "./secret-generate.mjs";
 
 function ensureOutputParentDirectory(outputPath, { mkdirSyncImpl = mkdirSync } = {}) {
   if (outputPath === "-") {
@@ -372,6 +380,142 @@ export async function runAccessTokenCreate({
   });
 }
 
+function normalizeGenerateMode(mode, command) {
+  if (mode !== "create" && mode !== "update") {
+    throw new Error(`${command} requires --mode create or --mode update.`);
+  }
+
+  return mode;
+}
+
+function validateGenerateChildArgs(childArgs, command) {
+  if (!Array.isArray(childArgs) || childArgs.length === 0 || !childArgs[0]) {
+    throw new Error(`Provide a generator command after -- for ${command}.`);
+  }
+
+  if (!childArgs.every((arg) => typeof arg === "string")) {
+    throw new Error(`${command} generator command arguments must be strings.`);
+  }
+}
+
+function generatedAccessWarning() {
+  return "Generated raw value is write-only: SNPM did not return it locally, write a sidecar, or create review artifacts.";
+}
+
+async function runGeneratedAccessRecord({
+  apply = false,
+  childArgs,
+  command,
+  createImpl,
+  cwd,
+  domainTitle,
+  mode,
+  projectName,
+  projectTokenEnv,
+  runGeneratedSecretCommandImpl = runGeneratedSecretCommand,
+  title,
+  updateImpl,
+  workspaceConfig,
+  workspaceName = "infrastructure-hq",
+}) {
+  const normalizedMode = normalizeGenerateMode(mode, command);
+  validateGenerateChildArgs(childArgs, command);
+  const config = workspaceConfig || loadWorkspaceConfig(workspaceName);
+  const mutateImpl = normalizedMode === "create" ? createImpl : updateImpl;
+  const baseArgs = {
+    config,
+    domainTitle,
+    projectName,
+    projectTokenEnv,
+    title,
+  };
+
+  const preview = await mutateImpl({
+    ...baseArgs,
+    apply: false,
+  });
+
+  if (!apply) {
+    return {
+      ...preview,
+      mode: normalizedMode,
+      generatorWillRun: false,
+      generatedSecretStored: false,
+      redacted: true,
+      warnings: [
+        ...(Array.isArray(preview.warnings) ? preview.warnings : []),
+        generatedAccessWarning(),
+      ],
+    };
+  }
+
+  const generated = runGeneratedSecretCommandImpl({
+    childArgs,
+    cwd,
+  });
+  if (!generated.ok) {
+    throw new Error(generated.failure || "Generator command failed.");
+  }
+
+  const generatedRawValue = unwrapGeneratedSecretMaterial(generated.secretMaterial);
+  try {
+    const result = await mutateImpl({
+      ...baseArgs,
+      apply: true,
+      generatedRawValue,
+    });
+
+    return {
+      ...result,
+      mode: normalizedMode,
+      generatorWillRun: true,
+      redacted: true,
+      warnings: [
+        ...(Array.isArray(result.warnings) ? result.warnings : []),
+        generatedAccessWarning(),
+      ],
+    };
+  } catch (error) {
+    const message = generated.redactor?.redactText
+      ? generated.redactor.redactText(error instanceof Error ? error.message : String(error))
+      : "Generated secret Notion write failed.";
+    throw new Error(message);
+  }
+}
+
+export async function runSecretRecordGenerate({
+  apply = false,
+  childArgs,
+  createGeneratedSecretRecordImpl = createGeneratedSecretRecord,
+  cwd,
+  domainTitle,
+  mode,
+  projectName,
+  projectTokenEnv,
+  runGeneratedSecretCommandImpl,
+  title,
+  updateGeneratedSecretRecordImpl = updateGeneratedSecretRecord,
+  workspaceConfig,
+  workspaceName = "infrastructure-hq",
+}) {
+  return runGeneratedAccessRecord({
+    apply,
+    childArgs,
+    command: "secret-record generate",
+    createImpl: createGeneratedSecretRecordImpl,
+    cwd,
+    domainTitle,
+    mode,
+    projectName,
+    projectTokenEnv,
+    runGeneratedSecretCommandImpl,
+    title,
+    updateImpl: updateGeneratedSecretRecordImpl,
+    workspaceConfig,
+    workspaceName,
+  });
+}
+
 export async function runAccessTokenAdopt({
   apply = false,
   domainTitle,
@@ -486,6 +630,39 @@ export async function runAccessTokenExec({
     redacted: execResult.leakDetected,
     ...execResult,
   };
+}
+
+export async function runAccessTokenGenerate({
+  apply = false,
+  childArgs,
+  createGeneratedAccessTokenImpl = createGeneratedAccessToken,
+  cwd,
+  domainTitle,
+  mode,
+  projectName,
+  projectTokenEnv,
+  runGeneratedSecretCommandImpl,
+  title,
+  updateGeneratedAccessTokenImpl = updateGeneratedAccessToken,
+  workspaceConfig,
+  workspaceName = "infrastructure-hq",
+}) {
+  return runGeneratedAccessRecord({
+    apply,
+    childArgs,
+    command: "access-token generate",
+    createImpl: createGeneratedAccessTokenImpl,
+    cwd,
+    domainTitle,
+    mode,
+    projectName,
+    projectTokenEnv,
+    runGeneratedSecretCommandImpl,
+    title,
+    updateImpl: updateGeneratedAccessTokenImpl,
+    workspaceConfig,
+    workspaceName,
+  });
 }
 
 export async function runAccessTokenDiff({} = {}) {

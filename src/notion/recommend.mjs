@@ -30,6 +30,8 @@ const SUPPORTED_INTENTS = new Set([
   "runbook",
   "secret",
   "token",
+  "generated-secret",
+  "generated-token",
   "project-doc",
   "template-doc",
   "workspace-doc",
@@ -513,6 +515,8 @@ function routeAccessRecord({
   config,
   client,
   recordType,
+  generated = false,
+  intent = recordType,
 }) {
   const baseWarnings = getProjectTokenWarnings(diagnosis, "notion");
   const targetPath = projectPath(projectName, ["Access", domainTitle, title]);
@@ -521,7 +525,7 @@ function routeAccessRecord({
   if (!diagnosis.surfaces.access?.present) {
     return createBaseResult({
       diagnosis,
-      intent: recordType,
+      intent,
       recommendedHome: "notion",
       surface: "access",
       reason: surfaceReason,
@@ -547,7 +551,7 @@ function routeAccessRecord({
   if (adoptableDomain) {
     return createBaseResult({
       diagnosis,
-      intent: recordType,
+      intent,
       recommendedHome: "notion",
       surface: "access",
       reason: surfaceReason,
@@ -574,7 +578,7 @@ function routeAccessRecord({
     if (!domainTarget) {
       return createBaseResult({
         diagnosis,
-        intent: recordType,
+        intent,
         recommendedHome: "notion",
         surface: "access",
         reason: surfaceReason,
@@ -609,7 +613,7 @@ function routeAccessRecord({
     if (adoptableRecord) {
       return createBaseResult({
         diagnosis,
-        intent: recordType,
+        intent,
         recommendedHome: "notion",
         surface: "access",
         reason: surfaceReason,
@@ -640,9 +644,34 @@ function routeAccessRecord({
     return Promise.resolve(findAccessRecordTarget(projectName, domainTitle, title, config, client)).then((recordTarget) => {
       if (!recordTarget) {
         const scriptName = recordType === "token" ? "access-token-create" : "secret-record-create";
+        const generateScriptName = recordType === "token" ? "access-token-generate" : "secret-record-generate";
+        const generatorLabel = recordType === "token" ? "token" : "secret";
+        if (generated) {
+          return createBaseResult({
+            diagnosis,
+            intent,
+            recommendedHome: "notion",
+            surface: "access",
+            reason: surfaceReason,
+            targetPath,
+            warnings: baseWarnings,
+            nextCommands: [
+              buildCommandStep(
+                `${buildCommand(generateScriptName, [
+                  ["project", projectName],
+                  ["domain", domainTitle],
+                  ["title", title],
+                  ["mode", "create"],
+                ], projectTokenEnv)} --apply -- <generator-command> [args...]`,
+                `Generate the raw ${generatorLabel} in a child process and store it directly in Notion without local raw output.`,
+              ),
+            ],
+          });
+        }
+
         return createBaseResult({
           diagnosis,
-          intent: recordType,
+          intent,
           recommendedHome: "notion",
           surface: "access",
           reason: surfaceReason,
@@ -664,9 +693,42 @@ function routeAccessRecord({
       const prefix = recordType === "token" ? "access-token" : "secret-record";
       const fileName = recordType === "token" ? "access-token-redacted.md" : "secret-record-redacted.md";
       const envName = envNameFromRecordTitle(title, recordType === "token" ? "ACCESS_TOKEN" : "SECRET_VALUE");
+      if (generated) {
+        const generatorLabel = recordType === "token" ? "token" : "secret";
+        return createBaseResult({
+          diagnosis,
+          intent,
+          recommendedHome: "notion",
+          surface: "access",
+          reason: surfaceReason,
+          targetPath: recordTarget.targetPath,
+          warnings: baseWarnings,
+          nextCommands: [
+            buildCommandStep(
+              `${buildCommand(`${prefix}-generate`, [
+                ["project", projectName],
+                ["domain", domainTitle],
+                ["title", title],
+                ["mode", "update"],
+              ], projectTokenEnv)} --apply -- <generator-command> [args...]`,
+              `Generate a replacement raw ${generatorLabel} in a child process and store it directly in Notion without local raw output.`,
+            ),
+            buildCommandStep(
+              `${buildCommand(`${prefix}-exec`, [
+                ["project", projectName],
+                ["domain", domainTitle],
+                ["title", title],
+                ["env-name", envName],
+              ], projectTokenEnv)} -- <command> [args...]`,
+              `Consume the managed ${recordType === "token" ? "access token" : "secret record"} at runtime without exporting the raw value.`,
+            ),
+          ],
+        });
+      }
+
       return createBaseResult({
         diagnosis,
-        intent: recordType,
+        intent,
         recommendedHome: "notion",
         surface: "access",
         reason: surfaceReason,
@@ -738,7 +800,7 @@ export async function recommendProjectUpdate({
   diagnoseProjectImpl = diagnoseProject,
 }) {
   if (!SUPPORTED_INTENTS.has(intent)) {
-    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, project-doc, template-doc, workspace-doc, implementation-note, design-spec, task-breakdown, investigation, repo-doc, generated-output.`);
+    throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, generated-secret, generated-token, project-doc, template-doc, workspace-doc, implementation-note, design-spec, task-breakdown, investigation, repo-doc, generated-output.`);
   }
 
   const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
@@ -774,7 +836,7 @@ export async function recommendProjectUpdate({
     });
   }
 
-  if (intent === "secret" || intent === "token") {
+  if (intent === "secret" || intent === "token" || intent === "generated-secret" || intent === "generated-token") {
     return routeAccessRecord({
       diagnosis,
       projectName,
@@ -783,7 +845,9 @@ export async function recommendProjectUpdate({
       projectTokenEnv,
       config,
       client,
-      recordType: intent,
+      recordType: intent === "generated-token" ? "token" : intent === "generated-secret" ? "secret" : intent,
+      generated: intent === "generated-secret" || intent === "generated-token",
+      intent,
     });
   }
 

@@ -47,6 +47,8 @@ import {
 } from "./managed-page-templates.mjs";
 import { createChildPage } from "./project-service.mjs";
 
+const GENERATED_SECRET_REDACTION_MARKER = "[SNPM REDACTED SECRET OUTPUT]";
+
 function ensureBodyMarkdown(fileBodyMarkdown) {
   return normalizeEditableBodyMarkdown(fileBodyMarkdown || "");
 }
@@ -57,6 +59,240 @@ function managedPageError(surfaceLabel, title, hint) {
 
 function alreadyManagedError(surfaceLabel, title) {
   return new Error(`${surfaceLabel} "${title}" is already managed by SNPM. Use pull, diff, or push instead.`);
+}
+
+function isMarkdownHeading(line) {
+  return /^#{1,6}\s+/.test(line);
+}
+
+function isRawValueHeading(line) {
+  return /^#{1,6}\s+Raw Value\s*$/i.test(line);
+}
+
+function parseFenceOpen(line) {
+  const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    char: match[1][0],
+    length: match[1].length,
+  };
+}
+
+function isFenceClose(line, opener) {
+  const trimmed = line.trim();
+  const match = /^(`+|~+)/.exec(trimmed);
+  if (!match) {
+    return false;
+  }
+
+  return match[1][0] === opener.char
+    && match[1].length >= opener.length
+    && trimmed.slice(match[1].length).trim() === "";
+}
+
+function isAllowedRawValueText(line) {
+  return line.trim() === "" || /^Raw Value\s*$/i.test(line.trim());
+}
+
+function isPlaceholderRawValue(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  const lower = trimmed.toLowerCase();
+  return lower === "<paste secret here>"
+    || lower === "<paste scoped token here>"
+    || (/^<[^>\n]+>$/.test(trimmed) && /(api\s*key|client\s*secret|paste|password|scoped\s*token|secret|token|value)/i.test(trimmed))
+    || /^(?:change[-_ ]?me|example[-_ ]?(?:secret|token|value)|n\/a|none|null|placeholder|replace[-_ ]?me|tbd|todo)$/i.test(trimmed);
+}
+
+function isRedactedRawValue(value) {
+  const trimmed = String(value || "").trim();
+  return new RegExp(`^(?:\\[?redacted\\]?|<redacted>|hidden|masked|secret redacted|token redacted|${GENERATED_SECRET_REDACTION_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})$`, "i").test(trimmed)
+    || /^[*xX]{6,}$/.test(trimmed);
+}
+
+function redactGeneratedRawValueError(error, rawValue) {
+  const message = error instanceof Error ? error.message : String(error);
+  const redacted = typeof rawValue === "string" && rawValue.length > 0
+    ? message.split(rawValue).join(GENERATED_SECRET_REDACTION_MARKER)
+    : "Generated secret Notion write failed.";
+  return new Error(redacted);
+}
+
+function normalizeGeneratedRawValue(value, { surfaceLabel }) {
+  if (typeof value !== "string") {
+    throw new Error(`${surfaceLabel} generated raw value must be provided as an in-memory string.`);
+  }
+
+  const normalized = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (normalized.includes("\n")) {
+    throw new Error(`${surfaceLabel} generated raw value must be a single line.`);
+  }
+
+  if (normalized.includes("\0")) {
+    throw new Error(`${surfaceLabel} generated raw value contains unsupported NUL bytes.`);
+  }
+
+  if (normalized.length > 8192) {
+    throw new Error(`${surfaceLabel} generated raw value is too large for the write-only ingestion lane.`);
+  }
+
+  if (!normalized.trim()) {
+    throw new Error(`${surfaceLabel} generated raw value cannot be empty.`);
+  }
+
+  if (isPlaceholderRawValue(normalized)) {
+    throw new Error(`${surfaceLabel} generated raw value cannot be a placeholder.`);
+  }
+
+  if (isRedactedRawValue(normalized)) {
+    throw new Error(`${surfaceLabel} generated raw value cannot be redacted output.`);
+  }
+
+  return normalized;
+}
+
+function buildRawValueFence(rawValue) {
+  const longestRun = Math.max(0, ...Array.from(String(rawValue).matchAll(/`+/g), (match) => match[0].length));
+  const fence = "`".repeat(Math.max(3, longestRun + 1));
+  return {
+    open: `${fence}plain text`,
+    close: fence,
+  };
+}
+
+function findRawValueFence(markdown, { allowPlaceholder = false, command }) {
+  const lines = normalizeMarkdownNewlines(markdown || "").split("\n");
+  const sections = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!isRawValueHeading(lines[index])) {
+      continue;
+    }
+
+    let end = index + 1;
+    while (end < lines.length && !isMarkdownHeading(lines[end])) {
+      end += 1;
+    }
+
+    sections.push({
+      headingIndex: index,
+      startIndex: index + 1,
+      endIndex: end,
+    });
+  }
+
+  if (sections.length !== 1) {
+    throw new Error(`${command} requires exactly one managed ## Raw Value section.`);
+  }
+
+  const section = sections[0];
+  let openIndex = null;
+  let closeIndex = null;
+  let opener = null;
+
+  for (let index = section.startIndex; index < section.endIndex; index += 1) {
+    if (openIndex === null) {
+      const opening = parseFenceOpen(lines[index]);
+      if (opening) {
+        openIndex = index;
+        opener = opening;
+        continue;
+      }
+
+      if (!isAllowedRawValueText(lines[index])) {
+        throw new Error(`${command} Raw Value must contain exactly one fenced value and no plaintext secret material.`);
+      }
+      continue;
+    }
+
+    if (closeIndex === null) {
+      if (isFenceClose(lines[index], opener)) {
+        closeIndex = index;
+      }
+      continue;
+    }
+
+    if (parseFenceOpen(lines[index])) {
+      throw new Error(`${command} Raw Value must contain exactly one fenced value.`);
+    }
+
+    if (!isAllowedRawValueText(lines[index])) {
+      throw new Error(`${command} Raw Value must contain exactly one fenced value and no plaintext secret material.`);
+    }
+  }
+
+  if (openIndex === null || closeIndex === null) {
+    throw new Error(`${command} requires exactly one fenced value under ## Raw Value.`);
+  }
+
+  const value = lines.slice(openIndex + 1, closeIndex).join("\n");
+  if (!value.trim()) {
+    throw new Error(`${command} cannot update an empty Raw Value.`);
+  }
+
+  if (!allowPlaceholder && isPlaceholderRawValue(value)) {
+    throw new Error(`${command} cannot update a placeholder Raw Value.`);
+  }
+
+  if (isRedactedRawValue(value)) {
+    throw new Error(`${command} cannot update redacted Raw Value output.`);
+  }
+
+  return {
+    lines,
+    openIndex,
+    closeIndex,
+  };
+}
+
+function replaceRawValueFence(markdown, rawValue, { allowPlaceholder = false, command }) {
+  const parsed = findRawValueFence(markdown, { allowPlaceholder, command });
+  const fence = buildRawValueFence(rawValue);
+
+  return [
+    ...parsed.lines.slice(0, parsed.openIndex),
+    fence.open,
+    rawValue,
+    fence.close,
+    ...parsed.lines.slice(parsed.closeIndex + 1),
+  ].join("\n");
+}
+
+function redactedGeneratedAccessResult({
+  pageId,
+  projectId,
+  targetPath,
+  authMode,
+  action,
+  redactedChange,
+  applied,
+  timestamp,
+}) {
+  return {
+    pageId,
+    projectId,
+    targetPath,
+    authMode,
+    authScope: "project-or-workspace",
+    managedState: applied ? "managed" : "pending",
+    preserveChildren: true,
+    hasDiff: true,
+    diffRedacted: true,
+    redactedChange,
+    generatedSecretStored: applied,
+    action,
+    applied,
+    timestamp: applied ? timestamp : null,
+    warnings: applied
+      ? ["Generated raw value is write-only: SNPM stored it in Notion and did not return it locally."]
+      : ["Preview only: SNPM did not run the generator and did not store a raw value."],
+  };
 }
 
 async function buildSurfaceClients({
@@ -777,6 +1013,181 @@ export async function pushAccessDomainBody(options) {
   });
 }
 
+async function createGeneratedAccessRecord({
+  config,
+  projectName,
+  domainTitle,
+  title,
+  generatedRawValue,
+  generatedValue,
+  projectTokenEnv,
+  apply = false,
+  timestamp = nowTimestamp(),
+  resolveClient,
+  syncClient,
+  makeNotionClientImpl = makeNotionClient,
+  getWorkspaceTokenImpl = getWorkspaceToken,
+  getProjectTokenImpl = getProjectToken,
+  surfaceLabel,
+  icon,
+  buildManagedMarkdown,
+  redactedChange,
+}) {
+  const context = await resolveAccessDomainContext({
+    config,
+    projectName,
+    domainTitle,
+    projectTokenEnv,
+    resolveClient,
+    syncClient,
+    makeNotionClientImpl,
+    getWorkspaceTokenImpl,
+    getProjectTokenImpl,
+  });
+
+  const existing = await findAccessRecordTarget(projectName, domainTitle, title, config, context.workspaceClient);
+  if (existing) {
+    throw new Error(`${surfaceLabel} "${title}" already exists at ${existing.targetPath}.`);
+  }
+
+  const targetPath = `${context.domainTarget.targetPath} > ${title}`;
+  if (!apply) {
+    return redactedGeneratedAccessResult({
+      pageId: null,
+      projectId: context.domainTarget.projectId,
+      targetPath,
+      authMode: context.authMode,
+      action: "would-create",
+      redactedChange,
+      applied: false,
+      timestamp,
+    });
+  }
+
+  const rawValue = normalizeGeneratedRawValue(generatedRawValue ?? generatedValue, { surfaceLabel });
+  const templateMarkdown = buildManagedMarkdown({
+    projectName,
+    domainTitle,
+    title,
+    bodyMarkdown: "",
+    timestamp,
+  });
+  const markdown = replaceRawValueFence(templateMarkdown, rawValue, {
+    allowPlaceholder: true,
+    command: `${surfaceLabel} generated create`,
+  });
+  let pageId;
+  try {
+    pageId = await createManagedChildPage(context.domainTarget.pageId, title, icon, markdown, context.surfaceClient);
+  } catch (error) {
+    throw redactGeneratedRawValueError(error, rawValue);
+  }
+
+  return redactedGeneratedAccessResult({
+    pageId,
+    projectId: context.domainTarget.projectId,
+    targetPath,
+    authMode: context.authMode,
+    action: "created",
+    redactedChange,
+    applied: true,
+    timestamp,
+  });
+}
+
+async function updateGeneratedAccessRecord({
+  config,
+  projectName,
+  domainTitle,
+  title,
+  generatedRawValue,
+  generatedValue,
+  projectTokenEnv,
+  apply = false,
+  timestamp = nowTimestamp(),
+  resolveClient,
+  syncClient,
+  makeNotionClientImpl = makeNotionClient,
+  getWorkspaceTokenImpl = getWorkspaceToken,
+  getProjectTokenImpl = getProjectToken,
+  surfaceLabel,
+  adoptCommand,
+  redactedChange,
+}) {
+  const context = await loadManagedSurfaceContext({
+    config,
+    projectTokenEnv,
+    resolveClient,
+    syncClient,
+    projectName,
+    title,
+    targetResolver: (project, recordTitle, workspaceConfig, client) => resolveManagedAccessRecordTarget(
+      project,
+      domainTitle,
+      recordTitle,
+      workspaceConfig,
+      client,
+      surfaceLabel,
+      adoptCommand,
+    ),
+    surfaceLabel,
+    unmanagedHint: `Use "${adoptCommand}" first.`,
+    makeNotionClientImpl,
+    getWorkspaceTokenImpl,
+    getProjectTokenImpl,
+  });
+
+  findRawValueFence(context.bodyMarkdown, {
+    command: `${surfaceLabel} generated update`,
+  });
+
+  if (!apply) {
+    return redactedGeneratedAccessResult({
+      pageId: context.pageId,
+      projectId: context.projectId,
+      targetPath: context.targetPath,
+      authMode: context.authMode,
+      action: "would-update",
+      redactedChange,
+      applied: false,
+      timestamp,
+    });
+  }
+
+  const rawValue = normalizeGeneratedRawValue(generatedRawValue ?? generatedValue, { surfaceLabel });
+  const nextBodyMarkdown = replaceRawValueFence(context.bodyMarkdown, rawValue, {
+    command: `${surfaceLabel} generated update`,
+  });
+  const replacementMarkdown = buildManagedPageMarkdown({
+    headerMarkdown: context.headerMarkdown,
+    bodyMarkdown: nextBodyMarkdown,
+    canonicalPath: context.targetPath,
+    timestamp,
+  });
+
+  try {
+    assertLivePageMetadataStable({
+      before: context.liveMetadata,
+      after: await fetchLivePageMetadata(context.pageId, context.client),
+      targetPath: context.targetPath,
+    });
+    await replacePageMarkdown(context.pageId, context.targetPath, replacementMarkdown, context.client);
+  } catch (error) {
+    throw redactGeneratedRawValueError(error, rawValue);
+  }
+
+  return redactedGeneratedAccessResult({
+    pageId: context.pageId,
+    projectId: context.projectId,
+    targetPath: context.targetPath,
+    authMode: context.authMode,
+    action: "updated",
+    redactedChange,
+    applied: true,
+    timestamp,
+  });
+}
+
 export async function createSecretRecord({
   config,
   projectName,
@@ -844,6 +1255,25 @@ export async function createSecretRecord({
     applied: true,
     timestamp,
   };
+}
+
+export async function createGeneratedSecretRecord(options) {
+  return createGeneratedAccessRecord({
+    ...options,
+    surfaceLabel: "Secret record",
+    icon: SECRET_RECORD_ICON,
+    buildManagedMarkdown: buildManagedSecretRecordMarkdown,
+    redactedChange: "raw-value-created",
+  });
+}
+
+export async function updateGeneratedSecretRecord(options) {
+  return updateGeneratedAccessRecord({
+    ...options,
+    surfaceLabel: "Secret record",
+    adoptCommand: "secret-record adopt",
+    redactedChange: "raw-value-replaced",
+  });
 }
 
 export async function adoptSecretRecord({
@@ -1056,6 +1486,25 @@ export async function createAccessToken({
     applied: true,
     timestamp,
   };
+}
+
+export async function createGeneratedAccessToken(options) {
+  return createGeneratedAccessRecord({
+    ...options,
+    surfaceLabel: "Access token",
+    icon: ACCESS_TOKEN_ICON,
+    buildManagedMarkdown: buildManagedAccessTokenMarkdown,
+    redactedChange: "raw-value-created",
+  });
+}
+
+export async function updateGeneratedAccessToken(options) {
+  return updateGeneratedAccessRecord({
+    ...options,
+    surfaceLabel: "Access token",
+    adoptCommand: "access-token adopt",
+    redactedChange: "raw-value-replaced",
+  });
 }
 
 export async function adoptAccessToken({

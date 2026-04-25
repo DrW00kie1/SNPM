@@ -19,6 +19,7 @@ import {
   runAccessTokenDiff,
   runAccessTokenEdit,
   runAccessTokenExec,
+  runAccessTokenGenerate,
   runAccessTokenPull,
   runAccessTokenPush,
   runSecretRecordAdopt,
@@ -26,6 +27,7 @@ import {
   runSecretRecordDiff,
   runSecretRecordEdit,
   runSecretRecordExec,
+  runSecretRecordGenerate,
   runSecretRecordPull,
   runSecretRecordPush,
 } from "./commands/access.mjs";
@@ -95,10 +97,42 @@ const SECRET_EXEC_COMMANDS = new Set([
   "secret-record exec",
   "secret-record-exec",
 ]);
+const SECRET_GENERATE_COMMANDS = new Set([
+  "access-token generate",
+  "access-token-generate",
+  "secret-record generate",
+  "secret-record-generate",
+]);
+const SECRET_CHILD_COMMANDS = new Set([
+  ...SECRET_EXEC_COMMANDS,
+  ...SECRET_GENERATE_COMMANDS,
+]);
 const DEPRECATED_RAW_SECRET_FLAGS = [
   "raw-secret-output",
   "allow-repo-secret-output",
 ];
+const SECRET_ACCESS_FAMILIES = new Set(["access-token", "secret-record"]);
+const SECRET_ACCESS_SUBCOMMANDS = new Set([
+  "adopt",
+  "create",
+  "diff",
+  "edit",
+  "exec",
+  "generate",
+  "pull",
+  "push",
+]);
+const SECRET_GENERATE_ALLOWED_OPTIONS = new Set([
+  "apply",
+  "cwd",
+  "domain",
+  "mode",
+  "passthroughArgs",
+  "project",
+  "project-token-env",
+  "title",
+  "workspace",
+]);
 export {
   commandUsage,
   findCommandHelp,
@@ -212,6 +246,24 @@ function buildSimpleMutationPayload({ command, result, extra = {} }) {
   };
 }
 
+function buildSecretGeneratePayload({ command, result }) {
+  return {
+    ok: true,
+    command,
+    applied: result.applied,
+    ...(result.mode ? { mode: result.mode } : {}),
+    ...(typeof result.generatorWillRun === "boolean" ? { generatorWillRun: result.generatorWillRun } : {}),
+    ...(result.targetPath ? { targetPath: result.targetPath } : {}),
+    ...(result.authMode ? { authMode: result.authMode } : {}),
+    ...("pageId" in result ? { pageId: result.pageId } : {}),
+    ...("projectId" in result ? { projectId: result.projectId } : {}),
+    ...(result.generatedSecretStored === true ? { generatedSecretStored: true } : {}),
+    ...(result.redacted === true ? { redacted: true } : {}),
+    ...(result.journal ? { journal: result.journal } : {}),
+    ...(Array.isArray(result.warnings) && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
+  };
+}
+
 function parsePositiveInteger(value, defaultValue) {
   if (value === undefined) {
     return defaultValue;
@@ -223,8 +275,8 @@ function parsePositiveInteger(value, defaultValue) {
   return parsed;
 }
 
-function isSecretExecCommand(command) {
-  return SECRET_EXEC_COMMANDS.has(command);
+function isSecretChildCommand(command) {
+  return SECRET_CHILD_COMMANDS.has(command);
 }
 
 function formatFlagList(flags) {
@@ -246,6 +298,15 @@ function requirePassthroughArgs(options, command) {
   }
 
   return options.passthroughArgs;
+}
+
+function rejectUnsupportedSecretGenerateOptions(options, command) {
+  const usedFlags = Object.keys(options).filter((flag) => !SECRET_GENERATE_ALLOWED_OPTIONS.has(flag));
+  if (usedFlags.length === 0) {
+    return;
+  }
+
+  throw new Error(`${command} does not support ${usedFlags.map((flag) => `--${flag}`).join(", ")}. Generated secret ingestion accepts only a child generator after -- and never reads raw values from local files, stdin, env vars, or output paths.`);
 }
 
 function writeExecResult(result) {
@@ -289,17 +350,24 @@ export function parseArgs(argv) {
   while (index < argv.length && !argv[index].startsWith("--") && commandParts.length < 2) {
     commandParts.push(argv[index]);
     index += 1;
+    if (isSecretChildCommand(commandParts.join(" "))) {
+      break;
+    }
   }
 
   const command = commandParts.join(" ");
+  if (SECRET_ACCESS_FAMILIES.has(commandParts[0]) && commandParts.length > 1 && !SECRET_ACCESS_SUBCOMMANDS.has(commandParts[1])) {
+    throw new Error(`Unexpected ${commandParts[0]} subcommand. Use ${commandParts[0]} --help for supported commands.`);
+  }
+
   const rest = argv.slice(index);
   const options = {};
   const passthroughIndex = rest.indexOf("--");
   const optionTokens = passthroughIndex === -1 ? rest : rest.slice(0, passthroughIndex);
 
   if (passthroughIndex !== -1) {
-    if (!isSecretExecCommand(command)) {
-      throw new Error("The literal -- child-command delimiter is only supported for secret-record exec and access-token exec.");
+    if (!isSecretChildCommand(command)) {
+      throw new Error("The literal -- child-command delimiter is only supported for secret-record exec/generate and access-token exec/generate.");
     }
 
     options.passthroughArgs = rest.slice(passthroughIndex + 1);
@@ -308,6 +376,9 @@ export function parseArgs(argv) {
   for (let i = 0; i < optionTokens.length; i += 1) {
     const token = optionTokens[i];
     if (!token.startsWith("--")) {
+      if (isSecretChildCommand(command)) {
+        throw new Error(`Unexpected argument before -- for ${command}. Raw secret values cannot be provided as positional arguments.`);
+      }
       throw new Error(`Unexpected argument: ${token}`);
     }
 
@@ -572,7 +643,7 @@ async function main() {
 
   if (command === "recommend") {
     if (options.intent) {
-      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output>.");
+      const intent = requireOption(options, "intent", "Provide --intent <planning|runbook|secret|token|generated-secret|generated-token|project-doc|template-doc|workspace-doc|implementation-note|design-spec|task-breakdown|investigation|repo-doc|generated-output>.");
       const result = await runRecommend({
         projectName: ["template-doc", "workspace-doc"].includes(intent)
           ? options.project
@@ -585,10 +656,10 @@ async function main() {
         docPath: intent === "project-doc" || intent === "template-doc" || intent === "workspace-doc"
           ? requireOption(options, "path", 'Provide --path "<doc path>".')
           : undefined,
-        title: intent === "runbook" || intent === "secret" || intent === "token"
+        title: intent === "runbook" || intent === "secret" || intent === "token" || intent === "generated-secret" || intent === "generated-token"
           ? requireOption(options, "title", 'Provide --title "Title".')
           : undefined,
-        domainTitle: intent === "secret" || intent === "token"
+        domainTitle: intent === "secret" || intent === "token" || intent === "generated-secret" || intent === "generated-token"
           ? requireOption(options, "domain", 'Provide --domain "Access Domain Title".')
           : undefined,
         repoPath: ["implementation-note", "design-spec", "task-breakdown", "investigation", "repo-doc", "generated-output"].includes(intent)
@@ -984,6 +1055,25 @@ async function main() {
     return;
   }
 
+  if (command === "secret-record generate" || command === "secret-record-generate") {
+    rejectUnsupportedSecretGenerateOptions(options, "secret-record generate");
+    const passthroughArgs = requirePassthroughArgs(options, "secret-record generate");
+    const result = finalizeMutationResult(await runSecretRecordGenerate({
+      apply: options.apply === true,
+      childArgs: passthroughArgs,
+      cwd: options.cwd,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      mode: requireOption(options, "mode", "Provide --mode <create|update>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    }), { command: "secret-record-generate", surface: "secret-record" });
+    const outputResult = redactSecretResultForOutput(result, { surface: "secret-record" });
+    console.log(JSON.stringify(buildSecretGeneratePayload({ command: "secret-record-generate", result: outputResult }), null, 2));
+    return;
+  }
+
   if (command === "secret-record exec" || command === "secret-record-exec") {
     const passthroughArgs = requirePassthroughArgs(options, "secret-record exec");
     const result = await runSecretRecordExec({
@@ -1064,6 +1154,25 @@ async function main() {
     const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
     printDiff(outputResult.diff);
     console.log(JSON.stringify(buildSimpleMutationPayload({ command: "access-token-adopt", result: outputResult }), null, 2));
+    return;
+  }
+
+  if (command === "access-token generate" || command === "access-token-generate") {
+    rejectUnsupportedSecretGenerateOptions(options, "access-token generate");
+    const passthroughArgs = requirePassthroughArgs(options, "access-token generate");
+    const result = finalizeMutationResult(await runAccessTokenGenerate({
+      apply: options.apply === true,
+      childArgs: passthroughArgs,
+      cwd: options.cwd,
+      domainTitle: requireOption(options, "domain", 'Provide --domain "Access Domain Title".'),
+      mode: requireOption(options, "mode", "Provide --mode <create|update>."),
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      title: requireOption(options, "title", 'Provide --title "Record Title".'),
+      workspaceName,
+    }), { command: "access-token-generate", surface: "access-token" });
+    const outputResult = redactSecretResultForOutput(result, { surface: "access-token" });
+    console.log(JSON.stringify(buildSecretGeneratePayload({ command: "access-token-generate", result: outputResult }), null, 2));
     return;
   }
 

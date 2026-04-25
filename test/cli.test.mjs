@@ -159,6 +159,10 @@ test("help registry resolves command aliases to the canonical command", () => {
   assert.equal(findCommandHelp("page-push")?.canonical, "page push");
   assert.equal(findCommandHelp("page push")?.canonical, "page push");
   assert.equal(findCommandHelp("runbook")?.canonical, "runbook");
+  assert.equal(findCommandHelp("secret-record")?.canonical, "secret-record");
+  assert.equal(findCommandHelp("access-token")?.canonical, "access-token");
+  assert.equal(findCommandHelp("secret-record-generate")?.canonical, "secret-record generate");
+  assert.equal(findCommandHelp("access-token generate")?.canonical, "access-token generate");
   assert.equal(findCommandHelp("sync")?.canonical, "sync");
   assert.equal(findCommandHelp("validation-session")?.canonical, "validation-session");
   assert.equal(findCommandHelp("validation-bundle-verify")?.canonical, "validation-bundle verify");
@@ -183,6 +187,10 @@ test("capability map is schema-versioned and includes existing commands from the
   assert.ok(capabilities.canonicalCommands.includes("sync"));
   assert.ok(capabilities.canonicalCommands.includes("doc"));
   assert.ok(capabilities.canonicalCommands.includes("runbook"));
+  assert.ok(capabilities.canonicalCommands.includes("secret-record"));
+  assert.ok(capabilities.canonicalCommands.includes("access-token"));
+  assert.ok(capabilities.canonicalCommands.includes("secret-record generate"));
+  assert.ok(capabilities.canonicalCommands.includes("access-token generate"));
   assert.ok(capabilities.canonicalCommands.includes("journal list"));
   assert.doesNotMatch(JSON.stringify(capabilities), /Worker A/);
   assert.deepEqual(pagePush, {
@@ -345,18 +353,23 @@ test("npm run examples in help capabilities have registered package scripts", ()
 test("secret-bearing access help and capabilities document consume-only output", () => {
   const secretPull = findCommandHelp("secret-record pull");
   const secretExec = findCommandHelp("secret-record exec");
+  const secretGenerate = findCommandHelp("secret-record generate");
   const tokenPull = findCommandHelp("access-token pull");
   const tokenExec = findCommandHelp("access-token exec");
+  const tokenGenerate = findCommandHelp("access-token generate");
   const secretDiff = findCommandHelp("secret-record diff");
   const capabilities = buildCapabilityMap();
   const secretPullCapability = capabilities.commands.find((command) => command.canonical === "secret-record pull");
   const secretExecCapability = capabilities.commands.find((command) => command.canonical === "secret-record exec");
+  const secretGenerateCapability = capabilities.commands.find((command) => command.canonical === "secret-record generate");
   const secretDiffCapability = capabilities.commands.find((command) => command.canonical === "secret-record diff");
 
   assert.ok(secretPull);
   assert.ok(secretExec);
+  assert.ok(secretGenerate);
   assert.ok(tokenPull);
   assert.ok(tokenExec);
+  assert.ok(tokenGenerate);
   assert.ok(secretDiff);
   assert.doesNotMatch(commandText(secretPull), /--raw-secret-output/);
   assert.doesNotMatch(commandText(secretPull), /--allow-repo-secret-output/);
@@ -368,6 +381,12 @@ test("secret-bearing access help and capabilities document consume-only output",
   assert.match(commandText(secretExec), /--stdin-secret/);
   assert.match(commandText(secretExec), / -- <command> \[args\.\.\.\]/);
   assert.match(commandText(tokenExec), /--env-name ENV_NAME/);
+  assert.match(commandText(secretGenerate), /--mode <create\|update>/);
+  assert.match(commandText(secretGenerate), / -- <generator-command> \[args\.\.\.\]/);
+  assert.match(commandText(secretGenerate), /Preview mode does not run the child generator/i);
+  assert.doesNotMatch(commandText(secretGenerate), /--file <file\|->/);
+  assert.doesNotMatch(commandText(secretGenerate), /--output/);
+  assert.match(commandText(tokenGenerate), /write-only|without local raw export/i);
   assert.match(commandText(secretDiff), /Unsupported/i);
   assert.equal(secretPullCapability.secretOutput, "redacted-only");
   assert.equal(secretPullCapability.rawSecretExport, "unsupported");
@@ -380,10 +399,17 @@ test("secret-bearing access help and capabilities document consume-only output",
   assert.deepEqual(secretExecCapability.secretDeliveryModes, ["env", "stdin"]);
   assert.equal(secretExecCapability.childProcessExecution, "shell-false");
   assert.equal(secretExecCapability.childOutputRedaction, "exact-secret-redaction-fail-closed");
+  assert.equal(secretGenerateCapability.generatedSecretIngestion, "write-only");
+  assert.equal(secretGenerateCapability.rawSecretInput, "child-stdout-only");
+  assert.equal(secretGenerateCapability.rawSecretArgvInput, "unsupported");
+  assert.equal(secretGenerateCapability.localFileWrites, "none");
+  assert.equal(secretGenerateCapability.generatorExecution, "apply-only-shell-false");
   assert.equal(secretDiffCapability.supported, false);
   assert.equal(secretDiffCapability.replacementCommand, "secret-record exec");
   assert.equal(packageJson.scripts["secret-record-exec"], "node src/cli.mjs secret-record exec");
+  assert.equal(packageJson.scripts["secret-record-generate"], "node src/cli.mjs secret-record generate");
   assert.equal(packageJson.scripts["access-token-exec"], "node src/cli.mjs access-token exec");
+  assert.equal(packageJson.scripts["access-token-generate"], "node src/cli.mjs access-token generate");
   assert.equal(packageJson.scripts["secret-record-diff"], "node src/cli.mjs secret-record diff");
   assert.equal(packageJson.scripts["secret-record-push"], "node src/cli.mjs secret-record push");
   assert.equal(packageJson.scripts["access-token-diff"], "node src/cli.mjs access-token diff");
@@ -623,6 +649,49 @@ test("withMutationJournal records applied mutations and keeps journal path on th
   }
 });
 
+test("withMutationJournal records generated secret mutations without raw material", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-generated-journal-"));
+  const journalPath = path.join(tempDir, "journal.ndjson");
+  const previousJournalPath = process.env.SNPM_JOURNAL_PATH;
+  const sentinel = "postgres://sentinel-secret@example.invalid/db";
+  process.env.SNPM_JOURNAL_PATH = journalPath;
+
+  try {
+    const result = withMutationJournal({
+      applied: true,
+      authMode: "project-token",
+      generatedSecretStored: true,
+      pageId: "secret-page",
+      projectId: "project-page",
+      redactedChange: "raw-value-created",
+      targetPath: "Projects > SNPM > Access > App & Backend > DATABASE_URL",
+      timestamp: "2026-04-25T12:00:00.000Z",
+    }, {
+      command: "secret-record-generate",
+      surface: "secret-record",
+    });
+
+    assert.deepEqual(result.journal, { path: journalPath });
+    const rawJournal = readFileSync(journalPath, "utf8");
+    assert.doesNotMatch(rawJournal, new RegExp(sentinel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(rawJournal, /postgres:\/\/|Raw Value|stdout|stderr|childArgs|generator/);
+    const entry = JSON.parse(rawJournal.trim());
+    assert.equal(entry.command, "secret-record-generate");
+    assert.equal(entry.surface, "secret-record");
+    assert.equal(entry.targetPath, "Projects > SNPM > Access > App & Backend > DATABASE_URL");
+    assert.equal(entry.pageId, "secret-page");
+    assert.equal(entry.authMode, "project-token");
+    assert.equal(entry.revision, null);
+  } finally {
+    if (previousJournalPath === undefined) {
+      delete process.env.SNPM_JOURNAL_PATH;
+    } else {
+      process.env.SNPM_JOURNAL_PATH = previousJournalPath;
+    }
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("resolveHelpRequest supports global, command, and unknown help targets", () => {
   assert.deepEqual(resolveHelpRequest([]), { type: "global" });
   assert.deepEqual(resolveHelpRequest(["--help"]), { type: "global" });
@@ -642,6 +711,18 @@ test("resolveHelpRequest supports global, command, and unknown help targets", ()
   assert.deepEqual(resolveHelpRequest(["help", "runbook"]), {
     type: "command",
     command: "runbook",
+  });
+  assert.deepEqual(resolveHelpRequest(["secret-record", "--help"]), {
+    type: "command",
+    command: "secret-record",
+  });
+  assert.deepEqual(resolveHelpRequest(["help", "secret-record-generate"]), {
+    type: "command",
+    command: "secret-record generate",
+  });
+  assert.deepEqual(resolveHelpRequest(["access-token", "generate", "--help"]), {
+    type: "command",
+    command: "access-token generate",
   });
   assert.deepEqual(resolveHelpRequest(["validation-session", "--help"]), {
     type: "command",
@@ -809,6 +890,22 @@ test("parseArgs supports access-domain and nested record subcommands", () => {
     "Project Token",
     "--apply",
   ]);
+  const generatedParsed = parseArgs([
+    "secret-record",
+    "generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "DATABASE_URL",
+    "--mode",
+    "create",
+    "--apply",
+    "--",
+    "node",
+    "scripts/generate-dsn.mjs",
+  ]);
 
   assert.equal(domainParsed.command, "access-domain create");
   assert.equal(domainParsed.options.title, "App & Backend");
@@ -818,6 +915,10 @@ test("parseArgs supports access-domain and nested record subcommands", () => {
   assert.equal(tokenParsed.command, "access-token adopt");
   assert.equal(tokenParsed.options.domain, "App & Backend");
   assert.equal(tokenParsed.options.apply, true);
+  assert.equal(generatedParsed.command, "secret-record generate");
+  assert.equal(generatedParsed.options.mode, "create");
+  assert.equal(generatedParsed.options.apply, true);
+  assert.deepEqual(generatedParsed.options.passthroughArgs, ["node", "scripts/generate-dsn.mjs"]);
 });
 
 test("parseArgs recognizes deprecated raw secret flags for runtime rejection", () => {
@@ -840,7 +941,7 @@ test("parseArgs recognizes deprecated raw secret flags for runtime rejection", (
   assert.equal(rawPullParsed.options["allow-repo-secret-output"], true);
 });
 
-test("parseArgs supports literal passthrough only for secret exec commands", () => {
+test("parseArgs supports literal passthrough only for secret exec and generate commands", () => {
   const secretParsed = parseArgs([
     "secret-record",
     "exec",
@@ -872,6 +973,20 @@ test("parseArgs supports literal passthrough only for secret exec commands", () 
     "--",
     "--version",
   ]);
+  const generateParsed = parseArgs([
+    "access-token-generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "Project Token",
+    "--mode",
+    "update",
+    "--",
+    "node",
+    "scripts/generate-token.mjs",
+  ]);
 
   assert.equal(secretParsed.command, "secret-record exec");
   assert.equal(secretParsed.options.project, "SNPM");
@@ -886,6 +1001,9 @@ test("parseArgs supports literal passthrough only for secret exec commands", () 
   assert.equal(tokenParsed.command, "access-token-exec");
   assert.equal(tokenParsed.options["stdin-secret"], true);
   assert.deepEqual(tokenParsed.options.passthroughArgs, ["--version"]);
+  assert.equal(generateParsed.command, "access-token-generate");
+  assert.equal(generateParsed.options.mode, "update");
+  assert.deepEqual(generateParsed.options.passthroughArgs, ["node", "scripts/generate-token.mjs"]);
 
   assert.throws(
     () => parseArgs([
@@ -895,7 +1013,7 @@ test("parseArgs supports literal passthrough only for secret exec commands", () 
       "--",
       "node",
     ]),
-    /literal -- child-command delimiter is only supported for secret-record exec and access-token exec/i,
+    /literal -- child-command delimiter is only supported for secret-record exec\/generate and access-token exec\/generate/i,
   );
 });
 
@@ -1196,10 +1314,20 @@ test("cli doctor help documents read-only truth audit", () => {
 });
 
 test("cli secret-bearing help documents consume-only exec guidance", () => {
+  const secretFamilyResult = runCli(["secret-record", "--help"]);
   const secretResult = runCli(["secret-record", "pull", "--help"]);
   const secretExecResult = runCli(["secret-record", "exec", "--help"]);
+  const secretGenerateResult = runCli(["secret-record", "generate", "--help"]);
+  const tokenFamilyResult = runCli(["access-token", "--help"]);
   const tokenResult = runCli(["access-token", "pull", "--help"]);
   const tokenExecResult = runCli(["access-token", "exec", "--help"]);
+  const tokenGenerateResult = runCli(["access-token", "generate", "--help"]);
+
+  assert.equal(secretFamilyResult.status, 0);
+  assert.match(secretFamilyResult.stdout, /Command: secret-record/);
+  assert.match(secretFamilyResult.stdout, /secret-record generate/i);
+  assert.match(secretFamilyResult.stdout, /write-only generated secret ingestion/i);
+  assert.equal(secretFamilyResult.stderr, "");
 
   assert.equal(secretResult.status, 0);
   assert.doesNotMatch(secretResult.stdout, /--raw-secret-output/);
@@ -1220,10 +1348,28 @@ test("cli secret-bearing help documents consume-only exec guidance", () => {
   assert.match(secretExecResult.stdout, / -- <command> \[args\.\.\.\]/);
   assert.equal(secretExecResult.stderr, "");
 
+  assert.equal(secretGenerateResult.status, 0);
+  assert.match(secretGenerateResult.stdout, /Command: secret-record generate/);
+  assert.match(secretGenerateResult.stdout, /--mode <create\|update>/);
+  assert.match(secretGenerateResult.stdout, / -- <generator-command> \[args\.\.\.\]/);
+  assert.match(secretGenerateResult.stdout, /Preview mode does not run the child generator/i);
+  assert.doesNotMatch(secretGenerateResult.stdout, /--raw-secret-output/);
+  assert.equal(secretGenerateResult.stderr, "");
+
+  assert.equal(tokenFamilyResult.status, 0);
+  assert.match(tokenFamilyResult.stdout, /Command: access-token/);
+  assert.match(tokenFamilyResult.stdout, /access-token generate/i);
+  assert.equal(tokenFamilyResult.stderr, "");
+
   assert.equal(tokenExecResult.status, 0);
   assert.match(tokenExecResult.stdout, /Command: access-token exec/);
   assert.match(tokenExecResult.stdout, /--env-name ENV_NAME/);
   assert.equal(tokenExecResult.stderr, "");
+
+  assert.equal(tokenGenerateResult.status, 0);
+  assert.match(tokenGenerateResult.stdout, /Command: access-token generate/);
+  assert.match(tokenGenerateResult.stdout, /child generator/i);
+  assert.equal(tokenGenerateResult.stderr, "");
 });
 
 test("cli deprecated raw secret flags fail with exec-only guidance", () => {
@@ -1265,7 +1411,7 @@ test("cli deprecated raw secret flags fail with exec-only guidance", () => {
   assert.match(tokenResult.stderr, /raw secret export/i);
 });
 
-test("cli rejects passthrough delimiter outside exec and requires exec child command", () => {
+test("cli rejects passthrough delimiter outside secret child commands and requires child command", () => {
   const nonExecResult = runCli([
     "doctor",
     "--project",
@@ -1285,14 +1431,105 @@ test("cli rejects passthrough delimiter outside exec and requires exec child com
     "--env-name",
     "GEMINI_API_KEY",
   ]);
+  const generateWithoutChild = runCli([
+    "access-token",
+    "generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "Project Token",
+    "--mode",
+    "create",
+  ]);
+  const generateWithLocalInput = runCli([
+    "secret-record",
+    "generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "DATABASE_URL",
+    "--mode",
+    "create",
+    "--file",
+    "secret.md",
+    "--",
+    "node",
+    "scripts/generate-dsn.mjs",
+  ]);
+  const sentinel = "postgres://sentinel-secret";
+  const generateWithValueFlag = runCli([
+    "secret-record",
+    "generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "DATABASE_URL",
+    "--mode",
+    "create",
+    "--value",
+    sentinel,
+    "--",
+    "node",
+    "scripts/generate-dsn.mjs",
+  ]);
+  const generateWithPositionalSecret = runCli([
+    "secret-record",
+    "generate",
+    "--project",
+    "SNPM",
+    "--domain",
+    "App & Backend",
+    "--title",
+    "DATABASE_URL",
+    "--mode",
+    "create",
+    sentinel,
+    "--",
+    "node",
+    "scripts/generate-dsn.mjs",
+  ]);
+  const hyphenatedGenerateWithPositionalSecret = runCli([
+    "secret-record-generate",
+    sentinel,
+  ]);
 
   assert.equal(nonExecResult.status, 1);
   assert.equal(nonExecResult.stdout, "");
-  assert.match(nonExecResult.stderr, /literal -- child-command delimiter is only supported/i);
+  assert.match(nonExecResult.stderr, /literal -- child-command delimiter is only supported for secret-record exec\/generate and access-token exec\/generate/i);
 
   assert.equal(execWithoutChild.status, 1);
   assert.equal(execWithoutChild.stdout, "");
   assert.match(execWithoutChild.stderr, /Provide a child command after -- for secret-record exec/i);
+
+  assert.equal(generateWithoutChild.status, 1);
+  assert.equal(generateWithoutChild.stdout, "");
+  assert.match(generateWithoutChild.stderr, /Provide a child command after -- for access-token generate/i);
+
+  assert.equal(generateWithLocalInput.status, 1);
+  assert.equal(generateWithLocalInput.stdout, "");
+  assert.match(generateWithLocalInput.stderr, /secret-record generate does not support --file/i);
+  assert.match(generateWithLocalInput.stderr, /never reads raw values from local files, stdin, env vars, or output paths/i);
+
+  assert.equal(generateWithValueFlag.status, 1);
+  assert.equal(generateWithValueFlag.stdout, "");
+  assert.match(generateWithValueFlag.stderr, /secret-record generate does not support --value/i);
+  assert.doesNotMatch(generateWithValueFlag.stderr, /sentinel-secret/);
+
+  assert.equal(generateWithPositionalSecret.status, 1);
+  assert.equal(generateWithPositionalSecret.stdout, "");
+  assert.match(generateWithPositionalSecret.stderr, /Unexpected argument before -- for secret-record generate/i);
+  assert.doesNotMatch(generateWithPositionalSecret.stderr, /sentinel-secret/);
+
+  assert.equal(hyphenatedGenerateWithPositionalSecret.status, 1);
+  assert.equal(hyphenatedGenerateWithPositionalSecret.stdout, "");
+  assert.match(hyphenatedGenerateWithPositionalSecret.stderr, /Unexpected argument before -- for secret-record-generate/i);
+  assert.doesNotMatch(hyphenatedGenerateWithPositionalSecret.stderr, /sentinel-secret/);
 });
 
 test("cli doctor rejects invalid stale-after-days before live doctor execution", () => {

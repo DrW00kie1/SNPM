@@ -94,7 +94,7 @@ For low-ceremony edits on supported operational surfaces, prefer the editor-back
 
 Use `--explain` when you need the auth-mode, target-resolution, child-page, and normalization reasoning before apply.
 Use `--review-output <dir>` when you need review artifacts without making the repo the source of truth.
-For `secret-record-*` and `access-token-*`, raw local export and local markdown edit/diff/push are unsupported. Use `secret-record-exec` or `access-token-exec` for runtime consumption; pulls are redacted-only and do not create push-ready sidecars.
+For `secret-record-*` and `access-token-*`, raw local export and local markdown edit/diff/push are unsupported. Use `secret-record-exec` or `access-token-exec` for runtime consumption; pulls are redacted-only and do not create push-ready sidecars. Use `secret-record-generate` or `access-token-generate` when an agent must create or rotate a credential value and store it directly in Notion without putting the value in chat, local files, sidecars, diffs, review artifacts, or journals.
 
 If `doc-adopt` finds no managed divider, it wraps the current full page body under a new managed-doc header.
 
@@ -114,6 +114,23 @@ Starter targets remain aligned to the owning surface:
 - `planning-page` for planning pages
 
 After publishing generated starter content through the owning `doc-*` or `page-*` command family, run `verify-project` and `doctor` for the project. Run `verify-workspace-docs` only if curated workspace-global or template docs were changed.
+
+## Access Secret Ingestion Updates
+
+Write-only generated secret ingestion uses the Access command family, not `doc-*` or manifest v2:
+
+```powershell
+npm run secret-record-generate -- --project "SNPM" --domain "App & Backend" --title "DATABASE_URL" --mode create --project-token-env SNPM_NOTION_TOKEN --apply -- node scripts/generate-dsn.mjs
+npm run access-token-generate -- --project "SNPM" --domain "App & Backend" --title "Project Token" --mode update --project-token-env SNPM_NOTION_TOKEN --apply -- node scripts/rotate-project-token.mjs
+```
+
+Preview mode omits `--apply` and must not run the generator. Applied mode runs one child generator command, captures one stdout value in memory, stores it in Notion, and suppresses/redacts child output. The generated value must not appear in terminal output, markdown files, metadata sidecars, review artifacts, mutation journals, or durable summary text.
+
+Durable Notion closeout summary for this sprint:
+
+> SNPM now separates secret handling into two safe lanes. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`. Agent-generated credential creation and rotation use write-only `secret-record-generate` and `access-token-generate`, which run a child generator only under `--apply`, store the generated stdout value directly in the Access record, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, and journals. Raw local export and secret-bearing local edit/diff/push remain unsupported.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log` with the decision, `Runbooks > Notion Workspace Workflow` with the operator workflow, and `Projects > SNPM` only if the public command summary is maintained there.
 
 ## Manifest V2 Doc Bundle Updates
 
@@ -146,7 +163,7 @@ Address truth-audit findings through the owning command family:
 - `doc-*` for curated project, template, and workspace docs
 - `page-*` for `Planning > Roadmap` and `Planning > Current Cycle`
 - `runbook-*` for runbooks
-- Access remains on `access-domain-*`, `secret-record-*`, and `access-token-*`, with secret/token records still consume-only
+- Access remains on `access-domain-*`, `secret-record-*`, and `access-token-*`, with secret/token records using consume-only runtime access plus write-only generated ingestion
 
 Workspace/template verification:
 

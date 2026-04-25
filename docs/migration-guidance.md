@@ -9,7 +9,7 @@ Scope:
 
 How to use it:
 - `doctor --project "<Project>" --project-token-env TOKEN_ENV` now returns a top-level `migrationGuidance` array when it sees recurring legacy patterns
-- `recommend --intent ...` now adds targeted `migrationGuidance` when a requested runbook or Access target needs an adopt-first or create-first path
+- `recommend --intent ...` now adds targeted `migrationGuidance` when a requested runbook or Access target needs an adopt-first, create-first, or write-only generated-ingestion path
 - the guidance entries are reusable summaries, not copies of raw `issues` or `adoptable` output
 
 ## RC-Supported Patterns
@@ -85,4 +85,12 @@ How to use it:
 - `recommend --intent secret ...` or `recommend --intent token ...` can return targeted migration guidance even when `doctor` has no project-wide legacy issue yet.
 - This happens when the requested Access domain does not exist at all.
 - Exact next command: `npm run access-domain-create -- --project "Project Name" --title "App & Backend" --file access-domain.md --project-token-env PROJECT_NAME_NOTION_TOKEN`
-- Verify afterward: rerun the same `recommend --intent ...` request and confirm it moves to create/adopt plus exec/redacted-pull guidance for the nested record.
+- Verify afterward: rerun the same `recommend --intent ...` request and confirm it moves to create/adopt/generate plus exec/redacted-pull guidance for the nested record.
+
+### Generated Secret Or Token
+- `recommend --intent secret ...` or `recommend --intent token ...` can route agent-generated credentials to write-only ingestion when the value should originate from a local generator command.
+- This is for cases such as an agent creating a PostgreSQL DSN or rotating a project token without pasting the value into chat and without writing raw local files.
+- Exact next command for a new secret: `npm run secret-record-generate -- --project "Project Name" --domain "App & Backend" --title "DATABASE_URL" --mode create --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/generate-dsn.mjs`
+- Exact next command for an existing token rotation: `npm run access-token-generate -- --project "Project Name" --domain "App & Backend" --title "Project Token" --mode update --project-token-env PROJECT_NAME_NOTION_TOKEN --apply -- node scripts/rotate-project-token.mjs`
+- Manual steps: review the generator command itself; do not paste the generated raw value into chat, CLI flags, stdin, env vars, or local files.
+- Verify afterward: use `secret-record-exec` or `access-token-exec` for runtime consumption. Pulls remain redacted-only, and raw local export/edit/diff/push remain unsupported for secret-bearing records.
