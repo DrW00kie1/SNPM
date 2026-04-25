@@ -12,6 +12,8 @@ const OPT_STDIN_SECRET = "--stdin-secret";
 const OPT_CWD = "--cwd <dir>";
 const OPT_BUNDLE = "--bundle";
 const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
+const OPT_TRUTH_AUDIT = "--truth-audit";
+const OPT_STALE_AFTER_DAYS = "--stale-after-days <positive integer>";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
 const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
 const OPT_MAX_MUTATIONS = "--max-mutations <n|all>";
@@ -315,24 +317,43 @@ const SINGLE_COMMAND_SPECS = [
   }),
   createCommandSpec({
     canonical: "doctor",
-    summary: "Run the read-only project health scan and managed-surface inventory.",
+    summary: "Run the read-only project health scan, managed-surface inventory, and optional truth-quality audit.",
     usageLines: [
       'node src/cli.mjs doctor --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs doctor --project "Project Name" --truth-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
     ],
     requiredFlags: [
       OPT_PROJECT,
     ],
     optionalFlags: [
+      OPT_TRUTH_AUDIT,
+      OPT_STALE_AFTER_DAYS,
       OPT_PROJECT_TOKEN,
       OPT_WORKSPACE,
     ],
     examples: [
       'node src/cli.mjs doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'npm run truth-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
     ],
     notes: [
       "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
+      "Use --truth-audit to add the read-only truth-quality audit for stale Last Updated metadata and placeholder or empty managed content.",
+      "--stale-after-days defaults to 30 when --truth-audit is enabled and must be a positive integer.",
+      "Truth audit checks approved managed planning pages, project docs, managed runbooks, and curated workspace/template docs where applicable.",
+      "Truth audit excludes raw secret/token body inspection and preserves consume-only Access behavior.",
+      "Truth audit does not mutate Notion, write local files, write sidecars, append mutation journal entries, auto-fix content, detect semantic contradictions, or add rollback/retry/batch-apply behavior.",
     ],
+    capabilityMetadata: {
+      notionMutation: "none",
+      localFileWrites: "none",
+      journalWrites: "none",
+      truthAudit: "optional-read-only",
+      staleAfterDaysDefault: 30,
+      supportedTruthAuditSurfaces: ["planning-page", "project-doc", "runbook", "workspace-doc", "template-doc"],
+      truthAuditExclusions: ["secret-record-body", "access-token-body"],
+      truthAuditNonGoals: ["notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal", "auto-fix", "semantic-contradiction-detection", "rollback", "retries", "generic-batch-apply"],
+    },
   }),
   createCommandSpec({
     canonical: "recommend",
@@ -2040,7 +2061,7 @@ const GLOBAL_COMMAND_GROUPS = [
     title: "Core Commands:",
     entries: [
       ["create-project", "Bootstrap a new project subtree in Notion."],
-      ["doctor", "Run the read-only project health scan."],
+      ["doctor", "Run the read-only project health scan and optional truth-quality audit."],
       ["recommend", "Run the read-only scan or route an intent to Notion vs repo."],
       ["verify-project", "Verify project structure and optional project-token scope."],
       ["verify-workspace-docs", "Verify curated workspace and template docs."],
@@ -2119,6 +2140,11 @@ function copyOptionalCapabilityFields(target, spec) {
     "notionMutation",
     "localFileWrites",
     "journalWrites",
+    "truthAudit",
+    "staleAfterDaysDefault",
+    "supportedTruthAuditSurfaces",
+    "truthAuditExclusions",
+    "truthAuditNonGoals",
     "sidecarRefresh",
     "supportedManifestVersions",
     "supportedManifestV2EntryKinds",

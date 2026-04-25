@@ -137,7 +137,16 @@ Project-scoped verification:
 ```powershell
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --truth-audit
 ```
+
+Use `doctor --truth-audit` when the project structure verifies but the durable Notion truth may need attention. The audit is read-only and reports stale `Last Updated` headers, placeholder or empty important surfaces, and roadmap/current-cycle freshness concerns. It does not mutate Notion, refresh sidecars, apply manifest entries, export raw Access values, or perform semantic cross-document consistency checks.
+
+Address truth-audit findings through the owning command family:
+- `doc-*` for curated project, template, and workspace docs
+- `page-*` for `Planning > Roadmap` and `Planning > Current Cycle`
+- `runbook-*` for runbooks
+- Access remains on `access-domain-*`, `secret-record-*`, and `access-token-*`, with secret/token records still consume-only
 
 Workspace/template verification:
 

@@ -13,6 +13,13 @@ import {
 } from "./managed-page-templates.mjs";
 import { fetchPageMarkdown } from "./page-markdown.mjs";
 import {
+  APPROVED_PLANNING_PAGE_PATHS,
+  findBuildsContainerTarget,
+  findProjectPathTarget,
+  findValidationSessionsDatabaseTarget,
+  resolveProjectRootTarget,
+} from "./page-targets.mjs";
+import {
   buildMissingBuildsSurfaceGuidance,
   buildMissingValidationSessionsSurfaceGuidance,
   buildProjectTokenNotCheckedGuidance,
@@ -26,10 +33,11 @@ import {
 } from "./migration-guidance.mjs";
 import { expectedCanonicalSource, projectPath } from "./project-model.mjs";
 import { findChildPage, verifyScope } from "./project-service.mjs";
-import { findBuildsContainerTarget, findProjectPathTarget, findValidationSessionsDatabaseTarget, resolveProjectRootTarget } from "./page-targets.mjs";
 import { buildCommand, buildTruthBoundaries } from "./routing-policy.mjs";
 import { getCanonicalSource } from "./template-blocks.mjs";
 import { VALIDATION_SESSIONS_DATABASE_TITLE, verifyValidationSessionsSurface } from "./validation-sessions.mjs";
+
+const DEFAULT_DOCTOR_TRUTH_AUDIT_STALE_AFTER_DAYS = 30;
 
 function iconMatches(icon, expectedIcon) {
   return Boolean(icon) && icon.type === expectedIcon.type && icon.emoji === expectedIcon.emoji;
@@ -174,6 +182,211 @@ function buildProjectDocCommandPath(pathTitles) {
   return pathTitles.length === 0 ? "Root" : `Root > ${pathTitles.join(" > ")}`;
 }
 
+async function loadTruthAuditHelpers() {
+  return import("./truth-audit.mjs");
+}
+
+function addTruthAuditCandidate(candidates, candidate) {
+  if (!candidates) {
+    return;
+  }
+
+  candidates.push(candidate);
+}
+
+function suggestedAuditOutputFile(targetPath) {
+  const title = String(targetPath || "managed-page")
+    .split(">")
+    .at(-1)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `${title || "managed-page"}.md`;
+}
+
+function buildTruthAuditPullCommand({ commandFamily, projectName, commandTarget, targetPath, projectTokenEnv }) {
+  const targetFlag = commandFamily === "page" ? "page" : commandFamily === "runbook" ? "title" : "path";
+  return buildCommand(`${commandFamily}-pull`, [
+    ["project", projectName],
+    [targetFlag, commandTarget],
+    ["output", suggestedAuditOutputFile(targetPath)],
+  ], projectTokenEnv);
+}
+
+function buildManagedPageAuditCandidate({
+  surface,
+  type,
+  title,
+  pageId,
+  targetPath,
+  projectName,
+  projectTokenEnv,
+  commandFamily,
+  commandTarget,
+}) {
+  return {
+    surface,
+    type,
+    title,
+    pageId,
+    targetPath,
+    projectName,
+    safeNextCommand: buildTruthAuditPullCommand({
+      commandFamily,
+      projectName,
+      commandTarget,
+      targetPath,
+      projectTokenEnv,
+    }),
+    recoveryAction: "Pull the page with its owning command family, review current truth, then update through the standard pull/diff/push loop if needed.",
+  };
+}
+
+async function analyzePlanningBranch({
+  pageId,
+  pathTitles,
+  projectName,
+  client,
+  result,
+  issueKeys,
+  truthAuditCandidates,
+  projectTokenEnv,
+  staleAfterDays,
+}) {
+  const inspection = await inspectManagedPage({
+    pageId,
+    pathTitles,
+    projectName,
+    client,
+    requireIcon: false,
+  });
+
+  if (inspection.status === "managed") {
+    for (const message of inspection.issues) {
+      addIssue(result, issueKeys, "planning", inspection.targetPath, message);
+    }
+    addTruthAuditCandidate(truthAuditCandidates, buildManagedPageAuditCandidate({
+      surface: "planning",
+      type: "planning-page",
+      title: pathTitles.at(-1),
+      pageId,
+      targetPath: inspection.targetPath,
+      projectName,
+      projectTokenEnv,
+      commandFamily: "page",
+      commandTarget: pathTitles.join(" > "),
+    }));
+  }
+
+  const children = await listChildPages(pageId, client);
+  for (const child of children) {
+    await analyzePlanningBranch({
+      pageId: child.id,
+      pathTitles: [...pathTitles, child.child_page.title],
+      projectName,
+      client,
+      result,
+      issueKeys,
+      truthAuditCandidates,
+      projectTokenEnv,
+      staleAfterDays,
+    });
+  }
+}
+
+async function analyzePlanningPages({
+  config,
+  projectName,
+  client,
+  result,
+  issueKeys,
+  truthAuditCandidates,
+  projectTokenEnv,
+  staleAfterDays,
+}) {
+  if (!truthAuditCandidates) {
+    return;
+  }
+
+  for (const pagePath of APPROVED_PLANNING_PAGE_PATHS) {
+    const pathTitles = pagePath.split(" > ");
+    const target = await findProjectPathTarget(projectName, pathTitles, config, client);
+    if (!target) {
+      continue;
+    }
+
+    const inspection = await inspectManagedPage({
+      pageId: target.pageId,
+      pathTitles,
+      projectName,
+      client,
+      requireIcon: false,
+    });
+
+    if (inspection.status !== "managed") {
+      continue;
+    }
+
+    for (const message of inspection.issues) {
+      addIssue(result, issueKeys, "planning", inspection.targetPath, message);
+    }
+
+    addTruthAuditCandidate(truthAuditCandidates, buildManagedPageAuditCandidate({
+      surface: "planning",
+      type: "planning-page",
+      title: pathTitles.at(-1),
+      pageId: target.pageId,
+      targetPath: inspection.targetPath,
+      projectName,
+      projectTokenEnv,
+      commandFamily: "page",
+      commandTarget: pagePath,
+    }));
+  }
+}
+
+async function buildDoctorTruthAudit({
+  candidates,
+  client,
+  staleAfterDays,
+  analyzeManagedPageTruthImpl,
+  buildTruthAuditSummaryImpl,
+}) {
+  const pages = [];
+  for (const candidate of candidates) {
+    try {
+      pages.push({
+        ...candidate,
+        markdown: await fetchPageMarkdown(candidate.pageId, candidate.targetPath, client),
+      });
+    } catch (error) {
+      pages.push({
+        ...candidate,
+        readFailure: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (analyzeManagedPageTruthImpl && buildTruthAuditSummaryImpl) {
+    const analyses = [];
+    for (const page of pages) {
+      analyses.push(await analyzeManagedPageTruthImpl(page, {
+        staleAfterDays,
+      }));
+    }
+
+    return buildTruthAuditSummaryImpl(analyses, {
+      staleAfterDays,
+    });
+  }
+
+  const helpers = await loadTruthAuditHelpers();
+  return helpers.auditTruthPages(pages, {
+    staleAfterDays,
+  });
+}
+
 async function analyzeProjectDocBranch({
   branchPageId,
   pathTitles,
@@ -185,6 +398,8 @@ async function analyzeProjectDocBranch({
   adoptableKeys,
   recommendationKeys,
   summary,
+  truthAuditCandidates,
+  staleAfterDays,
 }) {
   const inspection = await inspectManagedPage({
     pageId: branchPageId,
@@ -201,6 +416,17 @@ async function analyzeProjectDocBranch({
     for (const message of inspection.issues) {
       addIssue(result, issueKeys, "project-docs", inspection.targetPath, message);
     }
+    addTruthAuditCandidate(truthAuditCandidates, buildManagedPageAuditCandidate({
+      surface: "project-docs",
+      type: "project-doc",
+      title: pathTitles.at(-1),
+      pageId: branchPageId,
+      targetPath: inspection.targetPath,
+      projectName,
+      projectTokenEnv,
+      commandFamily: "doc",
+      commandTarget: buildProjectDocCommandPath(pathTitles),
+    }));
   } else {
     summary.unmanagedCount += 1;
     const command = buildCommand("doc-adopt", [
@@ -235,6 +461,8 @@ async function analyzeProjectDocBranch({
       adoptableKeys,
       recommendationKeys,
       summary,
+      truthAuditCandidates,
+      staleAfterDays,
     });
   }
 }
@@ -248,6 +476,8 @@ async function analyzeProjectDocs({
   issueKeys,
   adoptableKeys,
   recommendationKeys,
+  truthAuditCandidates,
+  staleAfterDays,
 }) {
   const projectRoot = await resolveProjectRootTarget(projectName, config, client);
   const rootInspection = await inspectManagedPage({
@@ -270,6 +500,17 @@ async function analyzeProjectDocs({
     for (const message of rootInspection.issues) {
       addIssue(result, issueKeys, "project-docs", rootInspection.targetPath, message);
     }
+    addTruthAuditCandidate(truthAuditCandidates, buildManagedPageAuditCandidate({
+      surface: "project-docs",
+      type: "project-root-doc",
+      title: projectName,
+      pageId: projectRoot.pageId,
+      targetPath: rootInspection.targetPath,
+      projectName,
+      projectTokenEnv,
+      commandFamily: "doc",
+      commandTarget: "Root",
+    }));
   } else {
     const command = buildCommand("doc-adopt", [
       ["project", projectName],
@@ -307,6 +548,8 @@ async function analyzeProjectDocs({
       adoptableKeys,
       recommendationKeys,
       summary,
+      truthAuditCandidates,
+      staleAfterDays,
     });
   }
 
@@ -323,6 +566,8 @@ async function analyzeRunbooks({
   adoptableKeys,
   recommendationKeys,
   migrationGuidanceKeys,
+  truthAuditCandidates,
+  staleAfterDays,
 }) {
   const targetPath = projectPath(projectName, ["Runbooks"]);
   const target = await findProjectPathTarget(projectName, ["Runbooks"], config, client);
@@ -365,6 +610,17 @@ async function analyzeRunbooks({
       for (const message of inspection.issues) {
         addIssue(result, issueKeys, "runbooks", inspection.targetPath, message);
       }
+      addTruthAuditCandidate(truthAuditCandidates, buildManagedPageAuditCandidate({
+        surface: "runbooks",
+        type: "runbook",
+        title,
+        pageId: child.id,
+        targetPath: inspection.targetPath,
+        projectName,
+        projectTokenEnv,
+        commandFamily: "runbook",
+        commandTarget: title,
+      }));
       continue;
     }
 
@@ -890,11 +1146,15 @@ export async function diagnoseProject({
   config,
   projectName,
   projectTokenEnv,
+  truthAudit = false,
+  staleAfterDays = DEFAULT_DOCTOR_TRUTH_AUDIT_STALE_AFTER_DAYS,
   workspaceClient,
   makeNotionClientImpl = makeNotionClient,
   getWorkspaceTokenImpl = getWorkspaceToken,
   verifyScopeImpl = verifyScope,
   verifyValidationSessionsSurfaceImpl = verifyValidationSessionsSurface,
+  analyzeManagedPageTruthImpl,
+  buildTruthAuditSummaryImpl,
 }) {
   const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
   const projectRoot = await resolveProjectRootTarget(projectName, config, client);
@@ -914,6 +1174,7 @@ export async function diagnoseProject({
   const adoptableKeys = new Set();
   const recommendationKeys = new Set();
   const migrationGuidanceKeys = new Set();
+  const truthAuditCandidates = truthAudit ? [] : null;
 
   if (projectTokenEnv) {
     const scopeFailures = await verifyScopeImpl(projectRoot.pageId, projectName, config, projectTokenEnv);
@@ -936,6 +1197,18 @@ export async function diagnoseProject({
     issueKeys,
     adoptableKeys,
     recommendationKeys,
+    truthAuditCandidates,
+    staleAfterDays,
+  });
+  await analyzePlanningPages({
+    config,
+    projectName,
+    client,
+    result,
+    issueKeys,
+    truthAuditCandidates,
+    projectTokenEnv,
+    staleAfterDays,
   });
   await analyzeRunbooks({
     config,
@@ -947,6 +1220,8 @@ export async function diagnoseProject({
     adoptableKeys,
     recommendationKeys,
     migrationGuidanceKeys,
+    truthAuditCandidates,
+    staleAfterDays,
   });
   await analyzeBuilds({
     config,
@@ -989,6 +1264,15 @@ export async function diagnoseProject({
     migrationGuidanceKeys,
   });
   result.migrationGuidance = sortMigrationGuidance(result.migrationGuidance);
+  if (truthAudit) {
+    result.truthAudit = await buildDoctorTruthAudit({
+      candidates: truthAuditCandidates,
+      client,
+      staleAfterDays,
+      analyzeManagedPageTruthImpl,
+      buildTruthAuditSummaryImpl,
+    });
+  }
 
   return result;
 }

@@ -12,7 +12,7 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, policy-pack foundation, bootstrap doc scaffolding, and consume-only Access secret handling
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, policy-pack foundation, bootstrap doc scaffolding, consume-only Access secret handling, and read-only `doctor --truth-audit` truth-quality checks
 - recent promotion trace branches: `codex/bootstrap-doc-scaffolding`, `codex/access-secret-hardening`
 - historical RC snapshot: `v0.1.0-rc.1`
 
@@ -37,6 +37,7 @@ Supported narrow-band baseline on `main`:
 - `doc-create`, `doc-adopt`, `doc-pull`, `doc-diff`, `doc-push`
 - `verify-workspace-docs`
 - `doctor`
+- read-only `doctor --truth-audit` for truth-quality audit findings
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - stdin/stdout ergonomics on the core band
@@ -65,11 +66,16 @@ Recently promoted manifest v2 targeted-review behavior on `main`:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata only for selected entries that were applied successfully
 - default manifest v2 `sync push --apply` still leaves sidecars stale
 
+Recently promoted truth-quality audit behavior on `main`:
+- `doctor --truth-audit` is read-only and project-scoped
+- the audit reports stale managed-page `Last Updated` values, placeholder or empty content on important project surfaces, and freshness concerns for `Planning > Roadmap` and `Planning > Current Cycle`
+- truth-audit findings are advisory project-health output; they do not mutate Notion, rewrite pages, refresh sidecars, apply manifests, or perform cross-document semantic consistency checks
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families instead of treating them as generic managed docs
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
-- policy-pack-driven drift/staleness audit, cross-document consistency checks, and broad batch apply
+- policy-pack-driven mutation, cross-document consistency checks, and broad batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -139,7 +145,10 @@ Inspect a project safely before mutation:
 ```bash
 npm run doctor -- --project "Project Name"
 npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --truth-audit
 ```
+
+`doctor --truth-audit` extends the read-only project health scan with truth-quality findings. Use it when the project shape is valid but the durable Notion truth may be stale or underfilled: old `Last Updated` headers, placeholder/empty important surfaces, and roadmap/current-cycle content that no longer looks current. It is an audit surface only; publish fixes through the owning `doc-*`, `page-*`, or `runbook-*` family after review.
 
 Get a deterministic routing answer before editing:
 
@@ -293,6 +302,7 @@ Safe live SNPM checks:
 ```bash
 npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --truth-audit
 npm run verify-workspace-docs
 ```
 
@@ -321,6 +331,7 @@ Hybrid only when justified:
 
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
+- use read-only `doctor --truth-audit` to surface stale or underfilled durable Notion truth before editing
 - use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, targeted selectors, review artifacts, mutation limits, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
 - keep policy packs focused on explicit reusable policy for existing approved surfaces, including preview-first starter doc scaffold declarations
 - keep that surface curated and explicit

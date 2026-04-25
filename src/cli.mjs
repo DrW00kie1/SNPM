@@ -87,7 +87,7 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
@@ -351,6 +351,19 @@ function parseMaxMutationsOption(value) {
   return parsed;
 }
 
+function parseStaleAfterDaysOption(value) {
+  if (value === undefined) {
+    return 30;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value) {
+    throw new Error("--stale-after-days must be a positive integer.");
+  }
+
+  return parsed;
+}
+
 function requireOption(options, name, message) {
   const value = options[name];
   if (!value || typeof value !== "string") {
@@ -535,9 +548,14 @@ async function main() {
   }
 
   if (command === "doctor") {
+    const truthAudit = options["truth-audit"] === true;
+    const staleAfterDays = truthAudit || options["stale-after-days"] !== undefined
+      ? parseStaleAfterDaysOption(options["stale-after-days"])
+      : undefined;
     const result = await runDoctor({
       projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
       projectTokenEnv: options["project-token-env"],
+      ...(truthAudit ? { truthAudit, staleAfterDays } : {}),
       workspaceName,
     });
     console.log(JSON.stringify({

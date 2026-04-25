@@ -233,6 +233,53 @@ test("capabilities command help and npm script are registered", () => {
   assert.deepEqual(parsedJson, capabilities);
 });
 
+test("doctor help, truth-audit capability metadata, and npm script are registered", () => {
+  const spec = findCommandHelp("doctor");
+  const capabilities = buildCapabilityMap();
+  const command = capabilities.commands.find((candidate) => candidate.canonical === "doctor");
+
+  assert.equal(spec?.canonical, "doctor");
+  assert.equal(spec?.surface, "project-health");
+  assert.equal(spec?.authScope, "project-token-optional");
+  assert.equal(spec?.mutationMode, "read-only");
+  assert.match(commandText(spec), /--truth-audit/);
+  assert.match(commandText(spec), /--stale-after-days <positive integer>/);
+  assert.match(commandText(spec), /defaults to 30/i);
+  assert.match(commandText(spec), /truth-quality audit/i);
+  assert.match(commandText(spec), /planning pages, project docs, managed runbooks, and curated workspace\/template docs/i);
+  assert.match(commandText(spec), /excludes raw secret\/token body inspection/i);
+  assert.match(commandText(spec), /does not mutate Notion/i);
+  assert.ok(command);
+  assert.equal(command.notionMutation, "none");
+  assert.equal(command.localFileWrites, "none");
+  assert.equal(command.journalWrites, "none");
+  assert.equal(command.truthAudit, "optional-read-only");
+  assert.equal(command.staleAfterDaysDefault, 30);
+  assert.deepEqual(command.supportedTruthAuditSurfaces, [
+    "planning-page",
+    "project-doc",
+    "runbook",
+    "workspace-doc",
+    "template-doc",
+  ]);
+  assert.deepEqual(command.truthAuditExclusions, [
+    "secret-record-body",
+    "access-token-body",
+  ]);
+  assert.deepEqual(command.truthAuditNonGoals, [
+    "notion-mutation",
+    "local-file-output",
+    "sidecar-writes",
+    "mutation-journal",
+    "auto-fix",
+    "semantic-contradiction-detection",
+    "rollback",
+    "retries",
+    "generic-batch-apply",
+  ]);
+  assert.equal(packageJson.scripts["truth-audit"], "node src/cli.mjs doctor --truth-audit");
+});
+
 test("scaffold-docs help, capability entry, and npm script are registered", () => {
   const spec = findCommandHelp("scaffold-docs");
   const capabilities = buildCapabilityMap();
@@ -649,6 +696,20 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(doctorParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
   assert.equal(recommendParsed.command, "recommend");
   assert.equal(recommendParsed.options.project, "Tall Man Training");
+
+  const truthAuditParsed = parseArgs([
+    "doctor",
+    "--truth-audit",
+    "--stale-after-days",
+    "45",
+    "--project",
+    "SNPM",
+  ]);
+
+  assert.equal(truthAuditParsed.command, "doctor");
+  assert.equal(truthAuditParsed.options["truth-audit"], true);
+  assert.equal(truthAuditParsed.options["stale-after-days"], "45");
+  assert.equal(truthAuditParsed.options.project, "SNPM");
 });
 
 test("parseArgs supports doc subcommands", () => {
@@ -1121,6 +1182,19 @@ test("cli scaffold-docs help prints registry-only command help", () => {
   assert.equal(result.stderr, "");
 });
 
+test("cli doctor help documents read-only truth audit", () => {
+  const result = runCli(["doctor", "--help"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: doctor/);
+  assert.match(result.stdout, /--truth-audit/);
+  assert.match(result.stdout, /--stale-after-days <positive integer>/);
+  assert.match(result.stdout, /defaults to 30/i);
+  assert.match(result.stdout, /does not mutate Notion/i);
+  assert.match(result.stdout, /raw secret\/token body inspection/i);
+  assert.equal(result.stderr, "");
+});
+
 test("cli secret-bearing help documents consume-only exec guidance", () => {
   const secretResult = runCli(["secret-record", "pull", "--help"]);
   const secretExecResult = runCli(["secret-record", "exec", "--help"]);
@@ -1221,6 +1295,25 @@ test("cli rejects passthrough delimiter outside exec and requires exec child com
   assert.match(execWithoutChild.stderr, /Provide a child command after -- for secret-record exec/i);
 });
 
+test("cli doctor rejects invalid stale-after-days before live doctor execution", () => {
+  const invalidValues = ["0", "-1", "abc", "1.5", "30days"];
+
+  for (const value of invalidValues) {
+    const result = runCli([
+      "doctor",
+      "--project",
+      "SNPM",
+      "--truth-audit",
+      "--stale-after-days",
+      value,
+    ]);
+
+    assert.equal(result.status, 1, `${value} should fail`);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /--stale-after-days must be a positive integer/);
+  }
+});
+
 test("cli capabilities prints JSON only", () => {
   const result = runCli(["capabilities"]);
   const parsed = JSON.parse(result.stdout);
@@ -1233,6 +1326,7 @@ test("cli capabilities prints JSON only", () => {
   assert.ok(parsed.canonicalCommands.includes("scaffold-docs"));
   assert.ok(parsed.canonicalCommands.includes("sync"));
   assert.ok(parsed.canonicalCommands.includes("journal list"));
+  assert.equal(parsed.commands.find((command) => command.canonical === "doctor")?.truthAudit, "optional-read-only");
 });
 
 test("cli journal list prints JSON only without live Notion", () => {

@@ -5,6 +5,8 @@ import { recommendProjectUpdate } from "../notion/recommend.mjs";
 export async function runDoctor({
   projectName,
   projectTokenEnv,
+  truthAudit = false,
+  staleAfterDays,
   workspaceName = "infrastructure-hq",
 }) {
   const config = loadWorkspaceConfig(workspaceName);
@@ -12,6 +14,8 @@ export async function runDoctor({
     config,
     projectName,
     projectTokenEnv,
+    truthAudit,
+    staleAfterDays,
   });
 }
 

@@ -21,6 +21,7 @@ The ten planned capability goals are:
 - concurrency-safe push model: prevent overwriting Notion changes made after pull
 - project policy packs: make approved project/workspace rules explicit, reusable, and reviewable
 - bootstrap doc scaffolding: seed useful docs after project creation
+- read-only truth-quality audit: report stale or underfilled durable Notion truth without mutating it
 - durable mutation journal: keep an audit record of applied SNPM changes
 - LLM-native capability introspection: expose allowed commands, surfaces, flags, and examples in machine-readable form
 
@@ -36,7 +37,7 @@ Development should follow these rules:
 Current policy-pack foundation scope:
 - make the existing Infrastructure HQ project starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
 - preserve existing command behavior and the current workspace config contract
-- do not add drift or staleness audit, cross-document consistency checks, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
+- do not add policy-pack-driven mutation, cross-document consistency checks, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
 
 Sprint 4.2 extends that policy layer with preview-first starter doc scaffolding. The scaffold contract is policy data; `scaffold-docs` writes only local review files with `--output-dir` and leaves Notion mutation to the generated owning command-family steps.
 
@@ -311,15 +312,22 @@ Purpose: move verification from structural correctness toward useful operational
 ### Sprint 5.1: Drift And Staleness Audit
 
 Goal:
-- detect project docs that are structurally valid but operationally stale
+- detect project docs that are structurally valid but operationally stale without mutating Notion
 
 Deliverables:
+- `doctor --truth-audit` as a read-only extension to the project health scan
 - stale `Last Updated` checks for managed docs
 - empty-section and placeholder detection for important surfaces
 - roadmap and current-cycle freshness checks
 
 Exit criteria:
-- `doctor` can identify pages that need attention even when the Notion shape is technically valid
+- `doctor --truth-audit` can identify pages that need attention even when the Notion shape is technically valid
+
+Status:
+- promoted as an advisory truth-quality audit on the active line
+- no Notion mutation, sidecar refresh, manifest apply, rollback, retry, or transaction behavior
+- remediation stays on the owning `doc-*`, `page-*`, or `runbook-*` command family after review
+- Access secret and token records remain consume-only; truth-audit must not create raw local export, editable sidecars, or push-ready secret files
 
 Feature goals covered:
 - drift and staleness audit

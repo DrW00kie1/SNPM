@@ -5,6 +5,7 @@ import {
   ACCESS_DOMAIN_ICON,
   ACCESS_TOKEN_ICON,
   BUILDS_CONTAINER_ICON,
+  RUNBOOK_ICON,
   SECRET_RECORD_ICON,
   VALIDATION_SESSION_ICON,
 } from "../src/notion/managed-page-templates.mjs";
@@ -61,6 +62,7 @@ function makeFakeClient({
   dataSourceMap = new Map(),
   queryMap = new Map(),
   markdownMap = new Map(),
+  markdownRequests,
 }) {
   return {
     async getChildren(pageId) {
@@ -73,6 +75,7 @@ function makeFakeClient({
 
       if (method === "GET" && /^pages\/[^/]+\/markdown$/.test(apiPath)) {
         const pageId = apiPath.slice("pages/".length, -"/markdown".length);
+        markdownRequests?.push(pageId);
         return {
           markdown: markdownMap.get(pageId) || "",
           truncated: false,
@@ -143,6 +146,7 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
 
   assert.equal(result.authMode, "workspace-token");
   assert.equal(result.projectTokenChecked, false);
+  assert.equal("truthAudit" in result, false);
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "planning" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "project-docs" && entry.recommendedHome === "notion"));
   assert.ok(result.truthBoundaries.some((entry) => entry.surface === "implementation-truth" && entry.recommendedHome === "repo"));
@@ -162,6 +166,172 @@ test("doctor summarizes empty optional surfaces and recommendations without hard
     result.migrationGuidance.map((entry) => entry.patternId),
     ["project-token-not-checked", "missing-builds-surface", "missing-validation-sessions-surface"],
   );
+});
+
+test("doctor truth audit is opt-in and summarizes mixed managed surfaces with safe next commands", async () => {
+  const childrenMap = makeBaseChildrenMap();
+  childrenMap.set("project", [
+    childPage("access", "Access"),
+    childPage("ops", "Ops"),
+    childPage("planning", "Planning"),
+    childPage("runbooks", "Runbooks"),
+    childPage("overview", "Overview"),
+    paragraph("Canonical Source: Projects > SNPM"),
+  ]);
+  childrenMap.set("planning", [
+    childPage("current-cycle", "Current Cycle"),
+    paragraph("Canonical Source: Projects > SNPM > Planning"),
+  ]);
+  childrenMap.set("current-cycle", [
+    paragraph("Canonical Source: Projects > SNPM > Planning > Current Cycle"),
+  ]);
+  childrenMap.set("overview", [
+    paragraph("Canonical Source: Projects > SNPM > Overview"),
+  ]);
+  childrenMap.set("runbooks", [
+    childPage("release-runbook", "Release"),
+    paragraph("Canonical Source: Projects > SNPM > Runbooks"),
+  ]);
+  childrenMap.set("release-runbook", [
+    paragraph("Canonical Source: Projects > SNPM > Runbooks > Release"),
+  ]);
+  childrenMap.set("access", [
+    childPage("prod-domain", "Production"),
+    paragraph("Canonical Source: Projects > SNPM > Access"),
+  ]);
+  childrenMap.set("prod-domain", [
+    childPage("prod-secret", "PROD_SECRET"),
+  ]);
+
+  const pageMap = makeBasePageMap();
+  pageMap.set("planning", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("current-cycle", { icon: { type: "emoji", emoji: "🗓️" } });
+  pageMap.set("overview", { icon: { type: "emoji", emoji: "📄" } });
+  pageMap.set("release-runbook", { icon: RUNBOOK_ICON });
+  pageMap.set("prod-domain", { icon: ACCESS_DOMAIN_ICON });
+  pageMap.set("prod-secret", { icon: SECRET_RECORD_ICON });
+
+  const markdownMap = new Map([
+    ["project", "Canonical Source: Projects > SNPM\nLast Updated: 2026-04-24\n---\nCurrent project summary."],
+    ["overview", "Canonical Source: Projects > SNPM > Overview\nLast Updated: 2026-04-24\n---\nTODO: replace placeholder."],
+    ["planning", "Canonical Source: Projects > SNPM > Planning\nLast Updated: 2026-04-24\n---\nPlanning archive."],
+    ["current-cycle", "Canonical Source: Projects > SNPM > Planning > Current Cycle\nLast Updated: 2026-01-01\n---\nActive cycle notes."],
+    ["release-runbook", "Canonical Source: Projects > SNPM > Runbooks > Release\n---\nRelease steps."],
+    ["prod-secret", "Canonical Source: Projects > SNPM > Access > Production > PROD_SECRET\nLast Updated: 2026-04-24\n---\n## Raw Value\n```text\nsuper-secret\n```"],
+  ]);
+  const markdownRequests = [];
+
+  const analyzeManagedPageTruthImpl = async (candidate, options) => {
+    const findingBase = {
+      severity: "warning",
+      surface: candidate.surface,
+      targetPath: candidate.targetPath,
+      pageId: candidate.pageId,
+      lastUpdated: null,
+      ageDays: null,
+      safeNextCommand: candidate.safeNextCommand,
+      recoveryAction: candidate.recoveryAction,
+    };
+
+    if (!/Last Updated:/i.test(candidate.markdown)) {
+      return {
+        ...candidate,
+        status: "missing-header",
+        findings: [{
+          ...findingBase,
+          code: "missing-last-updated",
+          message: `${candidate.targetPath} is missing Last Updated.`,
+        }],
+      };
+    }
+
+    if (/2026-01-01/.test(candidate.markdown)) {
+      return {
+        ...candidate,
+        status: "stale",
+        findings: [{
+          ...findingBase,
+          code: "stale-last-updated",
+          lastUpdated: "2026-01-01",
+          ageDays: options.staleAfterDays + 1,
+          message: `${candidate.targetPath} is stale.`,
+        }],
+      };
+    }
+
+    if (/TODO: replace placeholder/i.test(candidate.markdown)) {
+      return {
+        ...candidate,
+        status: "placeholder",
+        findings: [{
+          ...findingBase,
+          code: "placeholder-content",
+          lastUpdated: "2026-04-24",
+          ageDays: 0,
+          message: `${candidate.targetPath} contains placeholder content.`,
+        }],
+      };
+    }
+
+    return {
+      ...candidate,
+      status: "clean",
+      findings: [],
+    };
+  };
+  const buildTruthAuditSummaryImpl = (analyses, options) => {
+    const findings = analyses.flatMap((entry) => entry.findings);
+    return {
+      checkedCount: analyses.length,
+      cleanCount: analyses.filter((entry) => entry.status === "clean").length,
+      staleCount: analyses.filter((entry) => entry.status === "stale").length,
+      placeholderCount: analyses.filter((entry) => entry.status === "placeholder").length,
+      missingHeaderCount: analyses.filter((entry) => entry.status === "missing-header").length,
+      staleAfterDays: options.staleAfterDays,
+      findings,
+      recommendations: findings.map((finding) => ({
+        targetPath: finding.targetPath,
+        command: finding.safeNextCommand,
+      })),
+    };
+  };
+
+  const result = await diagnoseProject({
+    config: makeConfig(),
+    projectName: "SNPM",
+    workspaceClient: makeFakeClient({
+      childrenMap,
+      pageMap,
+      markdownMap,
+      markdownRequests,
+    }),
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    truthAudit: true,
+    staleAfterDays: 30,
+    verifyScopeImpl: async () => [],
+    analyzeManagedPageTruthImpl,
+    buildTruthAuditSummaryImpl,
+  });
+
+  assert.equal(
+    result.truthAudit.checkedCount,
+    result.truthAudit.cleanCount
+      + result.truthAudit.staleCount
+      + result.truthAudit.placeholderCount
+      + result.truthAudit.missingHeaderCount,
+  );
+  assert.ok(result.truthAudit.cleanCount >= 1);
+  assert.equal(result.truthAudit.staleCount, 1);
+  assert.equal(result.truthAudit.placeholderCount, 1);
+  assert.equal(result.truthAudit.missingHeaderCount, 1);
+  assert.deepEqual(
+    result.truthAudit.findings.map((finding) => finding.code).sort(),
+    ["missing-last-updated", "placeholder-content", "stale-last-updated"],
+  );
+  assert.ok(result.truthAudit.findings.every((finding) => /-pull/.test(finding.safeNextCommand)));
+  assert.ok(result.truthAudit.findings.every((finding) => /--output/.test(finding.safeNextCommand)));
+  assert.ok(result.truthAudit.findings.every((finding) => /SNPM_NOTION_TOKEN/.test(finding.safeNextCommand)));
+  assert.equal(markdownRequests.includes("prod-secret"), false);
 });
 
 test("doctor reports unmanaged runbooks and access descendants as adoptable", async () => {

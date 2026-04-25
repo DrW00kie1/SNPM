@@ -71,6 +71,7 @@
     "validation-sessions-verify": "node src/cli.mjs validation-sessions verify",
     "verify-project": "node src/cli.mjs verify-project",
     "verify-workspace-docs": "node src/cli.mjs verify-workspace-docs",
+    "truth-audit": "node src/cli.mjs doctor --truth-audit",
     "test": "node --test"
   },
   "dependencies": {
