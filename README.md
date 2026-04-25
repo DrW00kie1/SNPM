@@ -12,9 +12,9 @@ GitHub remote:
 - `https://github.com/DrW00kie1/SNPM`
 
 Current branch reality:
-- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, and structured diagnostics promoted through `7a109c6`
-- promotion trace branch: `codex/manifest-v2-diagnostics-parity`
-- active feature branch: `codex/project-policy-packs` makes existing workspace and project policy explicit and reusable without adding new public mutation behavior
+- active stable baseline: `main`, including manifest v2 mixed-surface check, local-file pull, guarded push, opt-in sidecar refresh, targeted review, apply mutation limits, structured diagnostics, and policy-pack foundation promoted through `4b010d5`
+- promotion trace branches: `codex/manifest-v2-diagnostics-parity`, `codex/project-policy-packs`
+- active feature branch: `codex/bootstrap-doc-scaffolding` adds preview-first starter doc scaffolding without adding hidden Notion mutation
 - historical RC snapshot: `v0.1.0-rc.1`
 
 ## Current Surface
@@ -45,11 +45,14 @@ Supported narrow-band baseline on `main`:
 - manifest v2 local-file refresh through `sync pull`, including per-entry sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
 
-Current `codex/project-policy-packs` branch addition:
-- policy-pack foundation treats the current Infrastructure HQ starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries as explicit reusable policy
-- workspace config can derive that policy from the existing fields or declare an explicit optional `policyPack` v1 object for reviewable policy changes
-- the foundation does not add a new public CLI command or capability-map entry in this docs slice
-- policy packs do not add drift or staleness audit, cross-document consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
+Current Sprint 4.2 branch addition:
+- `scaffold-docs` consumes the promoted policy-pack foundation instead of hardcoding a one-off bootstrap shape
+- workspace config can derive starter scaffold policy from the existing fields or declare an explicit optional `policyPack` v1 object for reviewable policy changes
+- optional `policyPack.starterDocScaffold` declares starter documentation drafts for approved project docs and planning pages
+- `scaffold-docs` is preview-first, prints JSON by default, writes local drafts only with `--output-dir`, and never mutates Notion directly
+- the scaffold surface stays constrained to approved `project-doc` and `planning-page` starter targets
+- built-in starter defaults cover `Root > Overview`, `Root > Operating Model`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- policy packs do not add drift or staleness audit, cross-document consistency checks, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
 
 Recently promoted manifest v2 diagnostics behavior on `main`:
 - manifest v2 diagnostics are documented consistently in CLI help, capability metadata, and operator docs as structured result/review metadata for check and push, and structured result metadata for pull
@@ -62,12 +65,11 @@ Recently promoted manifest v2 targeted-review behavior on `main`:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata only for selected entries that were applied successfully
 - default manifest v2 `sync push --apply` still leaves sidecars stale
 
-Present in the repo but outside the current supported line:
-- build records
-- validation sessions
+Specialized or experimental lanes:
+- build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families instead of treating them as generic managed docs
 - v1 validation-session manifest sync remains a specialized artifact-sync lane, not the generalized bundle workflow
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
-- policy-pack-driven drift/staleness audit, cross-document consistency checks, starter-doc scaffolding, and broad batch apply
+- policy-pack-driven drift/staleness audit, cross-document consistency checks, and broad batch apply
 - experimental `validation-bundle` Chromium UI automation
 
 ## Managed-Doc Boundary
@@ -80,6 +82,8 @@ Project-scoped managed docs:
 - `Root`
 - `Root > ...` under non-reserved top-level names
 - planning pages remain on `page-*` as a compatibility surface
+
+Starter scaffolding follows the same surface split. `Root > Overview` and `Root > Operating Model` are managed-doc targets, while `Planning > Roadmap` and `Planning > Current Cycle` remain planning-page targets rather than `doc-*` targets.
 
 Curated docs are for operator and workflow context. Fast-changing implementation notes, design specs, investigations, and task breakdowns stay repo-first.
 
@@ -121,6 +125,15 @@ Verify a project subtree:
 npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 ```
 
+Preview starter documentation drafts after bootstrap:
+
+```bash
+npm run scaffold-docs -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run scaffold-docs -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --output-dir .snpm-scaffold
+```
+
+`scaffold-docs` reads `policyPack.starterDocScaffold` or the default starter scaffold policy and reports the starter docs it would seed. Without `--output-dir`, it prints JSON only. With `--output-dir`, it writes local draft markdown files, `scaffold-plan.json`, and planning-page metadata sidecars when live metadata is available. Notion mutation stays outside the scaffold command; review the generated plan and then run the owning `doc-create` or `page-push` commands explicitly.
+
 Inspect a project safely before mutation:
 
 ```bash
@@ -146,9 +159,14 @@ Discover the CLI surface and inspect a proposed change plan:
 
 ```bash
 npm run capabilities
+node src/cli.mjs help doc
+node src/cli.mjs help page
+node src/cli.mjs help sync
 npm run plan-change -- --targets-file plan-targets.json --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run journal-list -- --limit 20
 ```
+
+Family-level help is available for the advertised command families, including `doc`, `page`, `runbook`, `sync`, and `validation-session`. Hyphenated npm scripts remain convenience wrappers around the canonical family commands.
 
 Manifest v2 mixed-surface sync:
 
@@ -302,7 +320,7 @@ Hybrid only when justified:
 Near-term direction:
 - use the managed-doc surface to standardize remaining curated root, template, and workspace docs
 - use manifest v2 `sync check`, local-file `sync pull`, guarded `sync push`, targeted selectors, review artifacts, mutation limits, and opt-in `sync push --apply --refresh-sidecars` to preflight, refresh, and update existing mixed-surface documentation bundles before any generic batch-apply design
-- keep policy packs focused on explicit reusable policy for existing approved surfaces before using them to vary project shapes or seed project docs
+- keep policy packs focused on explicit reusable policy for existing approved surfaces, including preview-first starter doc scaffold declarations
 - keep that surface curated and explicit
 - keep specialized surfaces specialized instead of collapsing everything into generic page mutation
 

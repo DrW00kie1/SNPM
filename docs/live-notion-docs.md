@@ -32,6 +32,10 @@ Planning pages remain on the fixed planning surface:
 - `Planning > Backlog`
 - `Planning > Decision Log`
 
+Starter scaffolding follows that split:
+- `Root > Overview` and `Root > Operating Model` are managed-doc drafts
+- `Planning > Roadmap` and `Planning > Current Cycle` are planning-page drafts
+
 ## Reserved Roots
 
 These stay out of `doc-*`:
@@ -51,6 +55,8 @@ Use the owning surface instead:
 
 Use `doc-*` only after the target is inside the curated family.
 Use the curated doc surface for operator and workflow documentation, not for fast-changing implementation notes or design work. Those stay repo-first.
+
+Use `scaffold-docs` as a preview-first step. It writes local draft files only with `--output-dir`, never mutates Notion directly, and stays constrained to approved project-doc and planning-page starter targets.
 
 Safe examples:
 
@@ -92,6 +98,23 @@ Use `--explain` when you need the auth-mode, target-resolution, child-page, and 
 Use `--review-output <dir>` when you need review artifacts without making the repo the source of truth.
 
 If `doc-adopt` finds no managed divider, it wraps the current full page body under a new managed-doc header.
+
+## Starter Doc Scaffolding
+
+Use starter scaffolding after project bootstrap when the project needs initial docs:
+
+```powershell
+npm run scaffold-docs -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run scaffold-docs -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --output-dir .snpm-scaffold
+```
+
+Default preview mode makes no Notion changes and writes no files. Use `--output-dir` only when you want local draft markdown files, `scaffold-plan.json`, and planning-page sidecars for the generated follow-up commands.
+
+Starter targets remain aligned to the owning surface:
+- `project-doc` for project managed docs
+- `planning-page` for planning pages
+
+After publishing generated starter content through the owning `doc-*` or `page-*` command family, run `verify-project` and `doctor` for the project. Run `verify-workspace-docs` only if curated workspace-global or template docs were changed.
 
 ## Manifest V2 Doc Bundle Updates
 

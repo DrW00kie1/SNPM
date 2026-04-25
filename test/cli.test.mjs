@@ -122,6 +122,7 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /create-project/);
   assert.match(help, /capabilities/);
   assert.match(help, /plan-change/);
+  assert.match(help, /scaffold-docs/);
   assert.match(help, /doc <create\|adopt\|pull\|diff\|push\|edit>/);
   assert.match(help, /page <pull\|diff\|push\|edit>/);
   assert.match(help, /access-domain <create\|adopt\|pull\|diff\|push\|edit>/);
@@ -142,16 +143,24 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /Validation-bundle automation launches Playwright Chromium directly/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
   assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
+  assert.match(help, /scaffold-docs is preview-first bootstrap doc scaffolding/);
   assert.match(help, /support --explain/);
   assert.match(help, /--review-output <dir>/);
   assert.match(help, /npm run verify-project/);
+  assert.match(help, /npm run scaffold-docs/);
   assert.match(help, /npm run doc-create/);
   assert.match(help, /npm run page-push/);
+  assert.doesNotMatch(help, /Worker A/);
 });
 
 test("help registry resolves command aliases to the canonical command", () => {
+  assert.equal(findCommandHelp("doc")?.canonical, "doc");
+  assert.equal(findCommandHelp("page")?.canonical, "page");
   assert.equal(findCommandHelp("page-push")?.canonical, "page push");
   assert.equal(findCommandHelp("page push")?.canonical, "page push");
+  assert.equal(findCommandHelp("runbook")?.canonical, "runbook");
+  assert.equal(findCommandHelp("sync")?.canonical, "sync");
+  assert.equal(findCommandHelp("validation-session")?.canonical, "validation-session");
   assert.equal(findCommandHelp("validation-bundle-verify")?.canonical, "validation-bundle verify");
   assert.equal(findCommandHelp("verify")?.canonical, "verify-project");
   assert.equal(findCommandHelp("journal-list")?.canonical, "journal list");
@@ -170,7 +179,12 @@ test("capability map is schema-versioned and includes existing commands from the
   assert.ok(capabilities.canonicalCommands.includes("validation-bundle verify"));
   assert.ok(capabilities.canonicalCommands.includes("capabilities"));
   assert.ok(capabilities.canonicalCommands.includes("plan-change"));
+  assert.ok(capabilities.canonicalCommands.includes("scaffold-docs"));
+  assert.ok(capabilities.canonicalCommands.includes("sync"));
+  assert.ok(capabilities.canonicalCommands.includes("doc"));
+  assert.ok(capabilities.canonicalCommands.includes("runbook"));
   assert.ok(capabilities.canonicalCommands.includes("journal list"));
+  assert.doesNotMatch(JSON.stringify(capabilities), /Worker A/);
   assert.deepEqual(pagePush, {
     canonical: registryPagePush.canonical,
     aliases: registryPagePush.aliases,
@@ -217,6 +231,68 @@ test("capabilities command help and npm script are registered", () => {
   assert.equal(spec?.mutationMode, "read-only");
   assert.equal(packageJson.scripts.capabilities, "node src/cli.mjs capabilities");
   assert.deepEqual(parsedJson, capabilities);
+});
+
+test("scaffold-docs help, capability entry, and npm script are registered", () => {
+  const spec = findCommandHelp("scaffold-docs");
+  const capabilities = buildCapabilityMap();
+  const command = capabilities.commands.find((candidate) => candidate.canonical === "scaffold-docs");
+
+  assert.equal(spec?.canonical, "scaffold-docs");
+  assert.equal(spec?.surface, "project-doc-scaffold");
+  assert.equal(spec?.authScope, "project-token-optional");
+  assert.equal(spec?.mutationMode, "local-file-output");
+  assert.match(spec?.usageLines.join("\n") || "", /scaffold-docs --project "Project Name"/);
+  assert.match(spec?.usageLines.join("\n") || "", /--output-dir <dir>/);
+  assert.match(spec?.notes.join("\n") || "", /Preview-first bootstrap doc scaffolding/);
+  assert.match(spec?.notes.join("\n") || "", /prints JSON only/);
+  assert.match(spec?.notes.join("\n") || "", /never mutates Notion directly/);
+  assert.doesNotMatch(commandText(spec), /--apply/);
+  assert.ok(command);
+  assert.deepEqual(command, {
+    canonical: spec.canonical,
+    aliases: spec.aliases,
+    summary: spec.summary,
+    usageLines: spec.usageLines,
+    requiredFlags: spec.requiredFlags,
+    optionalFlags: spec.optionalFlags,
+    examples: spec.examples,
+    notes: spec.notes,
+    surface: spec.surface,
+    authScope: spec.authScope,
+    mutationMode: spec.mutationMode,
+    stability: spec.stability,
+    notionMutation: "none",
+    localFileWrites: "output-dir-gated",
+    journalWrites: "none",
+    supportedScaffoldKinds: ["project-doc", "planning-page"],
+    scaffoldTargets: [
+      "Root > Overview",
+      "Root > Operating Model",
+      "Planning > Roadmap",
+      "Planning > Current Cycle",
+    ],
+  });
+  assert.equal(packageJson.scripts["scaffold-docs"], "node src/cli.mjs scaffold-docs");
+});
+
+test("npm run examples in help capabilities have registered package scripts", () => {
+  const capabilities = buildCapabilityMap();
+  const packageScripts = new Set(Object.keys(packageJson.scripts));
+
+  for (const command of capabilities.commands) {
+    for (const example of command.examples) {
+      const match = example.match(/^npm run ([a-z0-9-]+)/);
+      if (!match) {
+        continue;
+      }
+
+      assert.ok(
+        packageScripts.has(match[1]),
+        `${command.canonical} example references missing npm script ${match[1]}`,
+      );
+    }
+  }
 });
 
 test("sync check, pull, and push help document manifest v2 boundaries", () => {
@@ -456,6 +532,26 @@ test("resolveHelpRequest supports global, command, and unknown help targets", ()
   assert.deepEqual(resolveHelpRequest([]), { type: "global" });
   assert.deepEqual(resolveHelpRequest(["--help"]), { type: "global" });
   assert.deepEqual(resolveHelpRequest(["help"]), { type: "global" });
+  assert.deepEqual(resolveHelpRequest(["sync", "--help"]), {
+    type: "command",
+    command: "sync",
+  });
+  assert.deepEqual(resolveHelpRequest(["help", "doc"]), {
+    type: "command",
+    command: "doc",
+  });
+  assert.deepEqual(resolveHelpRequest(["page", "--help"]), {
+    type: "command",
+    command: "page",
+  });
+  assert.deepEqual(resolveHelpRequest(["help", "runbook"]), {
+    type: "command",
+    command: "runbook",
+  });
+  assert.deepEqual(resolveHelpRequest(["validation-session", "--help"]), {
+    type: "command",
+    command: "validation-session",
+  });
   assert.deepEqual(resolveHelpRequest(["verify-project", "--help"]), {
     type: "command",
     command: "verify-project",
@@ -471,6 +567,10 @@ test("resolveHelpRequest supports global, command, and unknown help targets", ()
   assert.deepEqual(resolveHelpRequest(["plan-change", "--help"]), {
     type: "command",
     command: "plan-change",
+  });
+  assert.deepEqual(resolveHelpRequest(["scaffold-docs", "--help"]), {
+    type: "command",
+    command: "scaffold-docs",
   });
   assert.deepEqual(resolveHelpRequest(["help", "journal-list"]), {
     type: "command",
@@ -752,12 +852,25 @@ test("parseArgs supports plan-change and journal list discovery commands", () =>
     "--limit",
     "5",
   ]);
+  const scaffoldParsed = parseArgs([
+    "scaffold-docs",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+    "--output-dir",
+    ".snpm-scaffold",
+  ]);
 
   assert.equal(planChangeParsed.command, "plan-change");
   assert.equal(planChangeParsed.options["targets-file"], "-");
   assert.equal(planChangeParsed.options.project, "SNPM");
   assert.equal(journalListParsed.command, "journal list");
   assert.equal(journalListParsed.options.limit, "5");
+  assert.equal(scaffoldParsed.command, "scaffold-docs");
+  assert.equal(scaffoldParsed.options.project, "SNPM");
+  assert.equal(scaffoldParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
+  assert.equal(scaffoldParsed.options["output-dir"], ".snpm-scaffold");
 });
 
 test("cli with no args prints global help and exits successfully", () => {
@@ -804,6 +917,32 @@ test("cli subcommand -h supports spaced commands", () => {
   assert.equal(result.stderr, "");
 });
 
+test("cli family-level help resolves supported command families", () => {
+  const families = [
+    ["sync", /sync <check\|pull\|push>/],
+    ["doc", /doc <create\|adopt\|pull\|diff\|push\|edit>/],
+    ["page", /page <pull\|diff\|push\|edit>/],
+    ["runbook", /runbook <create\|adopt\|pull\|diff\|push\|edit>/],
+    ["validation-session", /validation-session <create\|adopt\|pull\|diff\|push>/],
+  ];
+
+  for (const [family, usagePattern] of families) {
+    const helpFlagResult = runCli([family, "--help"]);
+    const helpCommandResult = runCli(["help", family]);
+
+    assert.equal(helpFlagResult.status, 0, `${family} --help should exit successfully`);
+    assert.match(helpFlagResult.stdout, new RegExp(`Command: ${family}`));
+    assert.match(helpFlagResult.stdout, usagePattern);
+    assert.match(helpFlagResult.stdout, /Use the subcommand help for exact required flags and mutation boundaries/);
+    assert.equal(helpFlagResult.stderr, "");
+
+    assert.equal(helpCommandResult.status, 0, `help ${family} should exit successfully`);
+    assert.match(helpCommandResult.stdout, new RegExp(`Command: ${family}`));
+    assert.match(helpCommandResult.stdout, usagePattern);
+    assert.equal(helpCommandResult.stderr, "");
+  }
+});
+
 test("cli help command resolves hyphenated command aliases", () => {
   const result = runCli(["help", "page-push"]);
   assert.equal(result.status, 0);
@@ -843,6 +982,18 @@ test("cli plan-change and journal-list help print command help", () => {
   assert.equal(journalListResult.stderr, "");
 });
 
+test("cli scaffold-docs help prints registry-only command help", () => {
+  const result = runCli(["scaffold-docs", "--help"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Command: scaffold-docs/);
+  assert.match(result.stdout, /Preview-first bootstrap doc scaffolding/);
+  assert.match(result.stdout, /--output-dir <dir>/);
+  assert.match(result.stdout, /never mutates Notion directly/);
+  assert.doesNotMatch(result.stdout, /--apply/);
+  assert.equal(result.stderr, "");
+});
+
 test("cli capabilities prints JSON only", () => {
   const result = runCli(["capabilities"]);
   const parsed = JSON.parse(result.stdout);
@@ -852,6 +1003,8 @@ test("cli capabilities prints JSON only", () => {
   assert.deepEqual(parsed, buildCapabilityMap());
   assert.ok(parsed.canonicalCommands.includes("capabilities"));
   assert.ok(parsed.canonicalCommands.includes("plan-change"));
+  assert.ok(parsed.canonicalCommands.includes("scaffold-docs"));
+  assert.ok(parsed.canonicalCommands.includes("sync"));
   assert.ok(parsed.canonicalCommands.includes("journal list"));
 });
 

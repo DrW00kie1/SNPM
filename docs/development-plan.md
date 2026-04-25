@@ -36,7 +36,9 @@ Development should follow these rules:
 Current policy-pack foundation scope:
 - make the existing Infrastructure HQ project starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
 - preserve existing command behavior and the current workspace config contract
-- do not add drift or staleness audit, cross-document consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
+- do not add drift or staleness audit, cross-document consistency checks, manifest create/adopt, rollback, automatic retries, transaction semantics, or broad batch apply
+
+Sprint 4.2 extends that policy layer with preview-first starter doc scaffolding. The scaffold contract is policy data; `scaffold-docs` writes only local review files with `--output-dir` and leaves Notion mutation to the generated owning command-family steps.
 
 ## Phase 1: LLM Discovery And Planning Safety
 
@@ -135,7 +137,7 @@ Feature goals covered:
 
 Status:
 - `main` includes `sync check`, local-file `sync pull`, guarded `sync push`, opt-in post-push sidecar refresh, targeted entry selection, push review artifacts, mutation limits, selected sidecar refresh behavior, and structured diagnostics after `7a109c6`
-- active `codex/project-policy-packs` scope makes existing project/workspace rules explicit as reusable policy without changing manifest mutation semantics
+- `main` includes explicit reusable project/workspace policy after `4b010d5`, without changing manifest mutation semantics
 - supported v2 entry kinds are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, `runbook`, and `validation-session`
 - each entry uses a relative `file` plus `pagePath`, `docPath`, or `title` depending on the surface
 - manifest v2 `sync pull --apply` writes local files and `<file>.snpm-meta.json` sidecars only; it does not mutate Notion or append mutation journal entries
@@ -260,7 +262,7 @@ Feature goals covered:
 - project policy packs
 
 Status:
-- `codex/project-policy-packs` is a foundation slice for explicit reusable policy only
+- `main` includes the project-policy foundation as an explicit reusable policy slice
 - no new public policy-pack CLI command or capability metadata is exposed unless implementation adds a public surface
 
 Out of scope:
@@ -273,20 +275,34 @@ Out of scope:
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
-- optionally seed useful managed docs when a project is created
-
-This is a future sprint, not part of the policy-pack foundation.
+- optionally seed useful project documentation after a project is created, without hiding Notion mutation inside bootstrap
 
 Deliverables:
-- preview-first project doc scaffolding after `create-project`
-- policy-pack-driven starter docs such as Root overview, operating model, and first roadmap body
+- preview-first `scaffold-docs` command and npm script after `create-project`
+- preview by default, with local file output only when `--output-dir` is supplied and no direct Notion mutation
+- optional `policyPack.starterDocScaffold` v1 config with backward-compatible defaults
+- default starter drafts for `Root > Overview`, `Root > Operating Model`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- family-level help for advertised command families and docs aligned to the supported surface list
 - clear separation between starter content and project-specific truth
 
 Exit criteria:
-- a new project can start with a usable documentation surface without requiring manual page creation
+- a new project can start with a usable documentation surface without requiring manual page drafting
+- an operator can preview the starter scaffold before writing local drafts or running any generated Notion apply command
+- help, capabilities, README, and operator docs describe the same supported surfaces and command-family boundaries
 
 Feature goals covered:
 - bootstrap doc scaffolding
+
+Supported scaffold surfaces:
+- `project-doc` for approved project managed-doc targets such as `Root > Overview` and `Root > Operating Model`
+- `planning-page` for approved planning pages such as `Planning > Roadmap` and `Planning > Current Cycle`
+
+Out of scope:
+- direct scaffold Notion mutation
+- mutating targets outside the approved starter scaffold list
+- creating arbitrary managed docs outside the policy
+- treating `Planning` as a `doc-*` surface
+- broad batch apply, rollback, automatic retries, transaction semantics, drift audit, or semantic consistency checks
 
 ## Phase 5: Truth Quality And Cross-Doc Consistency
 

@@ -6,7 +6,7 @@ Sprint-level development sequencing lives in [SNPM development plan](./developme
 
 ## Current Baseline
 
-Supported on `main`:
+Supported on the current active line:
 - project bootstrap
 - `verify-project`
 - planning-page sync
@@ -30,16 +30,23 @@ Supported on `main`:
 - manifest v2 `sync check` for read-only mixed-surface comparison
 - manifest v2 `sync pull` for local-file refreshes with sidecar metadata
 - guarded manifest v2 `sync push` for approved existing targets with stale-write protection
+- preview-first `scaffold-docs` for starter project documentation drafts
 
 Baseline manifest v2 sidecar-refresh behavior:
 - opt-in manifest v2 `sync push --apply --refresh-sidecars` refreshes sidecar metadata after a successful applied push
 - default manifest v2 `sync push --apply` still leaves sidecars stale
 
-Current `codex/project-policy-packs` branch addition:
+Promoted policy-pack foundation:
 - policy-pack foundation makes the current Infrastructure HQ starter tree, reserved roots, managed-doc boundaries, curated workspace/template docs, and routing boundaries explicit as reusable policy
 - the policy can be derived from existing workspace config or declared through an optional `policyPack` v1 config object
-- the current slice preserves existing command behavior and does not add a new public policy-pack CLI command
-- policy packs do not add drift or staleness audit, consistency checks, starter-doc scaffolding, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
+- optional `policyPack.starterDocScaffold` declares approved starter doc drafts without applying them
+- policy packs do not add drift or staleness audit, consistency checks, manifest create/adopt, rollback, retries, transaction semantics, or broad batch apply
+
+Current `codex/bootstrap-doc-scaffolding` branch addition:
+- `scaffold-docs` previews starter drafts by default, writes local scaffold files only with `--output-dir`, and never mutates Notion directly
+- the scaffold surface stays constrained to approved `project-doc` and `planning-page` starter targets
+- default scaffold targets are `Root > Overview`, `Root > Operating Model`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- family-level CLI help and capability metadata stay aligned with the supported command surface
 
 Recently promoted manifest v2 diagnostics behavior on `main`:
 - manifest v2 diagnostics parity across CLI help, capability metadata, and operator docs
@@ -52,11 +59,10 @@ Recently promoted manifest v2 targeted-review behavior on `main`:
 - manifest v2 push `--max-mutations` gate so default apply allows at most one changed entry unless raised or set to `all`
 - selected `sync push --apply --refresh-sidecars` refreshes only selected sidecars for successfully applied entries
 
-Still outside the stable supported line:
-- build records
-- validation sessions
+Specialized or experimental lanes:
+- build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
-- policy-pack-driven drift/staleness audit, cross-document consistency checks, starter-doc scaffolding, and broad batch apply
+- policy-pack-driven drift/staleness audit, cross-document consistency checks, and broad batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
 - experimental `validation-bundle`
 
@@ -85,6 +91,8 @@ Allowed:
 - project root descendants under non-reserved top-level names
 - `Templates > Project Templates` and non-reserved descendants
 - exact curated workspace-global docs
+
+Starter scaffolding may draft managed-doc content for approved project-doc targets. Planning starter drafts remain planning-page targets, not `doc-*` targets.
 
 Still reserved:
 - `Planning`
@@ -136,7 +144,8 @@ Those surfaces continue to use their own command families.
 ### Phase 3: Policy Foundation And Cross-Repo Consumption
 - make current workspace and project rules reusable through explicit policy instead of scattered helper assumptions
 - keep policy-pack changes reviewable and backward compatible with the existing Infrastructure HQ config shape
-- do not use policy packs as a shortcut for drift audit, consistency checks, starter-doc scaffolding, or broad batch apply
+- allow policy packs to declare preview-first starter doc scaffolds, but do not use them as a shortcut for drift audit, consistency checks, hidden Notion mutation, or broad batch apply
+- keep `scaffold-docs` preview-first and local-file-only within approved `project-doc` and `planning-page` starter targets
 - keep pinned install/use from other repos straightforward
 - keep the CLI as the policy layer for other Codex threads
 - add wrappers only after the CLI workflows are stable
@@ -152,7 +161,8 @@ Keep these boundaries:
 - project token remains the default project-local safety boundary
 - workspace-token-only surfaces stay clearly labeled
 - curated doc families stay config-backed and explicit
-- policy packs describe approved structure and routing boundaries; they do not by themselves audit freshness, check semantic consistency, scaffold starter docs, or apply batches
+- policy packs describe approved structure, routing boundaries, and optional starter doc scaffold declarations; they do not by themselves audit freshness, check semantic consistency, mutate Notion, or apply batches
+- `scaffold-docs` is preview-first and must not broaden approved starter targets or bypass managed-surface safety checks
 - repo sync stays selective
 - manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
 - manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply

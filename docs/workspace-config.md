@@ -27,13 +27,56 @@ The existing JSON shape remains valid. When a top-level `policyPack` is omitted,
 - `curatedWorkspaceDocs`
 - `curatedTemplateDocs`
 - `projectStarterRoots`
+- `starterDocScaffold`
 - `optionalSurfaces`
 - `truthBoundaries`
 
 A policy-pack change is a contract change, not a free-form workspace rewrite.
 
+## Starter doc scaffold policy
+
+`policyPack.starterDocScaffold` is optional. When it is omitted, SNPM uses the built-in Infrastructure HQ starter scaffold:
+- `Root > Overview`
+- `Root > Operating Model`
+- `Planning > Roadmap`
+- `Planning > Current Cycle`
+
+The scaffold policy is consumed by `scaffold-docs`, not by `create-project`. `scaffold-docs` previews the starter plan by default and writes local draft files only when `--output-dir` is supplied. It never mutates Notion directly; use the generated owning `doc-*` or `page-*` commands after review.
+
+Each scaffold entry is policy contract data. It must have a stable id, a supported kind, an approved target path, a relative file path, and a built-in template id. Supported kinds are:
+- `project-doc` for approved project managed-doc targets
+- `planning-page` for approved planning pages
+
+Validation rejects duplicate ids, duplicate files, duplicate targets, unsupported kinds, unsupported targets, raw Notion ids, globs, absolute file paths, and path escapes.
+
+Example policy shape:
+
+```json
+{
+  "policyPack": {
+    "version": 1,
+    "starterDocScaffold": [
+      {
+        "id": "root-overview",
+        "kind": "project-doc",
+        "target": "Root > Overview",
+        "file": "docs/project-overview.md",
+        "templateId": "project-overview"
+      },
+      {
+        "id": "planning-roadmap",
+        "kind": "planning-page",
+        "target": "Planning > Roadmap",
+        "file": "planning/roadmap.md",
+        "templateId": "planning-roadmap"
+      }
+    ]
+  }
+}
+```
+
 Rules:
 - keep secrets out of config
 - update ids deliberately when the live workspace changes
 - treat starter-tree changes as contract changes that must be validated against the live workspace
-- do not use policy-pack config to claim drift audits, consistency checks, starter-doc scaffolding, or broad batch apply without a separate approved implementation
+- do not use policy-pack config to claim drift audits, consistency checks, hidden Notion mutation, or broad batch apply without a separate approved implementation

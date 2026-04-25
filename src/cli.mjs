@@ -43,6 +43,7 @@ import {
   runDocPush,
 } from "./commands/doc.mjs";
 import { runDoctor, runRecommend } from "./commands/doctor.mjs";
+import { runScaffoldDocs } from "./commands/scaffold-docs.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
@@ -415,6 +416,27 @@ async function main() {
     return;
   }
 
+  if (command === "scaffold-docs") {
+    if (options.apply === true) {
+      throw new Error("scaffold-docs does not support --apply. Use --output-dir to write local drafts, then run the generated doc-create or page-push commands explicitly.");
+    }
+
+    const result = await runScaffoldDocs({
+      outputDir: options["output-dir"],
+      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectTokenEnv: options["project-token-env"],
+      workspaceName,
+    });
+    console.log(JSON.stringify({
+      ok: result.ok,
+      ...result,
+    }, null, 2));
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   if (command === "create-project" || command === "create") {
     const projectName = requireOption(options, "name", 'Provide --name "Project Name".');
     const result = await runCreateProject({ projectName, workspaceName });
@@ -422,7 +444,7 @@ async function main() {
       ok: true,
       command: "create-project",
       ...result,
-      nextStep: "Create and share the project Notion integration in the UI, then run verify-project with the project token env var.",
+      nextStep: "Create and share the project Notion integration in the UI, run scaffold-docs to preview starter docs when needed, then run verify-project with the project token env var.",
     }, null, 2));
     return;
   }

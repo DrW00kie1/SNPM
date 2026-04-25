@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { loadWorkspaceConfig, resolveWorkspaceConfigPath, validateWorkspaceConfig } from "../src/notion/config.mjs";
+import { getManagedDocStarterDocScaffold } from "../src/notion/managed-doc-policy.mjs";
 
 test("loadWorkspaceConfig returns the validated Infrastructure HQ config", () => {
   const config = loadWorkspaceConfig("infrastructure-hq");
@@ -11,6 +12,13 @@ test("loadWorkspaceConfig returns the validated Infrastructure HQ config", () =>
   assert.deepEqual(config.policyPack.reservedProjectRoots, config.projectStarter.children.map((child) => child.title));
   assert.ok(config.workspace.managedDocs.exactPages.some((entry) => entry.path === "Templates"));
   assert.ok(config.workspace.managedDocs.subtreeRoots.some((entry) => entry.path === "Templates > Project Templates"));
+  assert.deepEqual(config.policyPack.starterDocScaffold.map((entry) => entry.target), [
+    "Root > Overview",
+    "Root > Operating Model",
+    "Planning > Roadmap",
+    "Planning > Current Cycle",
+  ]);
+  assert.deepEqual(getManagedDocStarterDocScaffold(config), config.policyPack.starterDocScaffold);
 });
 
 test("resolveWorkspaceConfigPath points at the expected workspace file", () => {
@@ -62,20 +70,35 @@ test("validateWorkspaceConfig accepts an explicit policy pack v1", () => {
       children: [
         {
           title: "Planning",
-          children: [{ title: "Roadmap", children: [] }],
+          children: [
+            { title: "Roadmap", children: [] },
+            { title: "Current Cycle", children: [] },
+          ],
         },
       ],
     },
     policyPack: {
       version: 1,
       reservedProjectRoots: ["Planning"],
-      approvedPlanningPages: ["Roadmap"],
+      approvedPlanningPages: ["Roadmap", "Current Cycle"],
       curatedWorkspaceDocs: [{ path: "Templates", pageId: "templates" }],
       curatedTemplateDocs: [{ path: "Templates > Project Templates", pageId: "project-templates" }],
       projectStarterRoots: [
         {
           title: "Planning",
-          children: [{ title: "Roadmap", children: [] }],
+          children: [
+            { title: "Roadmap", children: [] },
+            { title: "Current Cycle", children: [] },
+          ],
+        },
+      ],
+      starterDocScaffold: [
+        {
+          id: "roadmap",
+          kind: "planning-page",
+          target: "Planning > Roadmap",
+          file: "planning/roadmap.md",
+          templateId: "planning-roadmap",
         },
       ],
       optionalSurfaces: [
@@ -96,6 +119,15 @@ test("validateWorkspaceConfig accepts an explicit policy pack v1", () => {
     },
   }, "inline config");
 
-  assert.deepEqual(config.policyPack.approvedPlanningPages, ["Roadmap"]);
+  assert.deepEqual(config.policyPack.approvedPlanningPages, ["Roadmap", "Current Cycle"]);
   assert.equal(config.policyPack.truthBoundaries[0].surface, "planning");
+  assert.deepEqual(config.policyPack.starterDocScaffold, [
+    {
+      id: "roadmap",
+      kind: "planning-page",
+      target: "Planning > Roadmap",
+      file: "planning/roadmap.md",
+      templateId: "planning-roadmap",
+    },
+  ]);
 });

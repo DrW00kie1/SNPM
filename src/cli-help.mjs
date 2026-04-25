@@ -4,6 +4,7 @@ const OPT_PROJECT_TOKEN = "--project-token-env PROJECT_NAME_NOTION_TOKEN";
 const OPT_APPLY = "--apply";
 const OPT_EXPLAIN = "--explain";
 const OPT_REVIEW_OUTPUT = "--review-output <dir>";
+const OPT_OUTPUT_DIR = "--output-dir <dir>";
 const OPT_METADATA_OUTPUT = "--metadata-output <path>";
 const OPT_METADATA = "--metadata <path>";
 const OPT_BUNDLE = "--bundle";
@@ -150,6 +151,7 @@ function inferCommandSurface(canonical) {
     "plan-change": "planning",
     recommend: "routing",
     runbook: "runbooks",
+    "scaffold-docs": "project-doc-scaffold",
     "secret-record": "access",
     sync: "manifest-sync",
     "validation-bundle": "validation-bundle",
@@ -358,8 +360,47 @@ const SINGLE_COMMAND_SPECS = [
     ],
     notes: [
       "The capability map is generated from the same registry that powers CLI help.",
-      "Worker A exports the builder; runtime dispatch is a main-rollout integration point.",
+      "The command prints JSON only and is safe for automation discovery.",
     ],
+  }),
+  createCommandSpec({
+    canonical: "scaffold-docs",
+    summary: "Preview starter managed-doc drafts for an existing project and optionally write local files.",
+    usageLines: [
+      'node src/cli.mjs scaffold-docs --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--output-dir <dir>] [--workspace infrastructure-hq]',
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_OUTPUT_DIR,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      'node src/cli.mjs scaffold-docs --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'npm run scaffold-docs -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN --output-dir .snpm-scaffold',
+    ],
+    notes: [
+      "Preview-first bootstrap doc scaffolding prepares starter managed docs such as Root overview, operating model, and first planning-page bodies.",
+      "Without --output-dir this command prints JSON only and performs no file writes.",
+      "--output-dir writes local draft markdown files, a scaffold-plan.json, and planning-page metadata sidecars when live metadata is available.",
+      "scaffold-docs never mutates Notion directly; run the generated doc-create or page-push commands explicitly after review.",
+      "It is not a drift audit, cross-document consistency checker, manifest create/adopt surface, rollback system, retry system, transaction layer, or generic batch apply.",
+    ],
+    mutationMode: "local-file-output",
+    capabilityMetadata: {
+      notionMutation: "none",
+      localFileWrites: "output-dir-gated",
+      journalWrites: "none",
+      supportedScaffoldKinds: ["project-doc", "planning-page"],
+      scaffoldTargets: [
+        "Root > Overview",
+        "Root > Operating Model",
+        "Planning > Roadmap",
+        "Planning > Current Cycle",
+      ],
+    },
   }),
   createCommandSpec({
     canonical: "plan-change",
@@ -1712,7 +1753,143 @@ const COMPOUND_COMMAND_SPECS = [
   }),
 ];
 
-const COMMAND_SPECS = [...SINGLE_COMMAND_SPECS, ...COMPOUND_COMMAND_SPECS];
+const FAMILY_COMMAND_SPECS = [
+  createCommandSpec({
+    canonical: "doc",
+    summary: "Show the managed-doc command family and its create/adopt/pull/diff/push/edit subcommands.",
+    usageLines: [
+      'node src/cli.mjs doc <create|adopt|pull|diff|push|edit> --path "<doc path>" [options]',
+      "node src/cli.mjs doc --help",
+      "node src/cli.mjs help doc",
+    ],
+    optionalFlags: [
+      OPT_PROJECT,
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs doc pull --help",
+      'npm run doc-pull -- --project "SNPM" --path "Root > Overview" --output overview.md',
+    ],
+    notes: [
+      "Use doc create/adopt/pull/diff/push/edit for curated project root docs, Templates > Project Templates docs, and the approved workspace-global docs.",
+      "Project docs require --project; template and workspace docs do not.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+  }),
+  createCommandSpec({
+    canonical: "page",
+    summary: "Show the planning-page command family and its pull/diff/push/edit subcommands.",
+    usageLines: [
+      'node src/cli.mjs page <pull|diff|push|edit> --project "Project Name" --page "Planning > <Page Name>" [options]',
+      "node src/cli.mjs page --help",
+      "node src/cli.mjs help page",
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+      '--page "Planning > <Page Name>"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs page push --help",
+      'npm run page-push -- --project "SNPM" --page "Planning > Roadmap" --file roadmap.md',
+    ],
+    notes: [
+      "Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
+      "Use page pull for local refresh, page diff for review, and page push/edit for apply-gated Notion updates.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+  }),
+  createCommandSpec({
+    canonical: "runbook",
+    summary: "Show the runbook command family and its create/adopt/pull/diff/push/edit subcommands.",
+    usageLines: [
+      'node src/cli.mjs runbook <create|adopt|pull|diff|push|edit> --project "Project Name" --title "Runbook Title" [options]',
+      "node src/cli.mjs runbook --help",
+      "node src/cli.mjs help runbook",
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+      '--title "Runbook Title"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs runbook diff --help",
+      'npm run runbook-pull -- --project "SNPM" --title "Deployment" --output deployment.md',
+    ],
+    notes: [
+      "Runbook operations are limited to project-owned runbooks under the Runbooks surface.",
+      "Use runbook pull for local refresh, runbook diff for review, and runbook create/adopt/push/edit for apply-gated Notion updates.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+  }),
+  createCommandSpec({
+    canonical: "validation-session",
+    summary: "Show the validation-session command family and its create/adopt/pull/diff/push subcommands.",
+    usageLines: [
+      'node src/cli.mjs validation-session <create|adopt|pull|diff|push> --project "Project Name" --title "Session Title" [options]',
+      "node src/cli.mjs validation-session --help",
+      "node src/cli.mjs help validation-session",
+    ],
+    requiredFlags: [
+      OPT_PROJECT,
+      '--title "Session Title"',
+    ],
+    optionalFlags: [
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs validation-session push --help",
+      'npm run validation-session-pull -- --project "SNPM" --title "Regression Pass 1" --output session.md',
+    ],
+    notes: [
+      "Validation-session operations are limited to Ops > Validation > Validation Sessions.",
+      "Use validation-session pull for local refresh, validation-session diff for review, and validation-session create/adopt/push for apply-gated Notion updates.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+  }),
+  createCommandSpec({
+    canonical: "sync",
+    summary: "Show the manifest-sync command family and its check/pull/push subcommands.",
+    usageLines: [
+      "node src/cli.mjs sync <check|pull|push> --manifest <path> [options]",
+      "node src/cli.mjs sync --help",
+      "node src/cli.mjs help sync",
+    ],
+    requiredFlags: [
+      "--manifest <path>",
+    ],
+    optionalFlags: [
+      OPT_SYNC_ENTRY,
+      OPT_SYNC_ENTRIES_FILE,
+      OPT_PROJECT_TOKEN,
+      OPT_WORKSPACE,
+    ],
+    examples: [
+      "node src/cli.mjs sync check --help",
+      'npm run sync-check -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+    ],
+    notes: [
+      "Manifest v2 supports check, local-file pull with sidecar metadata, and guarded push for existing approved targets.",
+      "Manifest v1 remains the validation-session artifact-sync lane.",
+      "Use the subcommand help for exact required flags and mutation boundaries.",
+    ],
+    mutationMode: "mixed",
+  }),
+];
+
+const COMMAND_SPECS = [...SINGLE_COMMAND_SPECS, ...FAMILY_COMMAND_SPECS, ...COMPOUND_COMMAND_SPECS];
 
 const COMMAND_SPEC_INDEX = new Map();
 for (const spec of COMMAND_SPECS) {
@@ -1738,6 +1915,7 @@ const GLOBAL_COMMAND_GROUPS = [
   {
     title: "Managed Docs And Planning:",
     entries: [
+      ["scaffold-docs", "Preview starter managed-doc drafts and optional local scaffold files."],
       ["doc <create|adopt|pull|diff|push|edit>", "Curated project, template, and workspace docs."],
       ["page <pull|diff|push|edit>", "Approved planning pages only."],
     ],
@@ -1816,6 +1994,8 @@ function copyOptionalCapabilityFields(target, spec) {
     "diagnosticScope",
     "diagnosticPurpose",
     "diagnosticNonGoals",
+    "supportedScaffoldKinds",
+    "scaffoldTargets",
   ];
 
   for (const field of optionalFields) {
@@ -1910,7 +2090,9 @@ export function usage() {
     "Examples:",
     "  node src/cli.mjs verify-project --help",
     "  node src/cli.mjs page push -h",
+    "  node src/cli.mjs sync --help",
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
+    '  npm run scaffold-docs -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--output-dir <dir>]',
     '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--apply]',
     '  npm run page-push -- --project "Project Name" --page "Planning > Roadmap" --file <file|-> [--metadata <path>] [--apply]',
     "",
@@ -1920,6 +2102,7 @@ export function usage() {
     "  Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
     "  Recommend stays an alias for the read-only scan unless --intent is provided, in which case it returns a deterministic Notion-vs-repo routing answer.",
     "  Implementation notes, design specs, task breakdowns, and investigations are repo-first intents and should not be stored as managed Notion docs.",
+    "  scaffold-docs is preview-first bootstrap doc scaffolding for starter managed docs; it writes local drafts only with --output-dir and never mutates Notion directly.",
     "  The managed doc surface uses doc-* commands for curated project root docs, Templates > Project Templates docs, and a small named set of workspace-global docs.",
     "  Planning-page sync is limited to Planning > Roadmap, Planning > Current Cycle, Planning > Backlog, and Planning > Decision Log.",
     '  Project-scoped doc paths are limited to "Root", "Root > ...", and the four approved planning pages. Reserved structural roots stay on their owning surfaces.',

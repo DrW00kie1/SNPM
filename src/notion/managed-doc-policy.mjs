@@ -47,6 +47,7 @@ export function normalizeProjectPolicy(config) {
   return {
     policyPack,
     starterChildren: policyPack.projectStarterRoots,
+    starterDocScaffold: policyPack.starterDocScaffold,
     reservedRootTitles: policyPack.reservedProjectRoots,
     truthBoundaries: policyPack.truthBoundaries,
   };
@@ -54,6 +55,10 @@ export function normalizeProjectPolicy(config) {
 
 export function getProjectPolicyStarterChildren(config) {
   return normalizeProjectPolicy(config).starterChildren;
+}
+
+export function getProjectPolicyStarterDocScaffold(config) {
+  return normalizeProjectPolicy(config).starterDocScaffold;
 }
 
 export function getProjectPolicyReservedRootTitles(config) {
@@ -66,4 +71,8 @@ export function getProjectPolicyTruthBoundaries(config) {
 
 export function getManagedDocReservedRootTitles(config) {
   return getProjectPolicyReservedRootTitles(config);
+}
+
+export function getManagedDocStarterDocScaffold(config) {
+  return getProjectPolicyStarterDocScaffold(config);
 }
