@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a concrete SNPM failure or regression.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: input
+    id: tested_version
+    attributes:
+      label: Tested tag or commit
+      description: Name the exact tag or commit you tested.
+      placeholder: sprint-1-foundation
+    validations:
+      required: true
+  - type: dropdown
+    id: test_context
+    attributes:
+      label: Test context
+      options:
+        - Direct SNPM clone
+        - Another repo context using SNPM
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands run
+      description: Paste the commands you ran in order.
+      placeholder: |
+        npm test
+        npm run verify-project -- --name "SNPM"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: dropdown
+    id: workspace_touch
+    attributes:
+      label: Did this touch the live Notion workspace?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+  - type: dropdown
+    id: token_mode
+    attributes:
+      label: Token mode used
+      options:
+        - none
+        - workspace token
+        - project token
+        - both workspace and project token
+    validations:
+      required: true
+  - type: input
+    id: affected_path
+    attributes:
+      label: Affected project or page path
+      description: Include a workspace path when relevant.
+      placeholder: Projects > SNPM > Planning > Roadmap
+  - type: textarea
+    id: cli_output
+    attributes:
+      label: CLI output or screenshots
+      description: Paste output or link screenshots if they help.
+      render: shell
+

@@ -1,0 +1,75 @@
+name: Testing finding
+description: Report confusing behavior, workflow friction, or usability feedback from testing SNPM.
+title: "[testing] "
+labels:
+  - testing-feedback
+body:
+  - type: input
+    id: tested_version
+    attributes:
+      label: Tested tag or commit
+      placeholder: sprint-1-foundation
+    validations:
+      required: true
+  - type: dropdown
+    id: test_context
+    attributes:
+      label: Test context
+      options:
+        - Direct SNPM clone
+        - Another repo context using SNPM
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands or workflow tested
+      description: Describe what you tried.
+      placeholder: |
+        npm test
+        Read docs/github-testing-loop.md
+        Tried to understand whether I should run verify-project
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What felt confusing or high-friction?
+    validations:
+      required: true
+  - type: textarea
+    id: suggested_improvement
+    attributes:
+      label: Suggested improvement
+      description: Share the smallest change that would have made the experience better.
+  - type: dropdown
+    id: workspace_touch
+    attributes:
+      label: Did this touch the live Notion workspace?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+  - type: dropdown
+    id: token_mode
+    attributes:
+      label: Token mode used
+      options:
+        - none
+        - workspace token
+        - project token
+        - both workspace and project token
+    validations:
+      required: true
+  - type: input
+    id: affected_path
+    attributes:
+      label: Affected project or page path
+      placeholder: Projects > SNPM
+  - type: textarea
+    id: extra_context
+    attributes:
+      label: Extra context
+      description: Paste output or screenshots if helpful.
+

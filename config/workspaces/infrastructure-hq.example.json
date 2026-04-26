@@ -1,0 +1,55 @@
+{
+  "notionVersion": "2026-03-11",
+  "workspace": {
+    "projectsPageId": "replace-with-projects-page-id",
+    "projectTemplatesPageId": "replace-with-project-templates-page-id",
+    "managedDocs": {
+      "exactPages": [
+        { "path": "Infrastructure HQ Home", "pageId": "replace-with-home-page-id" },
+        { "path": "Projects", "pageId": "replace-with-projects-page-id" },
+        { "path": "Templates", "pageId": "replace-with-templates-page-id" },
+        { "path": "Runbooks > Notion Workspace Workflow", "pageId": "replace-with-workspace-workflow-page-id" },
+        { "path": "Runbooks > Notion Project Token Setup", "pageId": "replace-with-project-token-setup-page-id" }
+      ],
+      "subtreeRoots": [
+        { "path": "Templates > Project Templates", "pageId": "replace-with-project-templates-page-id" }
+      ]
+    },
+    "forbiddenScopePageIds": {
+      "home": "replace-with-home-page-id",
+      "accessIndex": "replace-with-access-index-page-id",
+      "runbooks": "replace-with-runbooks-page-id",
+      "vendors": "replace-with-vendors-page-id"
+    }
+  },
+  "projectStarter": {
+    "children": [
+      {
+        "title": "Ops",
+        "children": [
+          { "title": "Environments", "children": [] },
+          { "title": "Validation", "children": [] },
+          { "title": "Release Readiness", "children": [] }
+        ]
+      },
+      {
+        "title": "Planning",
+        "children": [
+          { "title": "Roadmap", "children": [] },
+          { "title": "Current Cycle", "children": [] },
+          { "title": "Backlog", "children": [] },
+          { "title": "Decision Log", "children": [] }
+        ]
+      },
+      { "title": "Access", "children": [] },
+      { "title": "Vendors", "children": [] },
+      { "title": "Runbooks", "children": [] },
+      {
+        "title": "Incidents",
+        "children": [
+          { "title": "Postmortems", "children": [] }
+        ]
+      }
+    ]
+  }
+}
