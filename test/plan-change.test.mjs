@@ -5,6 +5,7 @@ import {
   normalizePlanChangeInput,
   planChange,
 } from "../src/commands/plan-change.mjs";
+import { validateSyncManifest } from "../src/notion/sync-manifest.mjs";
 
 test("normalizePlanChangeInput validates and normalizes explicit targets", () => {
   const result = normalizePlanChangeInput({
@@ -194,6 +195,219 @@ test("planChange supports workspace and template docs without projectName", asyn
   ]);
 });
 
+test("planChange omits manifestDraft from baseline output unless requested", async () => {
+  const result = await planChange({
+    goal: "Plan baseline output",
+    projectName: "SNPM",
+    targets: [{
+      type: "planning",
+      pagePath: "Planning > Roadmap",
+    }],
+  }, {
+    async recommendImpl() {
+      return {
+        ok: true,
+        recommendedHome: "notion",
+        surface: "planning",
+        targetPath: "Planning > Roadmap",
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(Object.hasOwn(result, "manifestDraft"), false);
+  assert.deepEqual(Object.keys(result), [
+    "ok",
+    "command",
+    "goal",
+    "projectName",
+    "targets",
+    "recommendations",
+    "nextCommands",
+    "warnings",
+  ]);
+});
+
+test("planChange manifestDraft maps supported targets to manifest v2 entries", async () => {
+  const result = await planChange({
+    goal: "Plan manifest draft",
+    projectName: "SNPM",
+    workspaceName: "infrastructure-hq",
+    targets: [
+      {
+        type: "planning",
+        pagePath: "Planning > Roadmap",
+      },
+      {
+        type: "project-doc",
+        docPath: "Root > Overview",
+      },
+      {
+        type: "template-doc",
+        docPath: "Templates > Project Templates > Overview",
+      },
+      {
+        type: "workspace-doc",
+        docPath: "Runbooks > Notion Workspace Workflow",
+      },
+      {
+        type: "runbook",
+        title: "Release Smoke Test",
+      },
+    ],
+  }, {
+    manifestDraft: true,
+    async recommendImpl() {
+      return {
+        ok: true,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.manifestUnsupportedTargets, []);
+  assert.deepEqual(result.manifestDraft, {
+    version: 2,
+    workspace: "infrastructure-hq",
+    project: "SNPM",
+    entries: [
+      {
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "notion/planning/roadmap.md",
+      },
+      {
+        kind: "project-doc",
+        docPath: "Root > Overview",
+        file: "notion/root/overview.md",
+      },
+      {
+        kind: "template-doc",
+        docPath: "Templates > Project Templates > Overview",
+        file: "notion/templates/project-templates/overview.md",
+      },
+      {
+        kind: "workspace-doc",
+        docPath: "Runbooks > Notion Workspace Workflow",
+        file: "notion/runbooks/notion-workspace-workflow.md",
+      },
+      {
+        kind: "runbook",
+        title: "Release Smoke Test",
+        file: "notion/runbooks/release-smoke-test.md",
+      },
+    ],
+  });
+});
+
+test("planChange manifestDraft reports unsupported manifest targets separately", async () => {
+  const result = await planChange({
+    goal: "Plan partial manifest draft",
+    projectName: "SNPM",
+    targets: [
+      {
+        type: "planning",
+        pagePath: "Planning > Roadmap",
+      },
+      {
+        type: "secret",
+        domainTitle: "Production",
+        title: "API Key",
+      },
+      {
+        type: "repo-doc",
+        repoPath: "docs/local-only.md",
+      },
+    ],
+  }, {
+    manifestDraft: true,
+    async recommendImpl() {
+      return {
+        ok: true,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.manifestDraft.entries, [{
+    kind: "planning-page",
+    pagePath: "Planning > Roadmap",
+    file: "notion/planning/roadmap.md",
+  }]);
+  assert.deepEqual(result.manifestUnsupportedTargets, [
+    {
+      index: 1,
+      type: "secret",
+      projectName: "SNPM",
+      title: "API Key",
+      domainTitle: "Production",
+      reason: "Access secret and token records are excluded from manifest v2 drafts; use the Access command family.",
+    },
+    {
+      index: 2,
+      type: "repo-doc",
+      projectName: "SNPM",
+      repoPath: "docs/local-only.md",
+      reason: "Repo-owned targets are not Notion manifest entries.",
+    },
+  ]);
+});
+
+test("planChange manifestDraft generates deterministic unique safe notion paths", async () => {
+  const input = {
+    goal: "Plan safe manifest paths",
+    projectName: "SNPM",
+    targets: [
+      {
+        type: "runbook",
+        title: "Release: Smoke/Test?",
+      },
+      {
+        type: "runbook",
+        title: "Release Smoke Test!",
+      },
+      {
+        type: "runbook",
+        title: "..\\Release Smoke Test",
+      },
+      {
+        type: "runbook",
+        title: "CON",
+      },
+    ],
+  };
+  const options = {
+    manifestDraft: true,
+    async recommendImpl() {
+      return {
+        ok: true,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  };
+
+  const first = await planChange(input, options);
+  const second = await planChange(input, options);
+  const files = first.manifestDraft.entries.map((entry) => entry.file);
+
+  assert.deepEqual(first.manifestDraft.entries, second.manifestDraft.entries);
+  assert.deepEqual(files, [
+    "notion/runbooks/release-smoke-test.md",
+    "notion/runbooks/release-smoke-test-2.md",
+    "notion/runbooks/release-smoke-test-3.md",
+    "notion/runbooks/con-target.md",
+  ]);
+  assert.ok(files.every((file) => file.startsWith("notion/")));
+  assert.ok(files.every((file) => !file.includes("..")));
+  assert.equal(new Set(files).size, files.length);
+});
+
 test("planChange requires injected recommend implementation", async () => {
   await assert.rejects(
     planChange({
@@ -203,6 +417,174 @@ test("planChange requires injected recommend implementation", async () => {
     }),
     /recommendImpl function/,
   );
+});
+
+test("planChange manifest draft excludes Access, repo-owned, and generated-output targets", async () => {
+  const result = await planChange({
+    goal: "Draft safe manifest",
+    projectName: "SNPM",
+    workspaceName: "infrastructure-hq",
+    targets: [
+      {
+        type: "planning",
+        pagePath: "Planning > Roadmap",
+      },
+      {
+        type: "project-doc",
+        docPath: "Root > Overview",
+      },
+      {
+        type: "template-doc",
+        docPath: "Templates > Project Templates > Overview",
+      },
+      {
+        type: "workspace-doc",
+        docPath: "Runbooks > Notion Workspace Workflow",
+      },
+      {
+        type: "runbook",
+        title: "Release Smoke Test",
+      },
+      {
+        type: "secret",
+        domainTitle: "App & Backend",
+        title: "DATABASE_URL",
+      },
+      {
+        type: "token",
+        domainTitle: "App & Backend",
+        title: "SNPM_NOTION_TOKEN",
+      },
+      {
+        type: "generated-secret",
+        domainTitle: "App & Backend",
+        title: "Generated Webhook Secret",
+      },
+      {
+        type: "generated-token",
+        domainTitle: "App & Backend",
+        title: "Generated Deploy Token",
+      },
+      {
+        type: "repo-doc",
+        repoPath: "docs/local-only.md",
+      },
+      {
+        type: "generated-output",
+        repoPath: "artifacts/build.json",
+      },
+    ],
+  }, {
+    manifestDraft: true,
+    async recommendImpl(args) {
+      return {
+        ok: true,
+        recommendedHome: ["repo-doc", "generated-output"].includes(args.intent) ? "repo" : "notion",
+        surface: args.intent,
+        targetPath: args.pagePath || args.docPath || args.title,
+        repoPath: args.repoPath,
+        reason: `Route ${args.intent}`,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.ok(result.manifestDraft, "manifest-draft opt-in should return manifestDraft");
+  assert.ok(Array.isArray(result.manifestUnsupportedTargets), "manifest-draft opt-in should return unsupported targets");
+  assert.ok(Array.isArray(result.manifestNextCommands), "manifest-draft opt-in should return manifestNextCommands");
+  assert.deepEqual(result.manifestDraft.entries.map((entry) => entry.kind), [
+    "planning-page",
+    "project-doc",
+    "template-doc",
+    "workspace-doc",
+    "runbook",
+  ]);
+  assert.deepEqual(result.manifestUnsupportedTargets.map((target) => ({
+    index: target.index,
+    type: target.type,
+  })), [
+    { index: 5, type: "secret" },
+    { index: 6, type: "token" },
+    { index: 7, type: "generated-secret" },
+    { index: 8, type: "generated-token" },
+    { index: 9, type: "repo-doc" },
+    { index: 10, type: "generated-output" },
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(result.manifestDraft),
+    /secret-record|access-token|DATABASE_URL|SNPM_NOTION_TOKEN|Generated Webhook Secret|Generated Deploy Token|artifacts\/build\.json|docs\/local-only\.md/,
+  );
+  assert.ok(result.manifestDraft.entries.every((entry) => entry.file.startsWith("notion/")));
+
+  const validated = validateSyncManifest(result.manifestDraft, {
+    manifestPath: "C:\\repo\\snpm.sync.json",
+  });
+  assert.equal(validated.version, 2);
+  assert.equal(validated.workspaceName, "infrastructure-hq");
+  assert.equal(validated.projectName, "SNPM");
+});
+
+test("planChange omits manifest draft fields unless explicitly requested", async () => {
+  const result = await planChange({
+    goal: "No manifest draft",
+    projectName: "SNPM",
+    targets: [{
+      type: "planning",
+      pagePath: "Planning > Roadmap",
+    }],
+  }, {
+    async recommendImpl(args) {
+      return {
+        ok: true,
+        recommendedHome: "notion",
+        surface: args.intent,
+        targetPath: args.pagePath,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.manifestDraft, undefined);
+  assert.equal(result.manifestUnsupportedTargets, undefined);
+  assert.equal(result.manifestNextCommands, undefined);
+});
+
+test("planChange manifest draft is read-only and does not call write or mutation hooks", async () => {
+  const forbiddenHook = () => {
+    throw new Error("manifest-draft must not write files, sidecars, journals, or mutate Notion");
+  };
+
+  const result = await planChange({
+    goal: "Read-only manifest draft",
+    projectName: "SNPM",
+    targets: [{
+      type: "planning",
+      pagePath: "Planning > Current Cycle",
+    }],
+  }, {
+    manifestDraft: true,
+    writeFileImpl: forbiddenHook,
+    writeSidecarImpl: forbiddenHook,
+    writeJournalImpl: forbiddenHook,
+    mutateNotionImpl: forbiddenHook,
+    async recommendImpl(args) {
+      return {
+        ok: true,
+        recommendedHome: "notion",
+        surface: args.intent,
+        targetPath: args.pagePath,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.ok(result.manifestDraft, "manifest-draft opt-in should return manifestDraft");
+  assert.equal(result.manifestDraft.entries.length, 1);
+  assert.equal(result.manifestDraft.entries[0].kind, "planning-page");
 });
 
 test("normalizePlanChangeInput rejects invalid top-level input clearly", () => {

@@ -2,7 +2,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseSyncManifest } from "../src/notion/sync-manifest.mjs";
+import { parseSyncManifest, validateSyncManifest } from "../src/notion/sync-manifest.mjs";
 
 const manifestPath = path.join("C:\\repo", "snpm.sync.json");
 const workspace = "infrastructure-hq";
@@ -21,6 +21,14 @@ function manifestV2(entries) {
 
 function parseV2(entries) {
   return parseSyncManifest(manifestV2(entries), manifestPath);
+}
+
+function validPlanningEntry(file = "planning/roadmap.md") {
+  return {
+    kind: "planning-page",
+    pagePath: "Planning > Roadmap",
+    file,
+  };
 }
 
 test("parseSyncManifest preserves v1 validation-session manifest behavior", () => {
@@ -197,9 +205,12 @@ test("parseSyncManifest rejects v2 raw Notion page ids", () => {
 
 test("parseSyncManifest rejects v2 invalid file paths", () => {
   const cases = [
-    [{ kind: "planning-page", pagePath: "Planning > Roadmap", file: path.resolve("outside.md") }, /must be relative/i],
-    [{ kind: "planning-page", pagePath: "Planning > Roadmap", file: "..\\outside.md" }, /must stay within the manifest directory tree/i],
-    [{ kind: "planning-page", pagePath: "Planning > Roadmap", file: "planning/*.md" }, /glob patterns/i],
+    [validPlanningEntry(path.resolve("outside.md")), /must be relative/i],
+    [validPlanningEntry("..\\outside.md"), /must stay within the manifest directory tree/i],
+    [validPlanningEntry("../outside.md"), /must stay within the manifest directory tree/i],
+    [validPlanningEntry("planning/*.md"), /glob patterns/i],
+    [validPlanningEntry("planning/roadmap?.md"), /glob patterns/i],
+    [validPlanningEntry("planning/[draft].md"), /glob patterns/i],
   ];
 
   for (const [entry, errorPattern] of cases) {
@@ -227,4 +238,19 @@ test("parseSyncManifest rejects v2 unsupported kinds", () => {
     title: "Production API",
     file: "access/production-api.md",
   }]), /unsupported kind/i);
+});
+
+test("validateSyncManifest validates generated in-memory manifest objects", () => {
+  const result = validateSyncManifest(manifestV2([validPlanningEntry()]), { manifestPath });
+
+  assert.equal(result.version, 2);
+  assert.equal(result.manifestPath, path.resolve(manifestPath));
+  assert.equal(result.entries[0].file, ["planning", "roadmap.md"].join(path.sep));
+});
+
+test("validateSyncManifest requires an explicit manifest path for relative file safety", () => {
+  assert.throws(
+    () => validateSyncManifest(manifestV2([validPlanningEntry()])),
+    /requires a non-empty "manifestPath" string/i,
+  );
 });

@@ -16,6 +16,7 @@ const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_TRUTH_AUDIT = "--truth-audit";
 const OPT_CONSISTENCY_AUDIT = "--consistency-audit";
 const OPT_STALE_AFTER_DAYS = "--stale-after-days <positive integer>";
+const OPT_MANIFEST_DRAFT = "--manifest-draft";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
 const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
 const OPT_MAX_MUTATIONS = "--max-mutations <n|all>";
@@ -525,24 +526,52 @@ const SINGLE_COMMAND_SPECS = [
     canonical: "plan-change",
     summary: "Return JSON routing recommendations for a proposed multi-surface plan change.",
     usageLines: [
-      'node src/cli.mjs plan-change --targets-file <path|-> [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs plan-change --targets-file <path|-> [--manifest-draft] [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
     ],
     requiredFlags: [
       "--targets-file <path|->",
     ],
     optionalFlags: [
+      OPT_MANIFEST_DRAFT,
       OPT_PROJECT,
       OPT_PROJECT_TOKEN,
       OPT_WORKSPACE,
     ],
     examples: [
       "node src/cli.mjs plan-change --targets-file plan-targets.json",
+      "node src/cli.mjs plan-change --targets-file plan-targets.json --manifest-draft",
       'npm run plan-change -- --targets-file - --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
     ],
     notes: [
       "Input must be a JSON object with goal and targets fields; the command prints JSON only.",
+      "--manifest-draft opts into the manifest-draft planner mode for callers that want manifest-ready plan metadata.",
       "This is a read-only routing surface built on recommend; it does not apply Notion mutations.",
+      "Manifest-draft mode does not write local files, sidecars, mutation journals, or Notion mutations.",
     ],
+    capabilityMetadata: {
+      notionMutation: "none",
+      localFileWrites: "none",
+      journalWrites: "none",
+      sidecarWrites: "none",
+      plannerModes: ["routing", "manifest-draft"],
+      manifestDraft: "optional-read-only-planner-mode",
+      manifestDraftEntryKinds: [
+        "planning-page",
+        "project-doc",
+        "template-doc",
+        "workspace-doc",
+        "runbook",
+      ],
+      manifestDraftExcludedTargetTypes: [
+        "secret",
+        "token",
+        "generated-secret",
+        "generated-token",
+        "repo-owned",
+        "generated-output",
+        "build-record",
+      ],
+    },
   }),
 ];
 
@@ -2302,6 +2331,7 @@ function copyOptionalCapabilityFields(target, spec) {
     "notionMutation",
     "localFileWrites",
     "journalWrites",
+    "sidecarWrites",
     "truthAudit",
     "consistencyAudit",
     "auditFlags",
@@ -2327,6 +2357,10 @@ function copyOptionalCapabilityFields(target, spec) {
     "diagnosticNonGoals",
     "supportedScaffoldKinds",
     "scaffoldTargets",
+    "plannerModes",
+    "manifestDraft",
+    "manifestDraftEntryKinds",
+    "manifestDraftExcludedTargetTypes",
     "secretOutput",
     "rawSecretExport",
     "localSecretPersistence",

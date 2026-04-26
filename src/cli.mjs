@@ -89,7 +89,7 @@ import {
   runValidationBundleVerify,
 } from "./commands/validation-bundle.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
@@ -577,6 +577,7 @@ async function main() {
       ...(workspaceName ? { workspaceName } : {}),
     }, {
       recommendImpl: runRecommend,
+      manifestDraft: options["manifest-draft"] === true,
     });
     console.log(JSON.stringify(result, null, 2));
     if (!result.ok) {

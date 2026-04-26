@@ -79,6 +79,13 @@ Current `codex/consistency-audit` branch addition:
 - initial findings cover Roadmap/Current Cycle active-marker alignment, explicit runbook references, and explicit Access references where the target can be resolved structurally
 - the audit does not mutate Notion, write local files, write sidecars, append mutation journal entries, apply manifests, inspect raw Access secret/token bodies, generate fixes, change default `doctor` output, change top-level `ok` or exit behavior, or make findings blocking
 
+Current `codex/plan-change-manifest-draft` branch addition:
+- `plan-change --manifest-draft` previews manifest v2 entries for approved multi-surface documentation plans
+- supported draft targets are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, and `runbook`
+- unsupported draft targets are Access records, build records, create/adopt targets, arbitrary page IDs, generic CRUD targets, and any surface outside approved manifest v2 entries
+- safe follow-up starts with operator review, then `sync check` or `sync pull`; `sync push` remains a separate preview/apply workflow against a reviewed manifest file
+- the planner does not write files, sidecars, review artifacts, journals, or Notion content, and it does not add audit gates or batch apply behavior
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply

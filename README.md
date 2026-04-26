@@ -62,6 +62,12 @@ Recently promoted manifest v2 diagnostics behavior on `main`:
 - manifest v2 diagnostics are documented consistently in CLI help, capability metadata, and operator docs as structured result/review metadata for check and push, and structured result metadata for pull
 - diagnostics include stable codes, severity, entry/target context, a safe next command, and a recovery action
 
+Current `codex/plan-change-manifest-draft` branch addition:
+- `plan-change --manifest-draft` is a preview-only, read-only planner integration for drafting manifest v2 entries from approved plan targets
+- supported draft targets are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, and `runbook`
+- unsupported draft targets include Access records, build records, create/adopt targets, arbitrary page IDs, and any surface outside approved manifest v2 entries
+- the planner does not write manifest files, local page files, sidecars, review artifacts, journals, or Notion content, and it does not apply or batch changes
+
 Recently promoted manifest v2 targeted-review behavior on `main`:
 - manifest v2 `sync check`, `sync pull`, and `sync push` can target entries with `--entry <selector>` or `--entries-file <path>`
 - manifest v2 `sync push` can write preview artifacts with `--review-output <dir>`
@@ -198,6 +204,10 @@ npm run journal-list -- --limit 20
 
 Family-level help is available for the advertised command families, including `doc`, `page`, `runbook`, `sync`, `validation-session`, `secret-record`, and `access-token`. Hyphenated npm scripts remain convenience wrappers around the canonical family commands.
 
+`plan-change --manifest-draft` is still a planner, not a writer. It previews manifest v2 entries for approved existing surfaces so an operator can review the proposed bundle and then choose the next safe command. Supported manifest draft targets are `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, and `runbook`. Access records, build records, validation-session artifacts, create/adopt entries, arbitrary page IDs, and generic workspace CRUD remain unsupported by the planner.
+
+Safe next commands after reviewing a manifest draft are the read-only or explicitly local manifest v2 commands: `npm run sync-check -- --manifest <path>`, `npm run sync-pull -- --manifest <path>`, or `npm run sync-pull -- --manifest <path> --apply` when local files and sidecars are desired. Use `npm run sync-push -- --manifest <path>` only for a later preview against an operator-authored manifest file. Do not treat the planner output as an apply request.
+
 Manifest v2 mixed-surface sync:
 
 ```bash
@@ -217,7 +227,7 @@ A default successful `sync push --apply` makes affected sidecars stale because t
 
 Manifest v2 recovery diagnostics are structured metadata, not mutation behavior. `sync check` and `sync push` can expose diagnostics in result/review metadata, while `sync pull` exposes result metadata. Diagnostics can include stable codes, severity, entry and target context, a safe next command, and a recovery action so operators can decide the next manual step without relying on terminal scrollback.
 
-Manifest v2 does not support create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, or generic batch apply. Sidecar refresh is never automatic on default v2 push; it only happens when `--refresh-sidecars` is included with `--apply`. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
+Manifest v2 does not support create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, or generic batch apply. `plan-change --manifest-draft` does not change that boundary: it writes no manifest file, local content file, sidecar, review artifact, journal entry, or Notion page, and it adds no audit gate or batch-apply lane. Sidecar refresh is never automatic on default v2 push; it only happens when `--refresh-sidecars` is included with `--apply`. Use the owning `page-*`, `doc-*`, `runbook-*`, or `validation-session-*` command family when that narrower surface is the better fit.
 
 Planning-page sync remains available through `page-*`:
 

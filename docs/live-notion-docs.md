@@ -147,6 +147,21 @@ Supported Sprint 3.3B operator behavior:
 
 Manifest v2 diagnostics are recovery metadata only. Manifest v2 remains out of scope for create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply.
 
+## Plan-Change Manifest Draft Updates
+
+`plan-change --manifest-draft` is a preview-only, read-only bridge from intent planning to manifest v2 review. It may draft entries for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, and `runbook` targets only. Access records, build records, validation-session artifacts, create/adopt targets, arbitrary page IDs, generic CRUD, and unsupported manifest surfaces remain out of scope.
+
+The planner does not write manifest files, local markdown files, sidecars, review artifacts, mutation journal entries, or Notion content. It also does not run audits as gates, refresh sidecars, mutate Access/build-record surfaces, or apply batch changes. After reviewing the preview, safe next commands are `sync check` or `sync pull`; use `sync push` only later against an operator-reviewed manifest file.
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: `plan-change --manifest-draft` is approved as a preview-only/read-only planner integration. It drafts manifest v2 entries for approved existing documentation targets only and deliberately does not write files, sidecars, journals, review artifacts, or Notion content.
+- Roadmap: Sprint 6.1A advances Plan-To-Manifest by adding manifest draft planning for `planning-page`, `project-doc`, `template-doc`, `workspace-doc`, and `runbook` targets. Access/build-record entries, validation-session artifacts, create/adopt, arbitrary CRUD, audit gates, and batch apply remain deferred/non-goals.
+- Current Cycle: Operators can use `plan-change --manifest-draft` to review a proposed bundle before authoring a manifest and running `sync check` or `sync pull`. Applied mutation remains outside the planner and must use the reviewed manifest v2/owning command-family workflows.
+- Runbook: Add the operator flow: run `plan-change --manifest-draft`, inspect supported and rejected targets, manually save or edit the manifest draft if appropriate, then run `sync check` or `sync pull`; do not expect planner file writes or Notion mutation.
+- Projects > SNPM: If the public command summary is maintained there, note that plan-change now has a manifest-draft preview mode for approved manifest v2 targets only, with no direct mutation or batch apply behavior.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries the public command summary.
+
 ## Consistency Audit Updates
 
 Use the consistency audit after the project structure verifies and before coordinated planning/runbook/access documentation edits:

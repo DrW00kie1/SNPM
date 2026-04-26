@@ -201,6 +201,18 @@ export function parseSyncManifest(rawManifest, manifestPath, { workspaceOverride
   };
 }
 
+export function validateSyncManifest(rawManifest, {
+  manifestPath,
+  workspaceOverride,
+} = {}) {
+  const manifestFilePath = requireNonEmptyString(
+    manifestPath,
+    'validateSyncManifest requires a non-empty "manifestPath" string.',
+  );
+
+  return parseSyncManifest(rawManifest, manifestFilePath, { workspaceOverride });
+}
+
 export function loadSyncManifest(manifestPath, options = {}) {
   const rawText = readFileSync(manifestPath, "utf8");
   let parsed;

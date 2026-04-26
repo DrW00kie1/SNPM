@@ -44,6 +44,7 @@ function runCli(args, options = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
     cwd: REPO_ROOT,
     encoding: "utf8",
+    input: options.input,
     env: {
       ...process.env,
       ...options.env,
@@ -614,7 +615,11 @@ test("plan-change and journal list command help and npm scripts are registered",
   assert.equal(planChange?.authScope, "project-token-optional");
   assert.equal(planChange?.mutationMode, "read-only");
   assert.match(planChange?.usageLines.join("\n") || "", /--targets-file <path\|->/);
+  assert.ok(planChange?.optionalFlags.includes("--manifest-draft"));
   assert.match(planChange?.notes.join("\n") || "", /prints JSON only/);
+  assert.match(planChange?.notes.join("\n") || "", /read-only routing surface/i);
+  assert.equal(planChange?.manifestDraft, "optional-read-only-planner-mode");
+  assert.deepEqual(planChange?.plannerModes, ["routing", "manifest-draft"]);
 
   assert.equal(journalList?.canonical, "journal list");
   assert.deepEqual(journalList?.aliases, ["journal-list"]);
@@ -1198,6 +1203,7 @@ test("parseArgs supports plan-change and journal list discovery commands", () =>
     "-",
     "--project",
     "SNPM",
+    "--manifest-draft",
   ]);
   const journalListParsed = parseArgs([
     "journal",
@@ -1218,6 +1224,7 @@ test("parseArgs supports plan-change and journal list discovery commands", () =>
   assert.equal(planChangeParsed.command, "plan-change");
   assert.equal(planChangeParsed.options["targets-file"], "-");
   assert.equal(planChangeParsed.options.project, "SNPM");
+  assert.equal(planChangeParsed.options["manifest-draft"], true);
   assert.equal(journalListParsed.command, "journal list");
   assert.equal(journalListParsed.options.limit, "5");
   assert.equal(scaffoldParsed.command, "scaffold-docs");
@@ -1327,12 +1334,25 @@ test("cli plan-change and journal-list help print command help", () => {
   assert.equal(planChangeResult.status, 0);
   assert.match(planChangeResult.stdout, /Command: plan-change/);
   assert.match(planChangeResult.stdout, /--targets-file <path\|->/);
+  assert.match(planChangeResult.stdout, /--manifest-draft/);
+  assert.match(planChangeResult.stdout, /read-only routing surface/i);
   assert.equal(planChangeResult.stderr, "");
 
   assert.equal(journalListResult.status, 0);
   assert.match(journalListResult.stdout, /Command: journal list/);
   assert.match(journalListResult.stdout, /Aliases:\n  journal-list/);
   assert.equal(journalListResult.stderr, "");
+});
+
+test("cli plan-change --manifest-draft reads stdin targets-file before live routing", () => {
+  const result = runCli(["plan-change", "--targets-file", "-", "--manifest-draft"], {
+    input: "{not-json",
+  });
+
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /plan-change targets file is not valid JSON/);
+  assert.doesNotMatch(result.stderr, /Missing value for --manifest-draft/);
 });
 
 test("cli scaffold-docs help prints registry-only command help", () => {
@@ -1623,6 +1643,7 @@ test("cli doctor --consistency-audit reaches the doctor command path", () => {
 test("cli capabilities prints JSON only", () => {
   const result = runCli(["capabilities"]);
   const parsed = JSON.parse(result.stdout);
+  const planChangeCapability = parsed.commands.find((command) => command.canonical === "plan-change");
 
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
@@ -1636,6 +1657,15 @@ test("cli capabilities prints JSON only", () => {
   assert.equal(parsed.commands.find((command) => command.canonical === "doctor")?.consistencyAudit, "optional-advisory-read-only");
   assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.auditFlags.includes("consistency-audit"));
   assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.npmScripts.includes("consistency-audit"));
+  assert.equal(planChangeCapability?.manifestDraft, "optional-read-only-planner-mode");
+  assert.deepEqual(planChangeCapability?.plannerModes, ["routing", "manifest-draft"]);
+  assert.deepEqual(planChangeCapability?.manifestDraftEntryKinds, [
+    "planning-page",
+    "project-doc",
+    "template-doc",
+    "workspace-doc",
+    "runbook",
+  ]);
 });
 
 test("cli journal list prints JSON only without live Notion", () => {

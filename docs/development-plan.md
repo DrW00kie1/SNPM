@@ -384,12 +384,13 @@ Purpose: connect the planning layer to the safer mutation and audit layers.
 ### Sprint 6.1: Plan-To-Manifest
 
 Goal:
-- allow `plan-change` to emit a manifest draft when a request spans multiple surfaces
+- allow `plan-change --manifest-draft` to preview a manifest draft when a request spans multiple approved surfaces
 
 Deliverables:
-- planner output that can be saved as a manifest
+- planner output that can be reviewed and manually saved as a manifest
 - explicit file naming and target path conventions
-- validation that generated manifests stay within approved surfaces
+- validation that drafted manifest entries stay within approved surfaces
+- safe-next-command guidance for `sync check`, `sync pull`, and later `sync push` preview
 
 Exit criteria:
 - an LLM can move from intent to checked bundle without manually authoring every manifest entry
@@ -397,7 +398,18 @@ Exit criteria:
 Feature goals covered:
 - `plan-change`
 - generalized manifest sync
-- multi-surface batch apply
+
+Supported targets:
+- `planning-page`
+- `project-doc`
+- `template-doc`
+- `workspace-doc`
+- `runbook`
+
+Non-goals:
+- file writes, sidecar writes, review artifacts, or local mutation journal entries
+- Notion mutation, audit gates, or batch apply changes
+- Access record, build-record, validation-session, create/adopt, arbitrary page ID, or generic CRUD manifest entries
 
 ### Sprint 6.2: Plan Quality Gates
 
@@ -430,7 +442,7 @@ That milestone improves daily operator safety and LLM usability without expandin
 
 Milestone 1 implementation status:
 - `capabilities` is implemented as JSON-only CLI introspection sourced from the shared help registry
-- `plan-change` is implemented as a deterministic read-only target-file planner
+- `plan-change` is implemented as a deterministic read-only target-file planner, with `--manifest-draft` remaining preview-only and limited to approved manifest v2 targets
 - managed pull commands now write strict metadata sidecars, and apply paths reject missing, mismatched, stale, archived, or trashed metadata before mutation
 - applied mutations now append redacted local journal entries with command, surface, target, page, revision, timestamp, and diff hash/stat metadata
 - secret-bearing Access commands use consume-only runtime access with redacted-only pulls plus write-only generated ingestion for agent-created values; raw local export and local markdown edit/diff/push are unsupported for secret/token records
