@@ -177,6 +177,30 @@ Durable Notion closeout targets for this sprint:
 - `Projects > SNPM > Planning > Current Cycle`
 - `Runbooks > Notion Workspace Workflow`
 
+## Validation-Bundle Retirement Updates
+
+Sprint 0 retires the browser-driven validation-bundle lane while preserving validation-session API workflows.
+
+Supported operator behavior:
+- use `validation-sessions verify --bundle` for workflow-level validation-session checks
+- treat the command as API-visible verification plus explicit manual checks for UI-only Notion elements
+- keep `validation-session-*` and `validation-sessions-*` as the owning command families for validation-session records and surfaces
+- maintain `Active Sessions`, `Quick Intake`, `Validation Session`, and `New Validation Session` manually in Notion when the surrounding UI bundle matters
+
+Retired behavior:
+- no supported `validation-bundle-*` operator lane
+- no browser-driven verification or mutation lane for the validation-session UI bundle
+- no local browser state as part of validation-session verification
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 0 retires the validation-bundle browser automation lane. `validation-sessions verify --bundle` remains the supported workflow-level check and now explicitly reports manual checks for the Notion UI-only parts of the validation-session bundle.
+- Roadmap: Mark validation-bundle removal complete and keep validation-session work focused on API-visible managed surfaces, repo-backed session artifacts, and manual UI bundle verification.
+- Current Cycle: Record that operators should use `validation-sessions verify --bundle` plus manual Notion checks for `Active Sessions`, `Quick Intake`, `Validation Session`, and `New Validation Session`; do not use retired browser automation commands.
+- Runbook: Update the operator workflow to remove browser automation setup and point validation-session bundle closeout at the API-visible verifier plus manual UI checklist.
+- Projects > SNPM: If the public command summary is maintained there, remove validation-bundle references and list validation-session bundle verification under the validation-session command family.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries the public command summary.
+
 ## Verification
 
 Project-scoped verification:

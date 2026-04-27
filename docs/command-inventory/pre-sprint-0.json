@@ -1,0 +1,1971 @@
+{
+  "schemaVersion": "snpm-command-inventory.v1",
+  "generatedAt": "2026-04-27T19:32:11.466Z",
+  "note": "Historical pre-removal inventory captured before Sprint 0 validation-bundle retirement. Do not treat retired candidates as supported commands after Sprint 0.",
+  "source": {
+    "help": true,
+    "capabilities": true,
+    "packageScripts": true
+  },
+  "retiredCandidates": [
+    "validation-bundle.login",
+    "validation-bundle.preview",
+    "validation-bundle.apply",
+    "validation-bundle.verify"
+  ],
+  "packageScripts": [
+    {
+      "name": "access-domain-adopt",
+      "script": "node src/cli.mjs access-domain adopt"
+    },
+    {
+      "name": "access-domain-create",
+      "script": "node src/cli.mjs access-domain create"
+    },
+    {
+      "name": "access-domain-diff",
+      "script": "node src/cli.mjs access-domain diff"
+    },
+    {
+      "name": "access-domain-edit",
+      "script": "node src/cli.mjs access-domain edit"
+    },
+    {
+      "name": "access-domain-pull",
+      "script": "node src/cli.mjs access-domain pull"
+    },
+    {
+      "name": "access-domain-push",
+      "script": "node src/cli.mjs access-domain push"
+    },
+    {
+      "name": "access-token-adopt",
+      "script": "node src/cli.mjs access-token adopt"
+    },
+    {
+      "name": "access-token-create",
+      "script": "node src/cli.mjs access-token create"
+    },
+    {
+      "name": "access-token-diff",
+      "script": "node src/cli.mjs access-token diff"
+    },
+    {
+      "name": "access-token-edit",
+      "script": "node src/cli.mjs access-token edit"
+    },
+    {
+      "name": "access-token-exec",
+      "script": "node src/cli.mjs access-token exec"
+    },
+    {
+      "name": "access-token-generate",
+      "script": "node src/cli.mjs access-token generate"
+    },
+    {
+      "name": "access-token-pull",
+      "script": "node src/cli.mjs access-token pull"
+    },
+    {
+      "name": "access-token-push",
+      "script": "node src/cli.mjs access-token push"
+    },
+    {
+      "name": "build-record-create",
+      "script": "node src/cli.mjs build-record create"
+    },
+    {
+      "name": "build-record-diff",
+      "script": "node src/cli.mjs build-record diff"
+    },
+    {
+      "name": "build-record-pull",
+      "script": "node src/cli.mjs build-record pull"
+    },
+    {
+      "name": "build-record-push",
+      "script": "node src/cli.mjs build-record push"
+    },
+    {
+      "name": "capabilities",
+      "script": "node src/cli.mjs capabilities"
+    },
+    {
+      "name": "create-project",
+      "script": "node src/cli.mjs create-project"
+    },
+    {
+      "name": "discover",
+      "script": "node src/cli.mjs discover"
+    },
+    {
+      "name": "doc-adopt",
+      "script": "node src/cli.mjs doc adopt"
+    },
+    {
+      "name": "doc-create",
+      "script": "node src/cli.mjs doc create"
+    },
+    {
+      "name": "doc-diff",
+      "script": "node src/cli.mjs doc diff"
+    },
+    {
+      "name": "doc-edit",
+      "script": "node src/cli.mjs doc edit"
+    },
+    {
+      "name": "doc-pull",
+      "script": "node src/cli.mjs doc pull"
+    },
+    {
+      "name": "doc-push",
+      "script": "node src/cli.mjs doc push"
+    },
+    {
+      "name": "doctor",
+      "script": "node src/cli.mjs doctor"
+    },
+    {
+      "name": "journal-list",
+      "script": "node src/cli.mjs journal list"
+    },
+    {
+      "name": "page-diff",
+      "script": "node src/cli.mjs page diff"
+    },
+    {
+      "name": "page-edit",
+      "script": "node src/cli.mjs page edit"
+    },
+    {
+      "name": "page-pull",
+      "script": "node src/cli.mjs page pull"
+    },
+    {
+      "name": "page-push",
+      "script": "node src/cli.mjs page push"
+    },
+    {
+      "name": "plan-change",
+      "script": "node src/cli.mjs plan-change"
+    },
+    {
+      "name": "recommend",
+      "script": "node src/cli.mjs recommend"
+    },
+    {
+      "name": "runbook-adopt",
+      "script": "node src/cli.mjs runbook adopt"
+    },
+    {
+      "name": "runbook-create",
+      "script": "node src/cli.mjs runbook create"
+    },
+    {
+      "name": "runbook-diff",
+      "script": "node src/cli.mjs runbook diff"
+    },
+    {
+      "name": "runbook-edit",
+      "script": "node src/cli.mjs runbook edit"
+    },
+    {
+      "name": "runbook-pull",
+      "script": "node src/cli.mjs runbook pull"
+    },
+    {
+      "name": "runbook-push",
+      "script": "node src/cli.mjs runbook push"
+    },
+    {
+      "name": "scaffold-docs",
+      "script": "node src/cli.mjs scaffold-docs"
+    },
+    {
+      "name": "secret-record-adopt",
+      "script": "node src/cli.mjs secret-record adopt"
+    },
+    {
+      "name": "secret-record-create",
+      "script": "node src/cli.mjs secret-record create"
+    },
+    {
+      "name": "secret-record-diff",
+      "script": "node src/cli.mjs secret-record diff"
+    },
+    {
+      "name": "secret-record-edit",
+      "script": "node src/cli.mjs secret-record edit"
+    },
+    {
+      "name": "secret-record-exec",
+      "script": "node src/cli.mjs secret-record exec"
+    },
+    {
+      "name": "secret-record-generate",
+      "script": "node src/cli.mjs secret-record generate"
+    },
+    {
+      "name": "secret-record-pull",
+      "script": "node src/cli.mjs secret-record pull"
+    },
+    {
+      "name": "secret-record-push",
+      "script": "node src/cli.mjs secret-record push"
+    },
+    {
+      "name": "sync-check",
+      "script": "node src/cli.mjs sync check"
+    },
+    {
+      "name": "sync-pull",
+      "script": "node src/cli.mjs sync pull"
+    },
+    {
+      "name": "sync-push",
+      "script": "node src/cli.mjs sync push"
+    },
+    {
+      "name": "validation-session-adopt",
+      "script": "node src/cli.mjs validation-session adopt"
+    },
+    {
+      "name": "validation-session-create",
+      "script": "node src/cli.mjs validation-session create"
+    },
+    {
+      "name": "validation-session-diff",
+      "script": "node src/cli.mjs validation-session diff"
+    },
+    {
+      "name": "validation-session-pull",
+      "script": "node src/cli.mjs validation-session pull"
+    },
+    {
+      "name": "validation-session-push",
+      "script": "node src/cli.mjs validation-session push"
+    },
+    {
+      "name": "validation-bundle-login",
+      "script": "node src/cli.mjs validation-bundle login"
+    },
+    {
+      "name": "validation-bundle-preview",
+      "script": "node src/cli.mjs validation-bundle preview"
+    },
+    {
+      "name": "validation-bundle-apply",
+      "script": "node src/cli.mjs validation-bundle apply"
+    },
+    {
+      "name": "validation-bundle-verify",
+      "script": "node src/cli.mjs validation-bundle verify"
+    },
+    {
+      "name": "validation-sessions-init",
+      "script": "node src/cli.mjs validation-sessions init"
+    },
+    {
+      "name": "validation-sessions-verify",
+      "script": "node src/cli.mjs validation-sessions verify"
+    },
+    {
+      "name": "verify-project",
+      "script": "node src/cli.mjs verify-project"
+    },
+    {
+      "name": "verify-workspace-docs",
+      "script": "node src/cli.mjs verify-workspace-docs"
+    },
+    {
+      "name": "consistency-audit",
+      "script": "node src/cli.mjs doctor --consistency-audit"
+    },
+    {
+      "name": "truth-audit",
+      "script": "node src/cli.mjs doctor --truth-audit"
+    },
+    {
+      "name": "test",
+      "script": "node --test"
+    }
+  ],
+  "commands": [
+    {
+      "id": "create-project",
+      "canonicalArgv": [
+        "create-project"
+      ],
+      "canonical": "create-project",
+      "aliases": [
+        "create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "create-project"
+      ],
+      "mutationMode": "live-mutation",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-token",
+      "surface": "project-bootstrap",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doctor",
+      "canonicalArgv": [
+        "doctor"
+      ],
+      "canonical": "doctor",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "doctor",
+        "consistency-audit",
+        "truth-audit"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "project-health",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "recommend",
+      "canonicalArgv": [
+        "recommend"
+      ],
+      "canonical": "recommend",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "recommend"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "routing",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "verify-project",
+      "canonicalArgv": [
+        "verify-project"
+      ],
+      "canonical": "verify-project",
+      "aliases": [
+        "verify"
+      ],
+      "family": null,
+      "npmScripts": [
+        "verify-project"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "project-verification",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "verify-workspace-docs",
+      "canonicalArgv": [
+        "verify-workspace-docs"
+      ],
+      "canonical": "verify-workspace-docs",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "verify-workspace-docs"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-token",
+      "surface": "workspace-doc-verification",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "capabilities",
+      "canonicalArgv": [
+        "capabilities"
+      ],
+      "canonical": "capabilities",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "capabilities"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "none",
+      "surface": "cli",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "discover",
+      "canonicalArgv": [
+        "discover"
+      ],
+      "canonical": "discover",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "discover"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "first-contact",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "scaffold-docs",
+      "canonicalArgv": [
+        "scaffold-docs"
+      ],
+      "canonical": "scaffold-docs",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "scaffold-docs"
+      ],
+      "mutationMode": "local-file-output",
+      "notionMutation": "none",
+      "localFileWrites": "output-dir-gated",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "project-doc-scaffold",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "plan-change",
+      "canonicalArgv": [
+        "plan-change"
+      ],
+      "canonical": "plan-change",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "plan-change"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc",
+      "canonicalArgv": [
+        "doc"
+      ],
+      "canonical": "doc",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "doc-adopt",
+        "doc-create",
+        "doc-diff",
+        "doc-edit",
+        "doc-pull",
+        "doc-push",
+        "doctor",
+        "consistency-audit",
+        "truth-audit"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "page",
+      "canonicalArgv": [
+        "page"
+      ],
+      "canonical": "page",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "page-diff",
+        "page-edit",
+        "page-pull",
+        "page-push"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook",
+      "canonicalArgv": [
+        "runbook"
+      ],
+      "canonical": "runbook",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "runbook-adopt",
+        "runbook-create",
+        "runbook-diff",
+        "runbook-edit",
+        "runbook-pull",
+        "runbook-push"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record",
+      "canonicalArgv": [
+        "secret-record"
+      ],
+      "canonical": "secret-record",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "secret-record-adopt",
+        "secret-record-create",
+        "secret-record-diff",
+        "secret-record-edit",
+        "secret-record-exec",
+        "secret-record-generate",
+        "secret-record-pull",
+        "secret-record-push"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token",
+      "canonicalArgv": [
+        "access-token"
+      ],
+      "canonical": "access-token",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "access-token-adopt",
+        "access-token-create",
+        "access-token-diff",
+        "access-token-edit",
+        "access-token-exec",
+        "access-token-generate",
+        "access-token-pull",
+        "access-token-push"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-session",
+      "canonicalArgv": [
+        "validation-session"
+      ],
+      "canonical": "validation-session",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "validation-session-adopt",
+        "validation-session-create",
+        "validation-session-diff",
+        "validation-session-pull",
+        "validation-session-push",
+        "validation-sessions-init",
+        "validation-sessions-verify"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "sync",
+      "canonicalArgv": [
+        "sync"
+      ],
+      "canonical": "sync",
+      "aliases": [],
+      "family": null,
+      "npmScripts": [
+        "sync-check",
+        "sync-pull",
+        "sync-push"
+      ],
+      "mutationMode": "mixed",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token",
+      "surface": "manifest-sync",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "journal.list",
+      "canonicalArgv": [
+        "journal",
+        "list"
+      ],
+      "canonical": "journal list",
+      "aliases": [
+        "journal-list"
+      ],
+      "family": null,
+      "npmScripts": [
+        "journal-list"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "local-filesystem",
+      "surface": "mutation-journal",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.create",
+      "canonicalArgv": [
+        "doc",
+        "create"
+      ],
+      "canonical": "doc create",
+      "aliases": [
+        "doc-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.adopt",
+      "canonicalArgv": [
+        "doc",
+        "adopt"
+      ],
+      "canonical": "doc adopt",
+      "aliases": [
+        "doc-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.pull",
+      "canonicalArgv": [
+        "doc",
+        "pull"
+      ],
+      "canonical": "doc pull",
+      "aliases": [
+        "doc-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.diff",
+      "canonicalArgv": [
+        "doc",
+        "diff"
+      ],
+      "canonical": "doc diff",
+      "aliases": [
+        "doc-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.push",
+      "canonicalArgv": [
+        "doc",
+        "push"
+      ],
+      "canonical": "doc push",
+      "aliases": [
+        "doc-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "doc.edit",
+      "canonicalArgv": [
+        "doc",
+        "edit"
+      ],
+      "canonical": "doc edit",
+      "aliases": [
+        "doc-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "doc-edit"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "workspace-or-project-token",
+      "surface": "managed-docs",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "page.pull",
+      "canonicalArgv": [
+        "page",
+        "pull"
+      ],
+      "canonical": "page pull",
+      "aliases": [
+        "page-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "page-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "page.diff",
+      "canonicalArgv": [
+        "page",
+        "diff"
+      ],
+      "canonical": "page diff",
+      "aliases": [
+        "page-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "page-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "page.push",
+      "canonicalArgv": [
+        "page",
+        "push"
+      ],
+      "canonical": "page push",
+      "aliases": [
+        "page-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "page-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "page.edit",
+      "canonicalArgv": [
+        "page",
+        "edit"
+      ],
+      "canonical": "page edit",
+      "aliases": [
+        "page-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "page-edit"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "planning",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.create",
+      "canonicalArgv": [
+        "access-domain",
+        "create"
+      ],
+      "canonical": "access-domain create",
+      "aliases": [
+        "access-domain-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.adopt",
+      "canonicalArgv": [
+        "access-domain",
+        "adopt"
+      ],
+      "canonical": "access-domain adopt",
+      "aliases": [
+        "access-domain-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.pull",
+      "canonicalArgv": [
+        "access-domain",
+        "pull"
+      ],
+      "canonical": "access-domain pull",
+      "aliases": [
+        "access-domain-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.diff",
+      "canonicalArgv": [
+        "access-domain",
+        "diff"
+      ],
+      "canonical": "access-domain diff",
+      "aliases": [
+        "access-domain-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.push",
+      "canonicalArgv": [
+        "access-domain",
+        "push"
+      ],
+      "canonical": "access-domain push",
+      "aliases": [
+        "access-domain-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-domain.edit",
+      "canonicalArgv": [
+        "access-domain",
+        "edit"
+      ],
+      "canonical": "access-domain edit",
+      "aliases": [
+        "access-domain-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-domain-edit"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.create",
+      "canonicalArgv": [
+        "secret-record",
+        "create"
+      ],
+      "canonical": "secret-record create",
+      "aliases": [
+        "secret-record-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.adopt",
+      "canonicalArgv": [
+        "secret-record",
+        "adopt"
+      ],
+      "canonical": "secret-record adopt",
+      "aliases": [
+        "secret-record-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.generate",
+      "canonicalArgv": [
+        "secret-record",
+        "generate"
+      ],
+      "canonical": "secret-record generate",
+      "aliases": [
+        "secret-record-generate"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-generate"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": "apply-gated",
+      "localFileWrites": "none",
+      "journalWrites": "apply-gated-redacted-operational-only",
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.pull",
+      "canonicalArgv": [
+        "secret-record",
+        "pull"
+      ],
+      "canonical": "secret-record pull",
+      "aliases": [
+        "secret-record-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.exec",
+      "canonicalArgv": [
+        "secret-record",
+        "exec"
+      ],
+      "canonical": "secret-record exec",
+      "aliases": [
+        "secret-record-exec"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-exec"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.diff",
+      "canonicalArgv": [
+        "secret-record",
+        "diff"
+      ],
+      "canonical": "secret-record diff",
+      "aliases": [
+        "secret-record-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-diff"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.push",
+      "canonicalArgv": [
+        "secret-record",
+        "push"
+      ],
+      "canonical": "secret-record push",
+      "aliases": [
+        "secret-record-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-push"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "secret-record.edit",
+      "canonicalArgv": [
+        "secret-record",
+        "edit"
+      ],
+      "canonical": "secret-record edit",
+      "aliases": [
+        "secret-record-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "secret-record-edit"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.create",
+      "canonicalArgv": [
+        "access-token",
+        "create"
+      ],
+      "canonical": "access-token create",
+      "aliases": [
+        "access-token-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.adopt",
+      "canonicalArgv": [
+        "access-token",
+        "adopt"
+      ],
+      "canonical": "access-token adopt",
+      "aliases": [
+        "access-token-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.generate",
+      "canonicalArgv": [
+        "access-token",
+        "generate"
+      ],
+      "canonical": "access-token generate",
+      "aliases": [
+        "access-token-generate"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-generate"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": "apply-gated",
+      "localFileWrites": "none",
+      "journalWrites": "apply-gated-redacted-operational-only",
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.pull",
+      "canonicalArgv": [
+        "access-token",
+        "pull"
+      ],
+      "canonical": "access-token pull",
+      "aliases": [
+        "access-token-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.exec",
+      "canonicalArgv": [
+        "access-token",
+        "exec"
+      ],
+      "canonical": "access-token exec",
+      "aliases": [
+        "access-token-exec"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-exec"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.diff",
+      "canonicalArgv": [
+        "access-token",
+        "diff"
+      ],
+      "canonical": "access-token diff",
+      "aliases": [
+        "access-token-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-diff"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.push",
+      "canonicalArgv": [
+        "access-token",
+        "push"
+      ],
+      "canonical": "access-token push",
+      "aliases": [
+        "access-token-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-push"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "access-token.edit",
+      "canonicalArgv": [
+        "access-token",
+        "edit"
+      ],
+      "canonical": "access-token edit",
+      "aliases": [
+        "access-token-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "access-token-edit"
+      ],
+      "mutationMode": "unsupported",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "access",
+      "stability": "deprecated",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.create",
+      "canonicalArgv": [
+        "runbook",
+        "create"
+      ],
+      "canonical": "runbook create",
+      "aliases": [
+        "runbook-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.adopt",
+      "canonicalArgv": [
+        "runbook",
+        "adopt"
+      ],
+      "canonical": "runbook adopt",
+      "aliases": [
+        "runbook-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.pull",
+      "canonicalArgv": [
+        "runbook",
+        "pull"
+      ],
+      "canonical": "runbook pull",
+      "aliases": [
+        "runbook-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.diff",
+      "canonicalArgv": [
+        "runbook",
+        "diff"
+      ],
+      "canonical": "runbook diff",
+      "aliases": [
+        "runbook-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.push",
+      "canonicalArgv": [
+        "runbook",
+        "push"
+      ],
+      "canonical": "runbook push",
+      "aliases": [
+        "runbook-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "runbook.edit",
+      "canonicalArgv": [
+        "runbook",
+        "edit"
+      ],
+      "canonical": "runbook edit",
+      "aliases": [
+        "runbook-edit"
+      ],
+      "family": null,
+      "npmScripts": [
+        "runbook-edit"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "runbooks",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "build-record.create",
+      "canonicalArgv": [
+        "build-record",
+        "create"
+      ],
+      "canonical": "build-record create",
+      "aliases": [
+        "build-record-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "build-record-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "builds",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "build-record.pull",
+      "canonicalArgv": [
+        "build-record",
+        "pull"
+      ],
+      "canonical": "build-record pull",
+      "aliases": [
+        "build-record-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "build-record-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "builds",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "build-record.diff",
+      "canonicalArgv": [
+        "build-record",
+        "diff"
+      ],
+      "canonical": "build-record diff",
+      "aliases": [
+        "build-record-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "build-record-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "builds",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "build-record.push",
+      "canonicalArgv": [
+        "build-record",
+        "push"
+      ],
+      "canonical": "build-record push",
+      "aliases": [
+        "build-record-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "build-record-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "builds",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-sessions.init",
+      "canonicalArgv": [
+        "validation-sessions",
+        "init"
+      ],
+      "canonical": "validation-sessions init",
+      "aliases": [
+        "validation-sessions-init"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-sessions-init"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-sessions.verify",
+      "canonicalArgv": [
+        "validation-sessions",
+        "verify"
+      ],
+      "canonical": "validation-sessions verify",
+      "aliases": [
+        "validation-sessions-verify"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-sessions-verify"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-bundle.login",
+      "canonicalArgv": [
+        "validation-bundle",
+        "login"
+      ],
+      "canonical": "validation-bundle login",
+      "aliases": [
+        "validation-bundle-login"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-bundle-login"
+      ],
+      "mutationMode": "local-session",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "local-browser-session",
+      "surface": "validation-bundle",
+      "stability": "experimental",
+      "status": "retired-candidate"
+    },
+    {
+      "id": "validation-bundle.preview",
+      "canonicalArgv": [
+        "validation-bundle",
+        "preview"
+      ],
+      "canonical": "validation-bundle preview",
+      "aliases": [
+        "validation-bundle-preview"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-bundle-preview"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-bundle",
+      "stability": "experimental",
+      "status": "retired-candidate"
+    },
+    {
+      "id": "validation-bundle.apply",
+      "canonicalArgv": [
+        "validation-bundle",
+        "apply"
+      ],
+      "canonical": "validation-bundle apply",
+      "aliases": [
+        "validation-bundle-apply"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-bundle-apply"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-bundle",
+      "stability": "experimental",
+      "status": "retired-candidate"
+    },
+    {
+      "id": "validation-bundle.verify",
+      "canonicalArgv": [
+        "validation-bundle",
+        "verify"
+      ],
+      "canonical": "validation-bundle verify",
+      "aliases": [
+        "validation-bundle-verify"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-bundle-verify"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-bundle",
+      "stability": "experimental",
+      "status": "retired-candidate"
+    },
+    {
+      "id": "validation-session.create",
+      "canonicalArgv": [
+        "validation-session",
+        "create"
+      ],
+      "canonical": "validation-session create",
+      "aliases": [
+        "validation-session-create"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-session-create"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-session.adopt",
+      "canonicalArgv": [
+        "validation-session",
+        "adopt"
+      ],
+      "canonical": "validation-session adopt",
+      "aliases": [
+        "validation-session-adopt"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-session-adopt"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-session.pull",
+      "canonicalArgv": [
+        "validation-session",
+        "pull"
+      ],
+      "canonical": "validation-session pull",
+      "aliases": [
+        "validation-session-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-session-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-session.diff",
+      "canonicalArgv": [
+        "validation-session",
+        "diff"
+      ],
+      "canonical": "validation-session diff",
+      "aliases": [
+        "validation-session-diff"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-session-diff"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "validation-session.push",
+      "canonicalArgv": [
+        "validation-session",
+        "push"
+      ],
+      "canonical": "validation-session push",
+      "aliases": [
+        "validation-session-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "validation-session-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": null,
+      "localFileWrites": null,
+      "journalWrites": null,
+      "authScope": "project-token-optional",
+      "surface": "validation-sessions",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "sync.check",
+      "canonicalArgv": [
+        "sync",
+        "check"
+      ],
+      "canonical": "sync check",
+      "aliases": [
+        "sync-check"
+      ],
+      "family": null,
+      "npmScripts": [
+        "sync-check"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "none",
+      "journalWrites": "none",
+      "authScope": "project-token",
+      "surface": "manifest-sync",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "sync.pull",
+      "canonicalArgv": [
+        "sync",
+        "pull"
+      ],
+      "canonical": "sync pull",
+      "aliases": [
+        "sync-pull"
+      ],
+      "family": null,
+      "npmScripts": [
+        "sync-pull"
+      ],
+      "mutationMode": "read-only",
+      "notionMutation": "none",
+      "localFileWrites": "apply-gated",
+      "journalWrites": "none",
+      "authScope": "project-token",
+      "surface": "manifest-sync",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    },
+    {
+      "id": "sync.push",
+      "canonicalArgv": [
+        "sync",
+        "push"
+      ],
+      "canonical": "sync push",
+      "aliases": [
+        "sync-push"
+      ],
+      "family": null,
+      "npmScripts": [
+        "sync-push"
+      ],
+      "mutationMode": "apply-gated",
+      "notionMutation": "apply-gated",
+      "localFileWrites": "opt-in-refresh-sidecars-apply-gated",
+      "journalWrites": "apply-gated",
+      "authScope": "project-token",
+      "surface": "manifest-sync",
+      "stability": "stable",
+      "status": "active-at-inventory-time"
+    }
+  ]
+}

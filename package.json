@@ -67,10 +67,6 @@
     "validation-session-diff": "node src/cli.mjs validation-session diff",
     "validation-session-pull": "node src/cli.mjs validation-session pull",
     "validation-session-push": "node src/cli.mjs validation-session push",
-    "validation-bundle-login": "node src/cli.mjs validation-bundle login",
-    "validation-bundle-preview": "node src/cli.mjs validation-bundle preview",
-    "validation-bundle-apply": "node src/cli.mjs validation-bundle apply",
-    "validation-bundle-verify": "node src/cli.mjs validation-bundle verify",
     "validation-sessions-init": "node src/cli.mjs validation-sessions init",
     "validation-sessions-verify": "node src/cli.mjs validation-sessions verify",
     "verify-project": "node src/cli.mjs verify-project",
@@ -78,8 +74,5 @@
     "consistency-audit": "node src/cli.mjs doctor --consistency-audit",
     "truth-audit": "node src/cli.mjs doctor --truth-audit",
     "test": "node --test"
-  },
-  "dependencies": {
-    "playwright": "^1.58.2"
   }
 }

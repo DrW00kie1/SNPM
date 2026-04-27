@@ -219,29 +219,9 @@ SNPM enforces these v1 constraints:
 - `pull`, `diff`, and `push` operate only on SNPM-managed session pages
 - `adopt` is the explicit path for standardizing an existing headerless session page
 
-## Surrounding UI Bundle
+## Surrounding Manual UI Bundle
 
-The stable API-managed surface still stops at the database, schema, row properties, and row page content.
-
-SNPM also has a separate Chromium-only UI automation lane for the blessed surrounding bundle:
-- primary working view: `Active Sessions`
-- backup intake form: `Quick Intake`
-- database template: `Validation Session`
-- validation-page button: `New Validation Session`
-- optional safe extra API-visible property: `Issue URL` as `url`
-
-Current status:
-- `validation-sessions verify --bundle` remains the supported API-visible check
-- `validation-bundle-*` is available on `main` as an experimental Chromium-only lane for the surrounding UI bundle
-
-Use the UI lane only when you are explicitly testing or repairing the surrounding Notion UI bundle:
-
-```powershell
-npm run validation-bundle-login
-npm run validation-bundle-preview -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
-npm run validation-bundle-apply -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --apply
-npm run validation-bundle-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
-```
+The stable API-managed surface stops at the database, schema, row properties, and row page content.
 
 Use bundle verification when you need the narrow workflow-level check:
 
@@ -249,16 +229,17 @@ Use bundle verification when you need the narrow workflow-level check:
 npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --bundle
 ```
 
-`--bundle` still verifies only API-visible rules and returns explicit manual checks for the UI-only elements.
+`--bundle` verifies the API-visible parts of the validation-session workflow and returns explicit manual checks for UI-only elements that the Notion API does not manage.
 
-`validation-bundle-*` is the separate control plane for the surrounding UI bundle:
-- it launches Playwright Chromium directly
-- it ignores Edge and the machine default browser
-- it stores browser state outside the repo
-- it still requires one initial interactive Chromium login seed through `validation-bundle-login`
+Manual UI-only elements:
+- primary working view: `Active Sessions`
+- backup intake form: `Quick Intake`
+- database template: `Validation Session`
+- validation-page button: `New Validation Session`
+- optional safe extra API-visible property: `Issue URL` as `url`
 
-That lane is not the default operator path. Keep the API-visible validation-session surface plus manual UI setup as the stable baseline, and use the Chromium lane only when the richer UI bundle matters.
+SNPM does not mutate or inspect the full surrounding UI bundle. Keep the API-visible validation-session surface plus manual UI setup as the stable baseline.
 
 Rows created from the `Validation Session` template inherit the managed contract immediately. The template uses the canonical placeholder path `... > <Session Title>` until the first SNPM pull/push normalizes the header to the exact row title.
 
-The full bundle contract and Chromium-only UI-lane guidance live in [validation-session UI bundle](./validation-session-ui-bundle.md).
+The full manual bundle contract lives in [validation-session manual UI bundle](./validation-session-ui-bundle.md).

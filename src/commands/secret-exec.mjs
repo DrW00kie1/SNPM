@@ -1,10 +1,9 @@
 import { spawnSync } from "node:child_process";
 
+import { validateChildCommandArgs, validateCwd, validateEnvName } from "../validators.mjs";
 import { SECRET_REDACTION_MARKER } from "./secret-output-safety.mjs";
 
 export const SECRET_EXEC_LEAK_WARNING = "SNPM redacted child output containing the secret; failing closed.";
-
-const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function stringifyOutput(value) {
   if (value === undefined || value === null) {
@@ -34,11 +33,11 @@ export function validateSecretExecEnvName(envName) {
     throw new Error("Provide --env-name ENV_NAME or --stdin-secret for secret exec.");
   }
 
-  if (!ENV_NAME_PATTERN.test(envName)) {
+  try {
+    return validateEnvName(envName, { label: "--env-name" });
+  } catch {
     throw new Error("--env-name must be a valid environment variable name.");
   }
-
-  return envName;
 }
 
 export function findSecretExecEnvCollision(envName, env = process.env) {
@@ -76,13 +75,10 @@ export function validateSecretExecInjection({
 }
 
 function validateSecretExecCommand(childArgs) {
-  if (!Array.isArray(childArgs) || childArgs.length === 0 || !childArgs[0]) {
-    throw new Error("Provide a child command after -- for secret exec.");
-  }
-
-  if (!childArgs.every((arg) => typeof arg === "string")) {
-    throw new Error("Secret exec child command arguments must be strings.");
-  }
+  return validateChildCommandArgs(childArgs, {
+    emptyMessage: "Provide a child command after -- for secret exec.",
+    nonStringMessage: "Secret exec child command arguments must be strings.",
+  });
 }
 
 export function runSecretExec({
@@ -99,6 +95,7 @@ export function runSecretExec({
   }
 
   validateSecretExecCommand(childArgs);
+  const validatedCwd = validateCwd(cwd);
   const injection = validateSecretExecInjection({ env, envName, stdinSecret });
 
   const childEnv = injection.mode === "env"
@@ -110,8 +107,8 @@ export function runSecretExec({
     shell: false,
     windowsHide: true,
   };
-  if (cwd) {
-    spawnOptions.cwd = cwd;
+  if (validatedCwd) {
+    spawnOptions.cwd = validatedCwd;
   }
   if (injection.mode === "stdin") {
     spawnOptions.input = secretValue;

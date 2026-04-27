@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 import {
   SECRET_EXEC_LEAK_WARNING,
@@ -12,10 +13,11 @@ import { SECRET_REDACTION_MARKER } from "../src/commands/secret-output-safety.mj
 
 test("runSecretExec injects the secret into a child env var without shell execution", () => {
   const calls = [];
+  const existingCwd = process.cwd();
 
   const result = runSecretExec({
     childArgs: ["child-bin", "--flag"],
-    cwd: "C:/work",
+    cwd: existingCwd,
     env: { PATH: "bin" },
     envName: "SNPM_TEST_SECRET",
     secretValue: "exact-secret",
@@ -34,7 +36,7 @@ test("runSecretExec injects the secret into a child env var without shell execut
   assert.deepEqual(calls[0].args, ["--flag"]);
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.windowsHide, true);
-  assert.equal(calls[0].options.cwd, "C:/work");
+  assert.equal(calls[0].options.cwd, existingCwd);
   assert.equal(calls[0].options.env.SNPM_TEST_SECRET, "exact-secret");
   assert.equal("input" in calls[0].options, false);
 });
@@ -146,6 +148,27 @@ test("validateSecretExecInjection rejects invalid modes, env names, and collisio
   );
 
   assert.equal(findSecretExecEnvCollision("SECRET_VALUE", { Secret_Value: "already-set" }), "Secret_Value");
+});
+
+test("runSecretExec rejects invalid cwd before spawning the child", () => {
+  let spawned = false;
+
+  assert.throws(
+    () => runSecretExec({
+      childArgs: ["child-bin"],
+      cwd: path.join(process.cwd(), ".missing-secret-exec-cwd"),
+      env: {},
+      envName: "SECRET_VALUE",
+      secretValue: "super-secret",
+      spawnSyncImpl: () => {
+        spawned = true;
+        return { status: 0, stdout: "", stderr: "" };
+      },
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  assert.equal(spawned, false);
 });
 
 test("redactExactSecret only redacts exact secret-value occurrences", () => {

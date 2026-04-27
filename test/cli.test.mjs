@@ -115,7 +115,7 @@ function assertSyncCapabilityMetadata(command, expected) {
   ]);
 }
 
-test("usage includes planning sync plus access, runbook, build-record, validation-session, validation-bundle, and manifest sync commands", () => {
+test("usage includes planning sync plus access, runbook, build-record, validation-session, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /node src\/cli\.mjs <command> \[options\]/);
   assert.match(help, /node src\/cli\.mjs --help/);
@@ -130,8 +130,8 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /access-domain <create\|adopt\|pull\|diff\|push\|edit>/);
   assert.match(help, /journal <list>/);
   assert.match(help, /validation-sessions <init\|verify>/);
-  assert.match(help, /validation-bundle <login\|preview\|apply\|verify>/);
   assert.match(help, /sync <check\|pull\|push>/);
+  assert.doesNotMatch(help, /validation-bundle/i);
   assert.match(help, /Manifest v2[^.]*sync check[^.]*sync pull[^.]*guarded sync push/i);
   assert.match(help, /(?:sync pull[^.]*local[- ]file|local[- ]file[^.]*sync pull)/i);
   assert.match(help, /Validation-session manifest v1 sync[^.]*sync push/i);
@@ -142,7 +142,6 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /Recommend stays an alias for the read-only scan unless --intent is provided/);
   assert.match(help, /managed doc surface uses doc-\* commands/);
   assert.match(help, /Validation-session bundle verification remains the API-visible check/);
-  assert.match(help, /Validation-bundle automation launches Playwright Chromium directly/);
   assert.match(help, /markdown body is written to stdout and the structured metadata is written to stderr/);
   assert.match(help, /Implementation notes, design specs, task breakdowns, and investigations are repo-first intents/);
   assert.match(help, /scaffold-docs is preview-first bootstrap doc scaffolding/);
@@ -167,7 +166,8 @@ test("help registry resolves command aliases to the canonical command", () => {
   assert.equal(findCommandHelp("access-token generate")?.canonical, "access-token generate");
   assert.equal(findCommandHelp("sync")?.canonical, "sync");
   assert.equal(findCommandHelp("validation-session")?.canonical, "validation-session");
-  assert.equal(findCommandHelp("validation-bundle-verify")?.canonical, "validation-bundle verify");
+  assert.equal(findCommandHelp("validation-bundle-verify"), null);
+  assert.equal(findCommandHelp("validation-bundle verify"), null);
   assert.equal(findCommandHelp("verify")?.canonical, "verify-project");
   assert.equal(findCommandHelp("discover")?.canonical, "discover");
   assert.equal(findCommandHelp("journal-list")?.canonical, "journal list");
@@ -183,7 +183,7 @@ test("capability map is schema-versioned and includes existing commands from the
   assert.ok(capabilities.commandGroups.some((group) => group.title === "Core Commands"));
   assert.ok(capabilities.canonicalCommands.includes("verify-project"));
   assert.ok(capabilities.canonicalCommands.includes("page push"));
-  assert.ok(capabilities.canonicalCommands.includes("validation-bundle verify"));
+  assert.equal(capabilities.canonicalCommands.includes("validation-bundle verify"), false);
   assert.ok(capabilities.canonicalCommands.includes("capabilities"));
   assert.ok(capabilities.canonicalCommands.includes("discover"));
   assert.ok(capabilities.canonicalCommands.includes("plan-change"));
@@ -196,6 +196,7 @@ test("capability map is schema-versioned and includes existing commands from the
   assert.ok(capabilities.canonicalCommands.includes("secret-record generate"));
   assert.ok(capabilities.canonicalCommands.includes("access-token generate"));
   assert.ok(capabilities.canonicalCommands.includes("journal list"));
+  assert.doesNotMatch(JSON.stringify(capabilities), /validation-bundle/i);
   assert.doesNotMatch(JSON.stringify(capabilities), /Worker A/);
   assert.deepEqual(pagePush, {
     canonical: registryPagePush.canonical,
@@ -243,6 +244,13 @@ test("capabilities command help and npm script are registered", () => {
   assert.equal(spec?.mutationMode, "read-only");
   assert.equal(packageJson.scripts.capabilities, "node src/cli.mjs capabilities");
   assert.deepEqual(parsedJson, capabilities);
+});
+
+test("validation-bundle npm scripts are not registered", () => {
+  assert.equal(packageJson.scripts["validation-bundle-login"], undefined);
+  assert.equal(packageJson.scripts["validation-bundle-preview"], undefined);
+  assert.equal(packageJson.scripts["validation-bundle-apply"], undefined);
+  assert.equal(packageJson.scripts["validation-bundle-verify"], undefined);
 });
 
 test("discover command help, capability metadata, and npm script are registered", () => {
@@ -797,7 +805,7 @@ test("resolveHelpRequest supports global, command, and unknown help targets", ()
     command: "page push",
   });
   assert.deepEqual(resolveHelpRequest(["validation-bundle", "verify", "--help"]), {
-    type: "command",
+    type: "unknown",
     command: "validation-bundle verify",
   });
   assert.deepEqual(resolveHelpRequest(["plan-change", "--help"]), {
@@ -1089,6 +1097,23 @@ test("parseArgs supports literal passthrough only for secret exec and generate c
     ]),
     /literal -- child-command delimiter is only supported for secret-record exec\/generate and access-token exec\/generate/i,
   );
+
+  assert.throws(
+    () => parseArgs([
+      "secret-record",
+      "exec",
+      "--project",
+      "SNPM",
+      "--domain",
+      "App & Backend",
+      "--title",
+      "GEMINI_API_KEY",
+      "--env-name",
+      "GEMINI_API_KEY",
+      "--",
+    ]),
+    /Provide a child command after -- for secret-record exec/i,
+  );
 });
 
 test("parseArgs supports build-record subcommands", () => {
@@ -1144,28 +1169,6 @@ test("parseArgs supports validation-sessions verify with bundle mode", () => {
   assert.equal(parsed.options.project, "Tall Man Training");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
   assert.equal(parsed.options.bundle, true);
-});
-
-test("parseArgs supports validation-bundle commands", () => {
-  const loginParsed = parseArgs([
-    "validation-bundle",
-    "login",
-  ]);
-  const applyParsed = parseArgs([
-    "validation-bundle",
-    "apply",
-    "--project",
-    "SNPM",
-    "--project-token-env",
-    "SNPM_NOTION_TOKEN",
-    "--apply",
-  ]);
-
-  assert.equal(loginParsed.command, "validation-bundle login");
-  assert.equal(applyParsed.command, "validation-bundle apply");
-  assert.equal(applyParsed.options.project, "SNPM");
-  assert.equal(applyParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
-  assert.equal(applyParsed.options.apply, true);
 });
 
 test("parseArgs supports sync subcommands", () => {
@@ -1351,12 +1354,12 @@ test("cli help suppresses required option validation when extra flags are presen
   assert.equal(result.stderr, "");
 });
 
-test("cli validation-bundle help prints command help and bypasses option validation", () => {
+test("cli validation-bundle help fails as an unknown command", () => {
   const result = runCli(["validation-bundle", "preview", "--help"]);
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /Command: validation-bundle preview/);
-  assert.match(result.stdout, /This lane is experimental/i);
-  assert.equal(result.stderr, "");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown command: validation-bundle preview/);
+  assert.match(result.stdout, /node src\/cli\.mjs <command> \[options\]/);
+  assert.doesNotMatch(result.stdout, /Command: validation-bundle preview/);
 });
 
 test("cli plan-change and journal-list help print command help", () => {
@@ -1766,4 +1769,19 @@ test("cli unknown command help prints the error plus global help and exits non-z
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Unknown command: fake-command/);
   assert.match(result.stdout, /node src\/cli\.mjs <command> \[options\]/);
+});
+
+test("cli validation-bundle command exits non-zero as unknown", () => {
+  const result = runCli([
+    "validation-bundle",
+    "verify",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown command: validation-bundle verify/);
+  assert.equal(result.stdout, "");
 });

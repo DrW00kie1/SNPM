@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
+import { validateChildCommandArgs, validateCwd } from "../validators.mjs";
 import { loadWorkspaceConfig } from "../notion/config.mjs";
 import {
   adoptAccessDomain,
@@ -28,7 +29,7 @@ import {
   redactSecretMarkdown,
   validateSecretPullOutputPolicy,
 } from "./secret-output-safety.mjs";
-import { runSecretExec } from "./secret-exec.mjs";
+import { runSecretExec, validateSecretExecInjection } from "./secret-exec.mjs";
 import {
   runGeneratedSecretCommand,
   unwrapGeneratedSecretMaterial,
@@ -313,6 +314,9 @@ export async function runSecretRecordExec({
   workspaceConfig,
   workspaceName = "infrastructure-hq",
 }) {
+  validateExecChildArgs(childArgs, "secret-record exec");
+  const validatedCwd = validateCwd(cwd);
+  validateSecretExecInjection({ env, envName, stdinSecret });
   const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
   const result = await pullSecretRecordBodyImpl({
     config,
@@ -326,7 +330,7 @@ export async function runSecretRecordExec({
   const secretValue = extractRawSecretValueFromMarkdown(result.bodyMarkdown, { command: "secret-record exec" });
   const execResult = runSecretExec({
     childArgs,
-    cwd,
+    cwd: validatedCwd,
     env,
     envName,
     secretValue,
@@ -389,13 +393,17 @@ function normalizeGenerateMode(mode, command) {
 }
 
 function validateGenerateChildArgs(childArgs, command) {
-  if (!Array.isArray(childArgs) || childArgs.length === 0 || !childArgs[0]) {
-    throw new Error(`Provide a generator command after -- for ${command}.`);
-  }
+  return validateChildCommandArgs(childArgs, {
+    emptyMessage: `Provide a generator command after -- for ${command}.`,
+    nonStringMessage: `${command} generator command arguments must be strings.`,
+  });
+}
 
-  if (!childArgs.every((arg) => typeof arg === "string")) {
-    throw new Error(`${command} generator command arguments must be strings.`);
-  }
+function validateExecChildArgs(childArgs, command) {
+  return validateChildCommandArgs(childArgs, {
+    emptyMessage: `Provide a child command after -- for ${command}.`,
+    nonStringMessage: `${command} child command arguments must be strings.`,
+  });
 }
 
 function generatedAccessWarning() {
@@ -420,6 +428,7 @@ async function runGeneratedAccessRecord({
 }) {
   const normalizedMode = normalizeGenerateMode(mode, command);
   validateGenerateChildArgs(childArgs, command);
+  const validatedCwd = validateCwd(cwd);
   const config = workspaceConfig || loadWorkspaceConfig(workspaceName);
   const mutateImpl = normalizedMode === "create" ? createImpl : updateImpl;
   const baseArgs = {
@@ -451,7 +460,7 @@ async function runGeneratedAccessRecord({
 
   const generated = runGeneratedSecretCommandImpl({
     childArgs,
-    cwd,
+    cwd: validatedCwd,
   });
   if (!generated.ok) {
     throw new Error(generated.failure || "Generator command failed.");
@@ -601,6 +610,9 @@ export async function runAccessTokenExec({
   workspaceConfig,
   workspaceName = "infrastructure-hq",
 }) {
+  validateExecChildArgs(childArgs, "access-token exec");
+  const validatedCwd = validateCwd(cwd);
+  validateSecretExecInjection({ env, envName, stdinSecret });
   const config = workspaceConfig || loadWorkspaceConfigImpl(workspaceName);
   const result = await pullAccessTokenBodyImpl({
     config,
@@ -614,7 +626,7 @@ export async function runAccessTokenExec({
   const secretValue = extractRawSecretValueFromMarkdown(result.bodyMarkdown, { command: "access-token exec" });
   const execResult = runSecretExec({
     childArgs,
-    cwd,
+    cwd: validatedCwd,
     env,
     envName,
     secretValue,

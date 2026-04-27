@@ -886,6 +886,107 @@ test("verifyValidationSessionsSurface bundle mode allows Issue URL and reports m
   assert.equal(result.manualChecks.length, 4);
 });
 
+test("verifyValidationSessionsSurface bundle mode preserves API-only validation-session checks", async () => {
+  const childrenMap = makeBaseChildren();
+  childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);
+  const fixture = makeValidationFixture({
+    childrenMap,
+    databases: {
+      "validation-db": {
+        id: "validation-db",
+        title: [{ plain_text: "Validation Sessions" }],
+        icon: { type: "emoji", emoji: "🧪" },
+        data_sources: [{ id: "validation-ds" }],
+      },
+    },
+    dataSources: {
+      "validation-ds": {
+        id: "validation-ds",
+        properties: {
+          Name: { type: "title" },
+          Platform: { type: "select", select: { options: [{ name: "Web" }, { name: "Android" }, { name: "iPhone" }, { name: "Cross-Platform" }] } },
+          "Session State": { type: "select", select: { options: [{ name: "Planned" }, { name: "In Progress" }, { name: "Passed" }, { name: "Failed" }, { name: "Blocked" }] } },
+          Tester: { type: "rich_text" },
+          "Build Label": { type: "rich_text" },
+          "Runbook URL": { type: "url" },
+          "Started On": { type: "date" },
+          "Completed On": { type: "date" },
+        },
+      },
+    },
+    rowsByDataSource: {
+      "validation-ds": [{
+        id: "session-row",
+        properties: {
+          Name: { title: [{ plain_text: "API Bundle Session" }] },
+          Platform: { type: "select", select: { name: "Web" } },
+          "Session State": { type: "select", select: { name: "Passed" } },
+          Tester: { type: "rich_text", rich_text: [{ plain_text: "Sean" }] },
+          "Build Label": { type: "rich_text", rich_text: [{ plain_text: "v0.3.4" }] },
+          "Runbook URL": { type: "url", url: "https://example.com/runbook" },
+          "Started On": { type: "date", date: { start: "2026-03-30" } },
+          "Completed On": { type: "date", date: { start: "2026-03-30" } },
+        },
+      }],
+    },
+    markdownByPageId: {
+      "session-row": [
+        "Purpose: Validation session",
+        "Canonical Source: Projects \\> SNPM \\> Ops \\> Validation \\> Validation Sessions \\> API Bundle Session",
+        "Read This When: Session details",
+        "Last Updated: 03-30-2026 09:00:00",
+        "Sensitive: no",
+        "---",
+        "## Session Summary",
+        "- Goal: Confirm API-visible bundle verification survives UI automation removal.",
+        "",
+        "## Checklist",
+        "- [x] Run the API-visible validation-session checks.",
+        "",
+        "## Findings",
+        "<callout>",
+        "Note: No blocker.",
+        "</callout>",
+        "",
+        "## Follow-Up",
+        "- [x] Keep UI-only bundle elements manual.",
+        "",
+      ].join("\n"),
+    },
+    pageMeta: {
+      "session-row": { icon: { type: "emoji", emoji: "🧾" } },
+    },
+  });
+
+  const result = await verifyValidationSessionsSurface({
+    bundle: true,
+    config: baseConfig(),
+    projectName: "SNPM",
+    resolveClient: fixture.resolveClient,
+    syncClient: fixture.syncClient,
+  });
+
+  assert.equal(result.initialized, true);
+  assert.deepEqual(result.failures, []);
+  assert.equal(result.bundle.enabled, true);
+  assert.equal(result.bundle.primaryView, "Active Sessions");
+  assert.equal(result.bundle.backupIntakeForm, "Quick Intake");
+  assert.equal(result.bundle.databaseTemplate, "Validation Session");
+  assert.equal(result.bundle.buttonLabel, "New Validation Session");
+  assert.deepEqual(result.bundle.safeExtraProperties, [{ name: "Issue URL", type: "url" }]);
+  assert.deepEqual(result.manualChecks.map((check) => check.id), [
+    "active-sessions-view",
+    "quick-intake-form",
+    "validation-session-template",
+    "button-wiring",
+  ]);
+  assert.ok(result.manualChecks.every((check) => check.status === "manual-required"));
+  assert.equal(
+    fixture.requestLog.some((entry) => /validation-bundle|forms|buttons/i.test(entry.apiPath)),
+    false,
+  );
+});
+
 test("verifyValidationSessionsSurface accepts template-managed canonical placeholders", async () => {
   const childrenMap = makeBaseChildren();
   childrenMap.set("validation", [{ type: "child_database", id: "validation-db", child_database: { title: "Validation Sessions" } }]);

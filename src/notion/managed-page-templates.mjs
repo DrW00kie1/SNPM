@@ -3,7 +3,7 @@ import {
   normalizeEditableBodyMarkdown,
   normalizeMarkdownNewlines,
 } from "./page-markdown.mjs";
-import { buildValidationSessionTemplateCanonicalPath } from "../notion-ui/validation-bundle-spec.mjs";
+import { buildValidationSessionTemplateCanonicalPath } from "./validation-session-bundle-spec.mjs";
 
 export const RUNBOOK_ICON = { type: "emoji", emoji: "📘" };
 export const BUILD_RECORD_ICON = { type: "emoji", emoji: "📦" };

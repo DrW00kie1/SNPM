@@ -91,7 +91,6 @@ Specialized or experimental lanes:
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
 - policy-pack-driven mutation, hard/blocking cross-document consistency gates, and broad batch apply
 - validation-session v1 artifact sync remains a separate specialized lane
-- experimental `validation-bundle`
 
 ## Why SNPM Beats A Generic Connector
 
@@ -139,14 +138,15 @@ Those surfaces continue to use their own command families.
 - reduce small-edit ceremony with editor-backed operational commands
 - make auth mode, target resolution, child-page preservation, and normalization behavior explicit before apply
 
-### Phase 1: Validation-Session UI Lane
+### Phase 1: Validation-Session Manual Bundle
 - keep `validation-sessions verify --bundle` as the stable API-visible check
-- keep `validation-bundle-*` narrow, Chromium-only, and explicitly experimental
-- use the UI lane only for the surrounding Notion bundle:
+- keep the API-managed database, schema, row properties, and row body as the supported SNPM-managed surface
+- treat surrounding Notion UI elements as explicit manual checks returned by bundle verification:
   - `Active Sessions`
   - `Quick Intake`
   - `Validation Session`
   - `New Validation Session`
+- do not reintroduce browser automation as a supported mutation or verification lane
 
 ### Phase 2: Workflow Bundles
 - use manifest v2 check, local-file pull, guarded push, and opt-in sidecar refresh support as the first safe workflow-bundle primitives
@@ -199,7 +199,7 @@ Keep these boundaries:
 - manifest v2 supports check, local-file pull, guarded push, targeted review, mutation limits, and opt-in post-push sidecar refresh for approved existing targets; broader mutation stays on the owning command family
 - manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
-- UI automation stays narrow, explicit, Chromium-only, and non-default
+- browser/UI automation is not a supported SNPM mutation lane; UI-only validation-session elements remain manual checks surfaced by `validation-sessions verify --bundle`
 
 ## Success Criteria
 

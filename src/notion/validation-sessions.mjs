@@ -33,7 +33,7 @@ import {
   VALIDATION_BUNDLE_EXTRA_URL_PROPERTY,
   buildValidationSessionBundleMetadata,
   isValidationSessionCanonicalSourceAccepted,
-} from "../notion-ui/validation-bundle-spec.mjs";
+} from "./validation-session-bundle-spec.mjs";
 import {
   canonicalizeManagedBodyMarkdown,
   choosePageSyncAuth,

@@ -1,6 +1,12 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  validateChildCommandArgs,
+  validateCwd,
+  validateProjectTokenEnvName,
+  validateWorkspaceName,
+} from "./validators.mjs";
+import {
   capabilityJson,
   commandUsage,
   findCommandHelp,
@@ -83,12 +89,6 @@ import { buildManifestV2ReviewOutputFailureDiagnostic } from "./notion/manifest-
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
-import {
-  runValidationBundleApply,
-  runValidationBundleLogin,
-  runValidationBundlePreview,
-  runValidationBundleVerify,
-} from "./commands/validation-bundle.mjs";
 
 const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
@@ -294,11 +294,10 @@ function failIfDeprecatedRawSecretFlags(options) {
 }
 
 function requirePassthroughArgs(options, command) {
-  if (!Array.isArray(options.passthroughArgs) || options.passthroughArgs.length === 0) {
-    throw new Error(`Provide a child command after -- for ${command}.`);
-  }
-
-  return options.passthroughArgs;
+  return validateChildCommandArgs(options.passthroughArgs, {
+    emptyMessage: `Provide a child command after -- for ${command}.`,
+    nonStringMessage: `${command} child command arguments must be strings.`,
+  });
 }
 
 function rejectUnsupportedSecretGenerateOptions(options, command) {
@@ -371,7 +370,10 @@ export function parseArgs(argv) {
       throw new Error("The literal -- child-command delimiter is only supported for secret-record exec/generate and access-token exec/generate.");
     }
 
-    options.passthroughArgs = rest.slice(passthroughIndex + 1);
+    options.passthroughArgs = validateChildCommandArgs(rest.slice(passthroughIndex + 1), {
+      emptyMessage: `Provide a child command after -- for ${command}.`,
+      nonStringMessage: `${command} child command arguments must be strings.`,
+    });
   }
 
   for (let i = 0; i < optionTokens.length; i += 1) {
@@ -549,7 +551,13 @@ async function main() {
     return;
   }
 
-  const workspaceName = options.workspace || "infrastructure-hq";
+  const workspaceName = validateWorkspaceName(options.workspace || "infrastructure-hq");
+  if (options["project-token-env"] !== undefined) {
+    options["project-token-env"] = validateProjectTokenEnvName(options["project-token-env"]);
+  }
+  if (options.cwd !== undefined) {
+    options.cwd = validateCwd(options.cwd);
+  }
 
   if (command === "discover") {
     console.log(JSON.stringify(buildDiscoverPayload({
@@ -1460,56 +1468,6 @@ async function main() {
     if (!result.initialized || result.failures.length > 0) {
       process.exitCode = 1;
       return;
-    }
-    return;
-  }
-
-  if (command === "validation-bundle login" || command === "validation-bundle-login") {
-    const result = await runValidationBundleLogin();
-    console.log(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  if (command === "validation-bundle preview" || command === "validation-bundle-preview") {
-    const result = await runValidationBundlePreview({
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      workspaceName,
-    });
-    console.log(JSON.stringify(result, null, 2));
-    if (!result.ok) {
-      process.exitCode = 1;
-    }
-    return;
-  }
-
-  if (command === "validation-bundle apply" || command === "validation-bundle-apply") {
-    const bundleApplyResult = await runValidationBundleApply({
-      apply: options.apply === true,
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      workspaceName,
-    });
-    const result = finalizeMutationResult({
-      ...bundleApplyResult,
-      applied: options.apply === true && bundleApplyResult.ok !== false,
-    }, { command: "validation-bundle-apply", surface: "validation-bundle" });
-    console.log(JSON.stringify(result, null, 2));
-    if (!result.ok) {
-      process.exitCode = 1;
-    }
-    return;
-  }
-
-  if (command === "validation-bundle verify" || command === "validation-bundle-verify") {
-    const result = await runValidationBundleVerify({
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
-      projectTokenEnv: options["project-token-env"],
-      workspaceName,
-    });
-    console.log(JSON.stringify(result, null, 2));
-    if (!result.ok) {
-      process.exitCode = 1;
     }
     return;
   }

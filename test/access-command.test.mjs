@@ -8,12 +8,14 @@ import {
   runAccessTokenCreate,
   runAccessTokenDiff,
   runAccessTokenEdit,
+  runAccessTokenExec,
   runAccessTokenGenerate,
   runAccessTokenPull,
   runAccessTokenPush,
   runSecretRecordCreate,
   runSecretRecordDiff,
   runSecretRecordEdit,
+  runSecretRecordExec,
   runSecretRecordGenerate,
   runSecretRecordPull,
   runSecretRecordPush,
@@ -165,7 +167,7 @@ test("secret-record and access-token generate wrappers preflight before generato
         targetPath: "Projects > SNPM > Access > App & Backend > DATABASE_URL",
       };
     },
-    cwd: "C:\\repo",
+    cwd: process.cwd(),
     domainTitle: "App & Backend",
     mode: "create",
     projectName: "SNPM",
@@ -218,6 +220,110 @@ test("secret-record and access-token generate wrappers preflight before generato
   assert.equal(calls[2][1].generatedRawValue, undefined);
   assert.equal(generatorRan, false);
   assert.equal(tokenResult.generatorWillRun, false);
+});
+
+test("secret-bearing exec wrappers reject invalid cwd before config load, pull, or spawn", async () => {
+  const calls = [];
+
+  await assert.rejects(
+    () => runSecretRecordExec({
+      childArgs: ["child-bin"],
+      cwd: path.join(process.cwd(), ".missing-secret-record-exec-cwd"),
+      domainTitle: "App & Backend",
+      env: {},
+      envName: "SECRET_VALUE",
+      loadWorkspaceConfigImpl: () => {
+        calls.push("load-config");
+        return {};
+      },
+      projectName: "SNPM",
+      pullSecretRecordBodyImpl: async () => {
+        calls.push("pull-secret");
+        return PULL_RESULT;
+      },
+      spawnSyncImpl: () => {
+        calls.push("spawn");
+        return { status: 0, stdout: "", stderr: "" };
+      },
+      title: "GEMINI_API_KEY",
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  await assert.rejects(
+    () => runAccessTokenExec({
+      childArgs: ["child-bin"],
+      cwd: path.join(process.cwd(), ".missing-access-token-exec-cwd"),
+      domainTitle: "App & Backend",
+      env: {},
+      envName: "TOKEN_VALUE",
+      loadWorkspaceConfigImpl: () => {
+        calls.push("load-config");
+        return {};
+      },
+      projectName: "SNPM",
+      pullAccessTokenBodyImpl: async () => {
+        calls.push("pull-token");
+        return PULL_RESULT;
+      },
+      spawnSyncImpl: () => {
+        calls.push("spawn");
+        return { status: 0, stdout: "", stderr: "" };
+      },
+      title: "Project Token",
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("secret-bearing generate wrappers reject invalid cwd before preview mutation or generator spawn", async () => {
+  const calls = [];
+
+  await assert.rejects(
+    () => runSecretRecordGenerate({
+      apply: true,
+      childArgs: ["node", "scripts/generate-dsn.mjs"],
+      createGeneratedSecretRecordImpl: async () => {
+        calls.push("preview-or-create");
+        return {};
+      },
+      cwd: path.join(process.cwd(), ".missing-secret-record-generate-cwd"),
+      domainTitle: "App & Backend",
+      mode: "create",
+      projectName: "SNPM",
+      runGeneratedSecretCommandImpl: () => {
+        calls.push("generator");
+        return { ok: true };
+      },
+      title: "DATABASE_URL",
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  await assert.rejects(
+    () => runAccessTokenGenerate({
+      apply: false,
+      childArgs: ["node", "scripts/generate-token.mjs"],
+      cwd: path.join(process.cwd(), ".missing-access-token-generate-cwd"),
+      domainTitle: "App & Backend",
+      mode: "update",
+      projectName: "SNPM",
+      runGeneratedSecretCommandImpl: () => {
+        calls.push("generator");
+        return { ok: true };
+      },
+      title: "Project Token",
+      updateGeneratedAccessTokenImpl: async () => {
+        calls.push("preview-or-update");
+        return {};
+      },
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  assert.deepEqual(calls, []);
 });
 
 test("secret-record generate wrapper rejects invalid mode and missing child generator", async () => {

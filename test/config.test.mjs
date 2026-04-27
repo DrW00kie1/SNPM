@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -70,6 +70,47 @@ test("loadWorkspaceConfig throws a helpful error for an unknown workspace", () =
     () => loadWorkspaceConfig("missing-workspace"),
     /Unknown workspace "missing-workspace"/,
   );
+});
+
+test("workspace names are validated before config path traversal can read files", () => {
+  const previous = process.env.SNPM_WORKSPACE_CONFIG_DIR;
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-workspace-validation-"));
+  const configDir = path.join(tempDir, "configs");
+  try {
+    mkdirSync(configDir);
+    writeFileSync(path.join(tempDir, "escape.json"), JSON.stringify({
+      notionVersion: "2026-03-11",
+      workspace: {
+        projectsPageId: "escaped-projects-page-id",
+        projectTemplatesPageId: "escaped-project-templates-page-id",
+        managedDocs: {
+          exactPages: [{ path: "Projects", pageId: "escaped-projects-page-id" }],
+          subtreeRoots: [{ path: "Templates > Project Templates", pageId: "escaped-project-templates-page-id" }],
+        },
+        forbiddenScopePageIds: { home: "escaped-home-page-id" },
+      },
+      projectStarter: {
+        children: [{ title: "Planning", children: [] }],
+      },
+    }));
+    process.env.SNPM_WORKSPACE_CONFIG_DIR = configDir;
+
+    assert.throws(
+      () => loadWorkspaceConfig("../escape"),
+      /Workspace name must be a safe config basename/i,
+    );
+    assert.throws(
+      () => resolveWorkspaceConfigPath("infrastructure-hq/../../escape"),
+      /Workspace name must be a safe config basename/i,
+    );
+  } finally {
+    if (previous === undefined) {
+      delete process.env.SNPM_WORKSPACE_CONFIG_DIR;
+    } else {
+      process.env.SNPM_WORKSPACE_CONFIG_DIR = previous;
+    }
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("validateWorkspaceConfig rejects malformed starter-tree definitions", () => {

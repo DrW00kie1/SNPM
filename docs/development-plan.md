@@ -453,6 +453,6 @@ Milestone 1 implementation status:
 These should remain out of scope until the phased plan proves itself:
 - arbitrary Notion page CRUD
 - automatic project-token integration creation
-- broad UI automation outside the validation-session bundle
+- browser/UI automation for validation-session bundles or other workspace surfaces
 - semantic rewriting of docs without explicit local review
 - replacing the repo-first truth boundary for implementation notes, specs, and investigations

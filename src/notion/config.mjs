@@ -2,18 +2,20 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeProjectPolicyPack } from "./project-policy.mjs";
+import { validateWorkspaceName } from "../validators.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function resolveWorkspaceConfigPath(workspaceName = "infrastructure-hq") {
+  const validatedWorkspaceName = validateWorkspaceName(workspaceName);
   const configDir = typeof process.env.SNPM_WORKSPACE_CONFIG_DIR === "string"
     ? process.env.SNPM_WORKSPACE_CONFIG_DIR.trim()
     : "";
   if (configDir) {
-    return path.resolve(configDir, `${workspaceName}.json`);
+    return path.resolve(configDir, `${validatedWorkspaceName}.json`);
   }
-  return path.join(__dirname, "..", "..", "config", "workspaces", `${workspaceName}.json`);
+  return path.join(__dirname, "..", "..", "config", "workspaces", `${validatedWorkspaceName}.json`);
 }
 
 function requireNonEmptyString(value, label, sourceLabel) {

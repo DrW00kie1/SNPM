@@ -1,12 +1,16 @@
 import { execFileSync } from "node:child_process";
 
+import { validateEnvName, validateProjectTokenEnvName } from "../validators.mjs";
+
 export function getEnvToken(names) {
-  for (const name of names) {
+  const validatedNames = names.map((name) => validateEnvName(name));
+
+  for (const name of validatedNames) {
     const value = process.env[name];
     if (value) return value;
   }
 
-  for (const name of names) {
+  for (const name of validatedNames) {
     const value = execFileSync(
       "powershell",
       ["-NoProfile", "-Command", `[Environment]::GetEnvironmentVariable('${name}','User')`],
@@ -27,9 +31,10 @@ export function getWorkspaceToken() {
 }
 
 export function getProjectToken(envName) {
-  const token = getEnvToken([envName]);
+  const validatedEnvName = validateProjectTokenEnvName(envName);
+  const token = getEnvToken([validatedEnvName]);
   if (!token) {
-    throw new Error(`Set ${envName} before using project-token operations.`);
+    throw new Error(`Set ${validatedEnvName} before using project-token operations.`);
   }
   return token;
 }

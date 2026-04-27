@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import { inspect } from "node:util";
 
 import {
@@ -12,10 +13,11 @@ import { SECRET_REDACTION_MARKER } from "../src/commands/secret-output-safety.mj
 
 test("runGeneratedSecretCommand captures generator stdout with shell disabled and returns opaque material", () => {
   const calls = [];
+  const existingCwd = process.cwd();
 
   const result = runGeneratedSecretCommand({
     childArgs: ["generator-bin", "--dsn"],
-    cwd: "C:/work",
+    cwd: existingCwd,
     env: { PATH: "bin" },
     spawnSyncImpl: (command, args, options) => {
       calls.push({ command, args, options });
@@ -35,7 +37,7 @@ test("runGeneratedSecretCommand captures generator stdout with shell disabled an
   assert.deepEqual(calls[0].args, ["--dsn"]);
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.windowsHide, true);
-  assert.equal(calls[0].options.cwd, "C:/work");
+  assert.equal(calls[0].options.cwd, existingCwd);
   assert.deepEqual(calls[0].options.env, { PATH: "bin" });
 });
 
@@ -129,6 +131,24 @@ test("runGeneratedSecretCommand rejects invalid generated values without echoing
       assert.doesNotMatch(JSON.stringify(result), new RegExp(item.stdout.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     }
   }
+});
+
+test("runGeneratedSecretCommand rejects invalid cwd before spawning the generator", () => {
+  let spawned = false;
+
+  assert.throws(
+    () => runGeneratedSecretCommand({
+      childArgs: ["generator-bin"],
+      cwd: path.join(process.cwd(), ".missing-secret-generate-cwd"),
+      spawnSyncImpl: () => {
+        spawned = true;
+        return { status: 0, stdout: "secret", stderr: "" };
+      },
+    }),
+    /--cwd must point to an existing directory/i,
+  );
+
+  assert.equal(spawned, false);
 });
 
 test("runGeneratedSecretCommand strips only one final newline before validation", () => {

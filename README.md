@@ -78,7 +78,7 @@ Pull commands write strict sidecar metadata such as `roadmap.md.snpm-meta.json`.
 | Runbooks | `runbook-*` | Manage project runbooks. |
 | Access domains | `access-domain-*` | Manage project Access containers. |
 | Secrets and tokens | `secret-record-*`, `access-token-*` | Consume existing raw values safely and ingest generated values write-only. |
-| Validation sessions | `validation-session-*`, `validation-sessions-*` | Manage validation reports and validation-session surfaces. |
+| Validation sessions | `validation-session-*`, `validation-sessions-*` | Manage validation reports, validation-session surfaces, and API-visible bundle checks with manual UI follow-up. |
 | Manifest sync | `sync check`, `sync pull`, `sync push` | Coordinate approved mixed-surface documentation bundles. |
 | Discovery and planning | `discover`, `capabilities`, `recommend`, `plan-change` | Help agents choose the right next command. |
 
@@ -180,6 +180,7 @@ Live verification, when private config and tokens are present:
 ```powershell
 npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run validation-sessions-verify -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN --bundle
 npm run truth-audit -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run consistency-audit -- --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 npm run verify-workspace-docs
@@ -193,6 +194,8 @@ npm run verify-workspace-docs
 - [Workspace config](docs/workspace-config.md)
 - [Project bootstrap](docs/project-bootstrap.md)
 - [Project Access and secrets](docs/project-access.md)
+- [Validation sessions](docs/validation-sessions.md)
+- [Validation-session manual UI bundle](docs/validation-session-ui-bundle.md)
 - [Manifest and validation-session sync](docs/validation-session-sync.md)
 - [Operator roadmap](docs/operator-roadmap.md)
 - [Development plan](docs/development-plan.md)

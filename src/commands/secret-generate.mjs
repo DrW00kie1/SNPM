@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { inspect } from "node:util";
 
+import { validateChildCommandArgs, validateCwd } from "../validators.mjs";
 import {
   SECRET_REDACTION_MARKER,
   createExactSecretRedactor,
@@ -20,13 +21,10 @@ function stringifyOutput(value) {
 }
 
 function validateGeneratorCommand(childArgs) {
-  if (!Array.isArray(childArgs) || childArgs.length === 0 || !childArgs[0]) {
-    throw new Error("Provide a generator command after -- for secret generate.");
-  }
-
-  if (!childArgs.every((arg) => typeof arg === "string")) {
-    throw new Error("Secret generator command arguments must be strings.");
-  }
+  return validateChildCommandArgs(childArgs, {
+    emptyMessage: "Provide a generator command after -- for secret generate.",
+    nonStringMessage: "Secret generator command arguments must be strings.",
+  });
 }
 
 export function createGeneratedSecretMaterial(secretValue) {
@@ -103,6 +101,7 @@ export function runGeneratedSecretCommand({
   spawnSyncImpl = spawnSync,
 } = {}) {
   validateGeneratorCommand(childArgs);
+  const validatedCwd = validateCwd(cwd);
 
   const spawnOptions = {
     encoding: "utf8",
@@ -110,8 +109,8 @@ export function runGeneratedSecretCommand({
     shell: false,
     windowsHide: true,
   };
-  if (cwd) {
-    spawnOptions.cwd = cwd;
+  if (validatedCwd) {
+    spawnOptions.cwd = validatedCwd;
   }
 
   const result = spawnSyncImpl(childArgs[0], childArgs.slice(1), spawnOptions) || {};
