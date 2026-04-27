@@ -1,6 +1,6 @@
-import { spawnSync } from "node:child_process";
 import { inspect } from "node:util";
 
+import { runChildCommand } from "./child-runner.mjs";
 import { validateChildCommandArgs, validateCwd } from "../validators.mjs";
 import {
   SECRET_REDACTION_MARKER,
@@ -98,31 +98,22 @@ export function runGeneratedSecretCommand({
   cwd,
   env = process.env,
   maxBytes,
-  spawnSyncImpl = spawnSync,
+  spawnSyncImpl,
 } = {}) {
   validateGeneratorCommand(childArgs);
   const validatedCwd = validateCwd(cwd);
 
-  const spawnOptions = {
-    encoding: "utf8",
-    env: { ...env },
-    shell: false,
-    windowsHide: true,
-  };
-  if (validatedCwd) {
-    spawnOptions.cwd = validatedCwd;
-  }
-
-  const result = spawnSyncImpl(childArgs[0], childArgs.slice(1), spawnOptions) || {};
+  const result = runChildCommand({
+    childArgs,
+    cwd: validatedCwd,
+    env,
+    ...(spawnSyncImpl ? { spawnSyncImpl } : {}),
+  });
   const stdout = stringifyOutput(result.stdout);
   const stderr = stringifyOutput(result.stderr);
-  const status = Number.isInteger(result.status)
-    ? result.status
-    : result.error || result.signal
-      ? 1
-      : 0;
+  const status = Number.isInteger(result.status) ? result.status : 1;
 
-  if (result.error) {
+  if (result.spawnError) {
     return failureResult({
       status: 1,
       exitCode: 1,

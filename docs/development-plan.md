@@ -5,6 +5,11 @@ Milestones marked implemented are shipped or merge-ready; future phases remain p
 
 The goal is to make SNPM a better utility for coding LLMs that need to create and maintain project documentation in Notion without turning it into a generic workspace CRUD tool.
 
+Current active hardening wedge:
+- Sprint 0 retired the browser-driven validation-bundle lane while preserving validation-session API workflows
+- Sprint 1A Child Runner Hardening focuses on making existing child-process execution safer and easier to reason about without changing public operator behavior or adding commands
+- after child runner hardening, the next wedge is Notion transport hardening for the existing Notion-backed command surface
+
 ## Product Direction
 
 SNPM should improve in three ways:
@@ -350,6 +355,11 @@ Exit criteria:
 
 Out of scope:
 - raw value flags, stdin/env/file secret input, multiline secrets, raw export, metadata sidecars, review output, manifest v2 Access entries, automatic rotation, rollback, retries, and generic credential management
+
+Status:
+- Sprint 1A Child Runner Hardening is the active follow-up after Sprint 0, focused on the existing generated-secret child execution path and other existing child-runner usage without changing supported operator commands
+- public generated-secret behavior remains the write-only Access ingestion lane described above
+- Notion transport hardening is the next wedge after child runner hardening, before broader feature expansion
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.

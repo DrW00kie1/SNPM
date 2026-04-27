@@ -52,6 +52,22 @@ function runCli(args, options = {}) {
   });
 }
 
+function runNpmScript(script, args = []) {
+  const npmArgs = ["run", "--silent", script, "--", ...args];
+  const command = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : "npm";
+  const commandArgs = process.platform === "win32"
+    ? ["/d", "/s", "/c", ["npm", ...npmArgs].map((arg) => (
+      /[\s"]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg
+    )).join(" ")]
+    : npmArgs;
+
+  return spawnSync(command, commandArgs, {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    env: process.env,
+  });
+}
+
 function commandText(command) {
   return [
     command.summary,
@@ -1520,6 +1536,24 @@ test("cli secret-bearing help documents consume-only exec guidance", () => {
   assert.match(tokenGenerateResult.stdout, /Command: access-token generate/);
   assert.match(tokenGenerateResult.stdout, /child generator/i);
   assert.equal(tokenGenerateResult.stderr, "");
+});
+
+test("npm scripts for secret and access child commands dispatch to command help", () => {
+  const scripts = [
+    ["secret-record-exec", /Command: secret-record exec/, / -- <command> \[args\.\.\.\]/],
+    ["secret-record-generate", /Command: secret-record generate/, / -- <generator-command> \[args\.\.\.\]/],
+    ["access-token-exec", /Command: access-token exec/, / -- <command> \[args\.\.\.\]/],
+    ["access-token-generate", /Command: access-token generate/, / -- <generator-command> \[args\.\.\.\]/],
+  ];
+
+  for (const [script, commandPattern, childPattern] of scripts) {
+    const result = runNpmScript(script, ["--help"]);
+
+    assert.equal(result.status, 0, `${script} --help should exit successfully`);
+    assert.match(result.stdout, commandPattern);
+    assert.match(result.stdout, childPattern);
+    assert.equal(result.stderr, "");
+  }
 });
 
 test("cli deprecated raw secret flags fail with exec-only guidance", () => {

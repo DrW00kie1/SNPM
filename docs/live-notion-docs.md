@@ -201,6 +201,19 @@ Durable Notion closeout draft for this sprint:
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries the public command summary.
 
+## Sprint 1A Child Runner Hardening Updates
+
+Sprint 1A follows Sprint 0 as an internal hardening wedge for existing child-process execution paths. Public operator behavior stays unchanged: do not add or imply new commands, and keep generated-secret ingestion, validation-session verification, and other supported workflows on their existing command families.
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1A Child Runner Hardening is approved as an internal reliability and safety pass for existing child-process execution paths. It does not change public operator commands or command-family ownership.
+- Roadmap: Mark Sprint 1A as the post-Sprint-0 hardening wedge. The next wedge after child runner hardening is Notion transport hardening for the existing Notion-backed command surface.
+- Current Cycle: Record that operators should continue using the existing supported workflows; Sprint 1A changes implementation safety posture only, not operator behavior.
+- Runbook: No new operator steps are required for Sprint 1A. Keep existing command guidance unchanged unless an existing workflow's safety notes need clarification.
+- Projects > SNPM: If the public command summary is maintained there, avoid adding new command claims; mention child runner hardening only as internal reliability work.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries internal status notes.
+
 ## Verification
 
 Project-scoped verification:

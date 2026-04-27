@@ -1,5 +1,4 @@
-import { spawnSync } from "node:child_process";
-
+import { runChildCommand } from "./child-runner.mjs";
 import { validateChildCommandArgs, validateCwd, validateEnvName } from "../validators.mjs";
 import { SECRET_REDACTION_MARKER } from "./secret-output-safety.mjs";
 
@@ -87,7 +86,7 @@ export function runSecretExec({
   env = process.env,
   envName,
   secretValue,
-  spawnSyncImpl = spawnSync,
+  spawnSyncImpl,
   stdinSecret = false,
 } = {}) {
   if (typeof secretValue !== "string" || !secretValue.trim()) {
@@ -101,37 +100,26 @@ export function runSecretExec({
   const childEnv = injection.mode === "env"
     ? { ...env, [injection.envName]: secretValue }
     : { ...env };
-  const spawnOptions = {
-    encoding: "utf8",
+  const result = runChildCommand({
+    childArgs,
+    cwd: validatedCwd,
     env: childEnv,
-    shell: false,
-    windowsHide: true,
-  };
-  if (validatedCwd) {
-    spawnOptions.cwd = validatedCwd;
-  }
-  if (injection.mode === "stdin") {
-    spawnOptions.input = secretValue;
-  }
-
-  const result = spawnSyncImpl(childArgs[0], childArgs.slice(1), spawnOptions) || {};
+    input: injection.mode === "stdin" ? secretValue : undefined,
+    ...(spawnSyncImpl ? { spawnSyncImpl } : {}),
+  });
 
   const stdout = redactExactSecret(result.stdout, secretValue);
   const stderr = redactExactSecret(result.stderr, secretValue);
-  const spawnError = result.error ? redactExactSecret(result.error.message, secretValue) : null;
+  const spawnError = result.spawnError ? redactExactSecret(result.spawnError.message, secretValue) : null;
   const leakDetected = stdout.redacted || stderr.redacted || (spawnError ? spawnError.redacted : false);
-  const status = Number.isInteger(result.status)
-    ? result.status
-    : result.error || result.signal
-      ? 1
-      : 0;
+  const status = Number.isInteger(result.status) ? result.status : 1;
   const exitCode = leakDetected ? 1 : status;
   const failure = leakDetected
     ? SECRET_EXEC_LEAK_WARNING
-    : result.error
+    : result.spawnError
       ? spawnError.text
-      : result.signal
-        ? `Child command terminated with signal ${result.signal}.`
+    : result.signal
+      ? `Child command terminated with signal ${result.signal}.`
       : exitCode === 0
         ? null
         : `Child command exited with status ${exitCode}.`;
