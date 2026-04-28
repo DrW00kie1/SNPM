@@ -186,6 +186,19 @@ npm run capabilities
 
 `capabilities` returns the full machine-readable command registry. Use it after `discover`, not as the first-contact path.
 
+## CLI Error Formatting
+
+Default failure output remains human-readable text on stderr. Structured CLI failures are opt-in for automation:
+
+```powershell
+node src/cli.mjs doctor --project "Project Name" --error-format json
+$env:SNPM_ERROR_FORMAT = "json"
+```
+
+Supported values are `text` and `json`; the explicit `--error-format` flag wins over `SNPM_ERROR_FORMAT`. JSON-formatted failures are written to stderr only. Successful command output and existing success JSON schemas are unchanged.
+
+Structured errors are a reporting contract only. They do not add retries, rollback, transaction semantics, broader mutation behavior, or any change to Notion apply safety.
+
 ## Development
 
 ```powershell

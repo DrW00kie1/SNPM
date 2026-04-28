@@ -64,11 +64,17 @@ test("runGeneratedSecretCommand redactor redacts exact generated value", () => {
 });
 
 test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and stderr without echoing output", () => {
-  assert.deepEqual(
-    runGeneratedSecretCommand({
-      childArgs: ["generator-bin"],
-      spawnSyncImpl: () => ({ status: 7, stdout: "secret-from-failed-generator", stderr: "" }),
+  const nonzeroResult = runGeneratedSecretCommand({
+    childArgs: ["generator-bin"],
+    spawnSyncImpl: () => ({
+      status: 7,
+      stdout: "secret-from-failed-generator",
+      stderr: "child-stderr-secret",
     }),
+  });
+
+  assert.deepEqual(
+    nonzeroResult,
     {
       ok: false,
       status: 7,
@@ -80,6 +86,7 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
       failure: "Generator command exited with status 7.",
     },
   );
+  assert.doesNotMatch(JSON.stringify(nonzeroResult), /secret-from-failed-generator|child-stderr-secret/);
 
   const signalResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
@@ -88,6 +95,7 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
   assert.equal(signalResult.ok, false);
   assert.equal(signalResult.failure, "Generator command terminated with signal SIGTERM.");
   assert.equal(signalResult.stdout, "");
+  assert.doesNotMatch(JSON.stringify(signalResult), /"secret"/);
 
   const errorResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
@@ -96,6 +104,7 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
   assert.equal(errorResult.ok, false);
   assert.equal(errorResult.failure, "Generator command failed to start.");
   assert.equal(errorResult.stdout, "");
+  assert.doesNotMatch(JSON.stringify(errorResult), /spawn failed with secret|secret/);
 
   const stderrResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
@@ -104,6 +113,7 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
   assert.equal(stderrResult.ok, false);
   assert.equal(stderrResult.failure, "Generator command wrote to stderr; refusing generated secret ingestion.");
   assert.equal(stderrResult.stderr, "");
+  assert.doesNotMatch(JSON.stringify(stderrResult), /warning with secret|"secret"/);
 });
 
 test("runGeneratedSecretCommand rejects invalid generated values without echoing them", () => {

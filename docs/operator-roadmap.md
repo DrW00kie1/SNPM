@@ -25,6 +25,7 @@ Supported on the current active line:
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
 - JSON-only `capabilities` for registry-derived LLM-readable command discovery
 - read-only `plan-change` for deterministic target-file planning before mutation
+- opt-in structured CLI failure reporting through `--error-format json|text` or `SNPM_ERROR_FORMAT`
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -95,6 +96,14 @@ Command metadata and package-readiness behavior:
 - public package or repository visibility changes remain separate operator actions after `npm pack --dry-run` review
 - this registry/package contract does not add Notion mutation commands, broaden supported surfaces, or change command-family ownership
 
+Structured CLI error behavior:
+- default CLI failures remain human-readable text on stderr
+- `--error-format json|text` opts a command into a specific failure format
+- `SNPM_ERROR_FORMAT=json|text` sets the default failure format when the flag is omitted
+- JSON failures are written to stderr only
+- successful stdout payloads and existing success schemas are unchanged
+- structured failures do not add retries, rollback, transaction semantics, mutation behavior, or new command-family ownership
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
@@ -107,7 +116,7 @@ Active hardening sequence:
 - Sprint 1B Notion Transport Hardening completed the internal reliability and safety pass for the existing Notion-backed command surface
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed registry-derived command discovery and the package/readiness contract
-- public Notion operator behavior, command-family ownership, and supported surfaces remain unchanged during Sprint 1D
+- Sprint 1E Structured CLI Errors adds opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
 - installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
@@ -221,6 +230,7 @@ Keep these boundaries:
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - browser/UI automation is not a supported SNPM mutation lane; UI-only validation-session elements remain manual checks surfaced by `validation-sessions verify --bundle`
 - command metadata must stay registry-derived so CLI help and `capabilities` do not drift
+- structured CLI errors are stderr-only failure formatting; they must not change successful command output, success schemas, retry behavior, or Notion mutation semantics
 - installed CLI packaging must use the package executable metadata and explicit allowlist, and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
 - installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 

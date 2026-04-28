@@ -2114,7 +2114,22 @@ export function findCommandHelp(command) {
 }
 
 export function buildCapabilityMap() {
-  return COMMAND_REGISTRY.buildCapabilityMap();
+  return {
+    ...COMMAND_REGISTRY.buildCapabilityMap(),
+    structuredErrors: {
+      schemaVersion: 1,
+      defaultFormat: "text",
+      supportedFormats: ["text", "json"],
+      flag: "--error-format json|text",
+      environmentVariable: "SNPM_ERROR_FORMAT",
+      precedence: "cli-flag-over-env",
+      stream: "stderr-only-for-top-level-failures",
+      stdoutOnFailure: "empty",
+      scope: "top-level-thrown-and-preflight-failures",
+      successSchemas: "unchanged",
+      nonGoals: ["automatic-retries", "rollback", "transaction-semantics", "mutation-behavior-changes"],
+    },
+  };
 }
 
 export function commandRegistryContract() {
@@ -2208,15 +2223,18 @@ export function usage() {
     "  Apply push commands read <file>.snpm-meta.json by default; use --metadata to override or when reading markdown from stdin.",
     "  Applied mutations append redacted operational entries to the local mutation journal.",
     "  Operational diff, push, and edit commands support --explain for explicit auth/target/normalization reasoning and --review-output <dir> for review artifacts.",
+    "  Use --error-format json for opt-in machine-readable top-level failures on stderr only; default failures remain text.",
     "",
     "Global Options:",
     `  ${OPT_WORKSPACE}`,
     `  ${OPT_PROJECT_TOKEN}`,
     `  ${OPT_APPLY}`,
+    "  --error-format json|text",
     "",
     "Environment:",
     "  Workspace token: NOTION_TOKEN or INFRASTRUCTURE_HQ_NOTION_TOKEN",
     "  Workspace config directory override: SNPM_WORKSPACE_CONFIG_DIR",
+    "  Failure output default: SNPM_ERROR_FORMAT=json|text",
   );
 
   return lines.join("\n");

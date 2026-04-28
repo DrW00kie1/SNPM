@@ -169,6 +169,20 @@ test("packed package installs an snpm bin that runs from outside the source chec
     assert.equal(validationBundleHelp.status, 1);
     assert.match(validationBundleHelp.stderr, /Unknown command: validation-bundle verify/);
     assert.doesNotMatch(validationBundleHelp.stdout, /Command: validation-bundle verify/);
+
+    const structuredFailure = runSnpm(binPath, ["--error-format", "json", "verify-project"], { cwd: consumerDir, env });
+    assert.equal(structuredFailure.status, 1);
+    assert.equal(structuredFailure.stdout, "");
+    assert.deepEqual(JSON.parse(structuredFailure.stderr), {
+      ok: false,
+      schemaVersion: 1,
+      command: "verify-project",
+      error: {
+        code: "missing_required_option",
+        category: "usage",
+        message: 'Provide --name "Project Name".',
+      },
+    });
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

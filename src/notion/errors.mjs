@@ -81,6 +81,52 @@ export class NotionParseError extends Error {
   }
 }
 
+function copySafeField(target, source, key) {
+  const value = source?.[key];
+  if (value !== undefined) {
+    target[key] = value;
+  }
+}
+
+function serializeKnownNotionError(error, kind) {
+  const serialized = {
+    name: error.name,
+    kind,
+    message: error.message,
+  };
+
+  for (const key of ["method", "apiPath", "status", "code", "retryAfter", "retryAfterMs", "retryable", "attempts"]) {
+    copySafeField(serialized, error, key);
+  }
+
+  if (kind === "parse") {
+    copySafeField(serialized, error, "contentType");
+    copySafeField(serialized, error, "responseTextLength");
+  }
+
+  return serialized;
+}
+
+export function serializeSafeNotionError(error) {
+  if (error instanceof NotionApiError) {
+    return serializeKnownNotionError(error, "api");
+  }
+
+  if (error instanceof NotionTransportError) {
+    return serializeKnownNotionError(error, "transport");
+  }
+
+  if (error instanceof NotionParseError) {
+    return serializeKnownNotionError(error, "parse");
+  }
+
+  return {
+    name: "Error",
+    kind: "generic",
+    message: "Unexpected error.",
+  };
+}
+
 function toMessage(method, apiPath, status, code) {
   const suffix = code ? `${code} Notion API error.` : "Notion API error.";
   return `${method} ${apiPath} failed: ${status} ${suffix}`.trim();

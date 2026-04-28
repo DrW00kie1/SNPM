@@ -87,6 +87,19 @@ function parseJsonPayloadFromMixedStdout(stdout) {
   return JSON.parse(stdout.slice(jsonStart));
 }
 
+function assertStructuredCliFailure(result, { category, code, command, messagePattern }) {
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+
+  const payload = JSON.parse(result.stderr);
+  assert.equal(payload.ok, false);
+  assert.equal(payload.schemaVersion, 1);
+  assert.equal(payload.command, command);
+  assert.equal(payload.error.code, code);
+  assert.equal(payload.error.category, category);
+  assert.match(payload.error.message, messagePattern);
+}
+
 function assertSyncPullDocumentsManifestV2Pull(text) {
   assert.match(text, /manifest v2/i);
   assert.match(text, /local file/i);
@@ -165,6 +178,8 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /scaffold-docs is preview-first bootstrap doc scaffolding/);
   assert.match(help, /support --explain/);
   assert.match(help, /--review-output <dir>/);
+  assert.match(help, /--error-format json\|text/);
+  assert.match(help, /SNPM_ERROR_FORMAT=json\|text/);
   assert.match(help, /npm run verify-project/);
   assert.match(help, /npm run scaffold-docs/);
   assert.match(help, /npm run doc-create/);
@@ -244,6 +259,19 @@ test("capability map is schema-versioned and includes existing commands from the
   assert.ok(capabilities.canonicalCommands.includes("secret-record generate"));
   assert.ok(capabilities.canonicalCommands.includes("access-token generate"));
   assert.ok(capabilities.canonicalCommands.includes("journal list"));
+  assert.deepEqual(capabilities.structuredErrors, {
+    schemaVersion: 1,
+    defaultFormat: "text",
+    supportedFormats: ["text", "json"],
+    flag: "--error-format json|text",
+    environmentVariable: "SNPM_ERROR_FORMAT",
+    precedence: "cli-flag-over-env",
+    stream: "stderr-only-for-top-level-failures",
+    stdoutOnFailure: "empty",
+    scope: "top-level-thrown-and-preflight-failures",
+    successSchemas: "unchanged",
+    nonGoals: ["automatic-retries", "rollback", "transaction-semantics", "mutation-behavior-changes"],
+  });
   assert.doesNotMatch(JSON.stringify(capabilities), /validation-bundle/i);
   assert.doesNotMatch(JSON.stringify(capabilities), /Worker A/);
   assert.deepEqual(pagePush, {
@@ -2092,6 +2120,357 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
     assert.equal(mixedPayload.command, "sync-check");
     assert.equal(mixedPayload.entries[0].status, "error");
     assert.equal(mixedPayload.entries[0].diagnostics[0].code, "manifest-v2-check-remote-failed");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("cli top-level error format defaults to text and supports env json", () => {
+  const textResult = runCli(["verify-project"]);
+  const jsonResult = runCli(["verify-project"], {
+    env: {
+      SNPM_ERROR_FORMAT: "json",
+    },
+  });
+  const parsed = JSON.parse(jsonResult.stderr);
+
+  assert.equal(textResult.status, 1);
+  assert.equal(textResult.stdout, "");
+  assert.match(textResult.stderr, /Provide --name "Project Name"/);
+  assert.doesNotThrow(() => {
+    assert.throws(() => JSON.parse(textResult.stderr));
+  });
+
+  assert.equal(jsonResult.status, 1);
+  assert.equal(jsonResult.stdout, "");
+  assert.deepEqual(parsed, {
+    ok: false,
+    schemaVersion: 1,
+    command: "verify-project",
+    error: {
+      code: "missing_required_option",
+      category: "usage",
+      message: 'Provide --name "Project Name".',
+    },
+  });
+});
+
+test("cli --error-format flag wins over SNPM_ERROR_FORMAT", () => {
+  const flagJsonResult = runCli([
+    "doctor",
+    "--project",
+    "SNPM",
+    "--truth-audit",
+    "--stale-after-days",
+    "0",
+    "--error-format",
+    "json",
+  ], {
+    env: {
+      SNPM_ERROR_FORMAT: "text",
+    },
+  });
+  const flagTextResult = runCli([
+    "doctor",
+    "--project",
+    "SNPM",
+    "--truth-audit",
+    "--stale-after-days",
+    "0",
+    "--error-format",
+    "text",
+  ], {
+    env: {
+      SNPM_ERROR_FORMAT: "json",
+    },
+  });
+
+  assert.equal(flagJsonResult.status, 1);
+  assert.equal(flagJsonResult.stdout, "");
+  assert.deepEqual(JSON.parse(flagJsonResult.stderr), {
+    ok: false,
+    schemaVersion: 1,
+    command: "doctor",
+    error: {
+      code: "cli_error",
+      category: "runtime",
+      message: "--stale-after-days must be a positive integer.",
+    },
+  });
+
+  assert.equal(flagTextResult.status, 1);
+  assert.equal(flagTextResult.stdout, "");
+  assert.match(flagTextResult.stderr, /--stale-after-days must be a positive integer/);
+  assert.throws(() => JSON.parse(flagTextResult.stderr));
+});
+
+test("cli --error-format scan stops before literal passthrough delimiter", () => {
+  const result = runCli([
+    "secret-record",
+    "exec",
+    "--project",
+    "SNPM",
+    "--",
+    "--error-format",
+    "json",
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /Provide --domain "Access Domain Title"/);
+  assert.throws(() => JSON.parse(result.stderr));
+});
+
+test("cli invalid --error-format fails before command execution", () => {
+  const result = runCli([
+    "discover",
+    "--project",
+    "SNPM",
+    "--error-format",
+    "xml",
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /--error-format must be json or text/);
+});
+
+test("cli invalid SNPM_ERROR_FORMAT fails unless the CLI flag overrides it", () => {
+  const invalidEnv = runCli(["verify-project"], {
+    env: {
+      SNPM_ERROR_FORMAT: "jsn",
+    },
+  });
+  const flagOverride = runCli(["verify-project", "--error-format", "json"], {
+    env: {
+      SNPM_ERROR_FORMAT: "jsn",
+    },
+  });
+
+  assert.equal(invalidEnv.status, 1);
+  assert.equal(invalidEnv.stdout, "");
+  assert.match(invalidEnv.stderr, /SNPM_ERROR_FORMAT must be json or text/);
+
+  assert.equal(flagOverride.status, 1);
+  assert.equal(flagOverride.stdout, "");
+  assert.deepEqual(JSON.parse(flagOverride.stderr), {
+    ok: false,
+    schemaVersion: 1,
+    command: "verify-project",
+    error: {
+      code: "missing_required_option",
+      category: "usage",
+      message: 'Provide --name "Project Name".',
+    },
+  });
+});
+
+test("cli --error-format json covers unknown command, invalid workspace, and invalid manifest failures", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-structured-errors-"));
+  try {
+    const manifestPath = path.join(tempDir, "snpm.sync.json");
+    writeFileSync(manifestPath, "{ invalid manifest json", "utf8");
+
+    const unknownCommand = runCli(["--error-format", "json", "fake-command"]);
+    const unknownHelp = runCli(["fake-command", "--help", "--error-format", "json"]);
+    const invalidWorkspace = runCli([
+      "--error-format",
+      "json",
+      "doctor",
+      "--project",
+      "SNPM",
+      "--workspace",
+      "missing-structured-error-workspace",
+    ]);
+    const invalidManifest = runCli([
+      "--error-format",
+      "json",
+      "sync",
+      "check",
+      "--manifest",
+      manifestPath,
+    ]);
+
+    assertStructuredCliFailure(unknownCommand, {
+      category: "usage",
+      code: "unknown_command",
+      command: "fake-command",
+      messagePattern: /Unknown command: fake-command/,
+    });
+    assertStructuredCliFailure(unknownHelp, {
+      category: "usage",
+      code: "unknown_command",
+      command: "fake-command",
+      messagePattern: /Unknown command: fake-command/,
+    });
+    assertStructuredCliFailure(invalidWorkspace, {
+      category: "usage",
+      code: "invalid_workspace",
+      command: "doctor",
+      messagePattern: /Unknown workspace "missing-structured-error-workspace"/,
+    });
+    assertStructuredCliFailure(invalidManifest, {
+      category: "preflight",
+      code: "manifest_error",
+      command: "sync",
+      messagePattern: /Sync manifest ".+snpm\.sync\.json" is not valid JSON\./,
+    });
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("cli --error-format json covers metadata sidecar parse failures", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-sidecar-error-"));
+  try {
+    const manifestPath = path.join(tempDir, "snpm.sync.json");
+    const markdownPath = path.join(tempDir, "roadmap.md");
+    const sidecarPath = path.join(tempDir, "roadmap.md.snpm-meta.json");
+
+    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
+    writeFileSync(sidecarPath, "{ invalid sidecar json", "utf8");
+    writeFileSync(manifestPath, `${JSON.stringify({
+      version: 2,
+      workspace: "infrastructure-hq",
+      project: "SNPM",
+      entries: [{
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "roadmap.md",
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const result = runCli([
+      "--error-format",
+      "json",
+      "sync",
+      "push",
+      "--manifest",
+      manifestPath,
+      "--apply",
+    ]);
+    const payload = parseJsonPayloadFromMixedStdout(result.stdout);
+
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, "");
+    assert.match(result.stdout, /^\[planning-page\] Planning > Roadmap \(roadmap\.md\)/);
+    assert.match(result.stdout, /Metadata sidecar ".+roadmap\.md\.snpm-meta\.json" is not valid JSON/);
+    assert.equal(payload.ok, false);
+    assert.equal(payload.command, "sync-push");
+    assert.equal(payload.entries[0].status, "error");
+    assert.equal(payload.entries[0].diagnostics[0].code, "manifest-v2-push-sidecar-malformed");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("cli opt-in structured errors do not echo generated values or child command material", () => {
+  const cases = [
+    {
+      args: [
+        "secret-record",
+        "generate",
+        "--error-format",
+        "json",
+        "--project",
+        "SNPM",
+        "--domain",
+        "App & Backend",
+        "--title",
+        "DATABASE_URL",
+        "--mode",
+        "create",
+        "--value",
+        "postgres://structured-error-secret",
+        "--",
+        process.execPath,
+        "-e",
+        "process.stdout.write('child-stdout-secret')",
+      ],
+      leaked: /structured-error-secret|child-stdout-secret/,
+    },
+    {
+      args: [
+        "access-token",
+        "generate",
+        "--project",
+        "SNPM",
+        "--domain",
+        "App & Backend",
+        "--title",
+        "Project Token",
+        "--mode",
+        "create",
+        "access-token-generated-value",
+        "--",
+        process.execPath,
+        "-e",
+        "process.stderr.write('child-stderr-secret')",
+      ],
+      env: {
+        SNPM_ERROR_FORMAT: "json",
+      },
+      leaked: /access-token-generated-value|child-stderr-secret/,
+    },
+  ];
+
+  for (const item of cases) {
+    const result = runCli(item.args, { env: item.env });
+    const structured = JSON.parse(result.stderr);
+
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.equal(structured.ok, false);
+    assert.equal(typeof structured.error.message, "string");
+    assert.doesNotMatch(result.stderr, item.leaked);
+    assert.doesNotMatch(result.stdout, item.leaked);
+  }
+});
+
+test("cli manifest v2 diagnostics stay in sync payloads when structured top-level errors are enabled", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-structured-manifest-"));
+  const manifestPath = path.join(tempDir, "snpm.sync.json");
+  const markdownPath = path.join(tempDir, "roadmap.md");
+  const missingTokenEnv = "SNPM_STRUCTURED_MANIFEST_TOKEN_SHOULD_NOT_EXIST_2F91";
+
+  try {
+    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
+    writeFileSync(manifestPath, `${JSON.stringify({
+      version: 2,
+      workspace: "infrastructure-hq",
+      project: "SNPM",
+      entries: [{
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "roadmap.md",
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const result = runCli([
+      "sync",
+      "check",
+      "--error-format",
+      "json",
+      "--manifest",
+      manifestPath,
+      "--project-token-env",
+      missingTokenEnv,
+    ], {
+      env: {
+        [missingTokenEnv]: "",
+      },
+    });
+    const payload = parseJsonPayloadFromMixedStdout(result.stdout);
+
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, "");
+    assert.equal(payload.ok, false);
+    assert.equal(payload.command, "sync-check");
+    assert.equal(payload.error, undefined);
+    assert.equal(payload.entries[0].diagnostics[0].code, "manifest-v2-check-remote-failed");
+    assert.equal(payload.diagnostics[0].code, "manifest-v2-check-remote-failed");
+    assert.equal(payload.diagnostics[0].command, "sync-check");
+    assert.equal(payload.diagnostics[0].state.phase, "check");
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

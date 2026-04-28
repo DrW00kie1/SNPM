@@ -11,6 +11,7 @@ import {
   capabilityJson,
   commandUsage,
   findCommandHelp,
+  normalizeCommandName,
   resolveHelpRequest,
   usage,
 } from "./cli-help.mjs";
@@ -87,6 +88,12 @@ import {
 } from "./commands/mutation-journal.mjs";
 import { writeManifestV2PreviewReviewArtifacts } from "./commands/sync-review-output.mjs";
 import { buildManifestV2ReviewOutputFailureDiagnostic } from "./notion/manifest-sync-diagnostics.mjs";
+import {
+  NotionApiError,
+  NotionParseError,
+  NotionTransportError,
+  serializeSafeNotionError,
+} from "./notion/errors.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
@@ -135,9 +142,12 @@ const SECRET_GENERATE_ALLOWED_OPTIONS = new Set([
   "title",
   "workspace",
 ]);
+const ERROR_FORMATS = new Set(["json", "text"]);
+const DEFAULT_ERROR_FORMAT = "text";
 export {
   commandUsage,
   findCommandHelp,
+  normalizeCommandName,
   resolveHelpRequest,
   usage,
 } from "./cli-help.mjs";
@@ -149,6 +159,194 @@ function printUsage(command = null) {
 function writeStructuredOutput(payload, { stderr = false } = {}) {
   const stream = stderr ? process.stderr : process.stdout;
   stream.write(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function isSensitiveErrorText(message) {
+  return /(?:bearer\s+[a-z0-9._-]+|ntn_[a-z0-9_]+|postgres(?:ql)?:\/\/\S+|(?:secret|token|password|api[_-]?key)\s*=\s*\S+|stdout:|stderr:|stack:)/i.test(String(message || ""));
+}
+
+function safeErrorMessage(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (!message) {
+    return "Unexpected error.";
+  }
+  return isSensitiveErrorText(message) ? "Unexpected error." : message;
+}
+
+function errorCodeFromMessage(message) {
+  if (/^Unknown command:/i.test(message)) {
+    return "unknown_command";
+  }
+  if (/^Missing value for --/i.test(message)) {
+    return "missing_option_value";
+  }
+  if (/^Provide --/i.test(message) || /^Provide a /i.test(message)) {
+    return "missing_required_option";
+  }
+  if (/--error-format/i.test(message)) {
+    return "invalid_error_format";
+  }
+  if (/workspace/i.test(message)) {
+    return "invalid_workspace";
+  }
+  if (/project-token-env/i.test(message)) {
+    return "invalid_project_token_env";
+  }
+  if (/\bcwd\b|working directory/i.test(message)) {
+    return "invalid_cwd";
+  }
+  if (/metadata/i.test(message)) {
+    return "metadata_error";
+  }
+  if (/manifest/i.test(message)) {
+    return "manifest_error";
+  }
+  if (/literal -- child-command delimiter|child command|passthrough/i.test(message)) {
+    return "invalid_child_command";
+  }
+  return "cli_error";
+}
+
+function errorCategoryFromCode(code) {
+  if (code === "unknown_command" || code.startsWith("missing_") || code.startsWith("invalid_")) {
+    return "usage";
+  }
+  if (code === "metadata_error" || code === "manifest_error") {
+    return "preflight";
+  }
+  return "runtime";
+}
+
+function cliErrorPayload(error, { command = null } = {}) {
+  if (
+    error instanceof NotionApiError
+    || error instanceof NotionTransportError
+    || error instanceof NotionParseError
+    || ["NotionApiError", "NotionTransportError", "NotionParseError"].includes(error?.name)
+  ) {
+    const safeError = serializeSafeNotionError(error);
+    const categoryByKind = {
+      api: "notion-api",
+      parse: "notion-parse",
+      transport: "notion-transport",
+    };
+
+    return {
+      ok: false,
+      schemaVersion: 1,
+      command,
+      error: {
+        code: safeError.code || safeError.kind || "notion_error",
+        category: categoryByKind[safeError.kind] || "notion",
+        message: safeError.message,
+        ...(safeError.retryable !== undefined ? { retryable: safeError.retryable } : {}),
+        details: Object.fromEntries(
+          Object.entries(safeError).filter(([key]) => !["message", "name"].includes(key)),
+        ),
+      },
+    };
+  }
+
+  const message = safeErrorMessage(error);
+  const code = errorCodeFromMessage(message);
+  return {
+    ok: false,
+    schemaVersion: 1,
+    command,
+    error: {
+      code,
+      category: errorCategoryFromCode(code),
+      message,
+    },
+  };
+}
+
+function normalizeErrorFormat(value, { source }) {
+  if (ERROR_FORMATS.has(value)) {
+    return value;
+  }
+
+  throw new Error(`${source} must be json or text.`);
+}
+
+export function prepareCliInvocation(argv, env = process.env) {
+  const passthroughIndex = argv.indexOf("--");
+  const scannedArgv = passthroughIndex === -1 ? argv : argv.slice(0, passthroughIndex);
+  const passthroughArgv = passthroughIndex === -1 ? [] : argv.slice(passthroughIndex);
+  const forwardedArgv = [];
+  let errorFormat = DEFAULT_ERROR_FORMAT;
+  let explicitErrorFormat = false;
+
+  for (let i = 0; i < scannedArgv.length; i += 1) {
+    const token = scannedArgv[i];
+
+    if (token.startsWith("--error-format=")) {
+      errorFormat = normalizeErrorFormat(token.slice("--error-format=".length), { source: "--error-format" });
+      explicitErrorFormat = true;
+      continue;
+    }
+
+    if (token !== "--error-format") {
+      forwardedArgv.push(token);
+      continue;
+    }
+
+    const value = scannedArgv[i + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error("--error-format must be json or text.");
+    }
+
+    errorFormat = normalizeErrorFormat(value, { source: "--error-format" });
+    explicitErrorFormat = true;
+    i += 1;
+  }
+
+  if (!explicitErrorFormat && env.SNPM_ERROR_FORMAT !== undefined && env.SNPM_ERROR_FORMAT !== "") {
+    errorFormat = normalizeErrorFormat(env.SNPM_ERROR_FORMAT, { source: "SNPM_ERROR_FORMAT" });
+  }
+
+  return {
+    argv: [...forwardedArgv, ...passthroughArgv],
+    command: inferCommandForError([...forwardedArgv, ...passthroughArgv]),
+    errorFormat,
+  };
+}
+
+function inferCommandForError(argv) {
+  if (!Array.isArray(argv) || argv.length === 0) {
+    return null;
+  }
+
+  const tokens = [];
+  for (const token of argv) {
+    if (token === "--" || token.startsWith("--")) {
+      break;
+    }
+    if (token === "help") {
+      continue;
+    }
+
+    tokens.push(token);
+    const candidate = normalizeCommandName(tokens.join(" "));
+    const commandSpec = findCommandHelp(candidate);
+    if (commandSpec) {
+      return commandSpec.canonical;
+    }
+    if (tokens.length >= 2) {
+      break;
+    }
+  }
+
+  return tokens.length > 0 ? normalizeCommandName(tokens.join(" ")) : null;
+}
+
+function writeTopLevelError(error, { command = null, errorFormat = DEFAULT_ERROR_FORMAT } = {}) {
+  if (errorFormat === "json") {
+    writeStructuredOutput(cliErrorPayload(error, { command }), { stderr: true });
+    return;
+  }
+
+  console.error(error instanceof Error ? error.message : String(error));
 }
 
 function withMutationJournal(result, { command, surface }) {
@@ -525,15 +723,16 @@ function printSyncEntryResults(entries) {
   }
 }
 
-async function main() {
-  const argv = process.argv.slice(2);
+async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_FORMAT } = {}) {
   const helpRequest = resolveHelpRequest(argv);
   if (helpRequest) {
     if (helpRequest.type === "unknown") {
-      console.error(`Unknown command: ${helpRequest.command}`);
-      printUsage();
-      process.exitCode = 1;
-      return;
+      const error = new Error(`Unknown command: ${helpRequest.command}`);
+      error.isPreflightHelpError = true;
+      if (errorFormat !== "json") {
+        printUsage();
+      }
+      throw error;
     }
 
     printUsage(helpRequest.command);
@@ -1639,8 +1838,16 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
-    console.error(error.message);
+  let errorFormat = DEFAULT_ERROR_FORMAT;
+  let command = null;
+
+  try {
+    const options = prepareCliInvocation(process.argv.slice(2));
+    errorFormat = options.errorFormat;
+    command = options.command;
+    await main(options.argv, { errorFormat });
+  } catch (error) {
+    writeTopLevelError(error, { command, errorFormat });
     process.exitCode = 1;
-  });
+  }
 }

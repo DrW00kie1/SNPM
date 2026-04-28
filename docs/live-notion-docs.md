@@ -288,6 +288,36 @@ Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, and `Projects > SNPM > Planning > Current Cycle`. Note `Runbooks > Notion Workspace Workflow` only if operator guidance changes.
 
+## Sprint 1E Structured CLI Errors Updates
+
+Sprint 1E follows Sprint 1D as a narrow CLI hardening wedge for automation-readable failures. Default operator behavior stays unchanged: command failures still print human-readable text to stderr unless an operator opts into JSON failure formatting.
+
+Supported behavior:
+- use `--error-format json|text` to select failure formatting for a command
+- use `SNPM_ERROR_FORMAT=json|text` as the environment default when the flag is omitted
+- prefer the explicit flag over the environment variable when both are present
+- emit JSON-formatted failures on stderr only
+- keep successful stdout payloads and existing success schemas unchanged
+
+Out of scope:
+- retries
+- rollback or transaction semantics
+- changed Notion mutation behavior
+- changed stale-write protection
+- changed command-family ownership or supported surfaces
+- moving failure output to stdout
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1E Structured CLI Errors is approved as a reporting-only hardening wedge. CLI failures can opt into JSON with `--error-format json` or `SNPM_ERROR_FORMAT=json`; default text stderr remains unchanged, JSON failures stay on stderr, and success schemas are unchanged.
+- Roadmap: Mark Sprint 1E complete as opt-in structured failure reporting after Sprint 1D. It improves automation recovery without adding retries, rollback, transaction semantics, mutation behavior, or new supported surfaces.
+- Current Cycle: Operators can keep existing commands unchanged. Use `--error-format json` only when a calling agent or script needs machine-readable failure details; successful command output remains the existing command-specific schema.
+- Runbook: Add a short operator note only if the live runbook documents CLI automation conventions: `--error-format` overrides `SNPM_ERROR_FORMAT`, JSON errors are stderr-only, and structured errors are not retry or mutation semantics.
+- Projects > SNPM: If the public command summary is maintained there, mention opt-in structured CLI failures as an automation hardening feature, not as a new Notion command capability.
+
+Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` only if `Runbooks > Notion Workspace Workflow` needs the operator note; use `doc-*` for `Projects > SNPM` only if that page carries public command or internal status notes.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, and `Projects > SNPM > Planning > Current Cycle`. Note `Runbooks > Notion Workspace Workflow` only if operator CLI automation guidance changes.
+
 ## Verification
 
 Project-scoped verification:

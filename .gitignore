@@ -21,6 +21,8 @@ tasks/
 .env
 .env.*
 !.env.example
+*.doc
+*.docx
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

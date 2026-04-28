@@ -11,6 +11,7 @@ Current active hardening wedge:
 - Sprint 1B Notion Transport Hardening completed the existing Notion-backed command surface wedge, with public operator behavior, command names, and command-family ownership unchanged
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed the follow-up package/readiness contract: registry-derived help/capabilities, package executable metadata, packed-file allowlist, and private config boundary
+- Sprint 1E Structured CLI Errors is the active narrow hardening wedge for opt-in machine-readable failure output, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
 
 ## Product Direction
 
@@ -343,6 +344,37 @@ Out of scope:
 Durable Notion closeout draft:
 - Sprint 1D Command Metadata Registry And Package Readiness completes the command discovery and package contract follow-up after Sprint 1C. CLI help and `capabilities` now share registry-derived command metadata, and package metadata defines the installed `snpm` executable plus the packed-file allowlist and Node runtime expectation. The sprint does not change Notion command-family ownership, supported surfaces, or live mutation behavior.
 
+### Sprint 1E: Structured CLI Errors
+
+Goal:
+- add opt-in structured failure reporting for CLI automation without changing default human stderr behavior or any successful output schema
+
+Deliverables:
+- `--error-format json|text` on the CLI entrypoint
+- `SNPM_ERROR_FORMAT=json|text` as an environment default when the flag is omitted
+- JSON failure envelopes written to stderr only
+- docs that distinguish failure formatting from command result schemas and mutation semantics
+
+Exit criteria:
+- an operator or coding agent can opt into machine-readable CLI failures while existing text stderr behavior, stdout success payloads, and apply safety contracts remain unchanged
+
+Status:
+- Sprint 1E is scoped as a hardening wedge on the active line after Sprint 1D
+- default failure behavior remains text on stderr
+- `--error-format` takes precedence over `SNPM_ERROR_FORMAT`
+- success schemas and successful stdout behavior are unchanged
+- JSON failures are emitted on stderr only
+
+Out of scope:
+- changing success schemas
+- moving failure output to stdout
+- automatic retries
+- rollback or transaction semantics
+- changing Notion mutation behavior, stale-write protection, command-family ownership, or supported surfaces
+
+Durable Notion closeout draft:
+- Sprint 1E Structured CLI Errors adds opt-in machine-readable CLI failure output through `--error-format json|text` and `SNPM_ERROR_FORMAT`. The default remains human-readable text on stderr, JSON failures are emitted on stderr only, and existing success schemas stay unchanged. This is a reporting hardening wedge only; it does not add retries, rollback, transaction semantics, new mutation behavior, or any command-family ownership changes.
+
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
@@ -424,9 +456,10 @@ Out of scope:
 Status:
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing generated-secret child execution and other existing child-runner usage without changing supported operator commands
 - Sprint 1B Notion Transport Hardening completed the follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
-- Sprint 1D Command Metadata Registry And Package Readiness is the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
+- Sprint 1D Command Metadata Registry And Package Readiness completed the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
+- Sprint 1E Structured CLI Errors is the next narrow hardening wedge, focused on opt-in machine-readable failure reporting before broader feature expansion
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1D
+- public operator behavior, command names, success schemas, mutation semantics, and command-family ownership remain unchanged during Sprint 1E
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.

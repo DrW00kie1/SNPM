@@ -1236,6 +1236,9 @@ test("manifest v2 push apply stops on first apply failure and reports partial re
     "Planning > Roadmap",
     "Release Smoke Test",
   ]);
+  assert.equal(mutationCalls.filter((call) => call.target === "Release Smoke Test").length, 1);
+  assert.equal(calls.filter((call) => call.apply === true && call.target === "Release Smoke Test").length, 1);
+  assert.equal(mutationCalls.some((call) => call.target === "Session Fixture"), false);
 });
 
 test("manifest v2 push apply transport failures preserve partial-apply reporting", async () => {
@@ -1304,6 +1307,9 @@ test("manifest v2 push apply transport failures preserve partial-apply reporting
     "Planning > Roadmap",
     "Release Smoke Test",
   ]);
+  assert.equal(mutationCalls.filter((call) => call.target === "Release Smoke Test").length, 1);
+  assert.equal(calls.filter((call) => call.apply === true && call.target === "Release Smoke Test").length, 1);
+  assert.equal(mutationCalls.some((call) => call.target === "Session Fixture"), false);
 });
 
 test("manifest v2 push reports unsupported and incomplete adapters", async (t) => {
