@@ -5,6 +5,20 @@ import { loadWorkspaceConfig } from "../src/notion/config.mjs";
 import { normalizeProjectPolicyPackValue } from "../src/notion/project-policy.mjs";
 import { getProjectPolicyStarterDocScaffold } from "../src/notion/managed-doc-policy.mjs";
 
+function withClearedWorkspaceConfigDir(fn) {
+  const previous = process.env.SNPM_WORKSPACE_CONFIG_DIR;
+  try {
+    delete process.env.SNPM_WORKSPACE_CONFIG_DIR;
+    return fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.SNPM_WORKSPACE_CONFIG_DIR;
+    } else {
+      process.env.SNPM_WORKSPACE_CONFIG_DIR = previous;
+    }
+  }
+}
+
 function makePolicyPack(overrides = {}) {
   return {
     version: 1,
@@ -59,7 +73,7 @@ function makePolicyPack(overrides = {}) {
 }
 
 test("default project policy pack matches the current Infrastructure HQ config", () => {
-  const config = loadWorkspaceConfig("infrastructure-hq.example");
+  const config = withClearedWorkspaceConfigDir(() => loadWorkspaceConfig("infrastructure-hq.example"));
 
   assert.equal(config.policyPack.version, 1);
   assert.deepEqual(

@@ -214,9 +214,9 @@ export async function runSecretRecordCreate({
   title,
   workspaceName = "infrastructure-hq",
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = filePath ? await readCommandInput(filePath) : "";
   assertNoLocalRawSecretValue(fileBodyMarkdown, { command: "secret-record create" });
+  const config = loadWorkspaceConfig(workspaceName);
 
   return createSecretRecord({
     apply,
@@ -369,9 +369,9 @@ export async function runAccessTokenCreate({
   title,
   workspaceName = "infrastructure-hq",
 }) {
-  const config = loadWorkspaceConfig(workspaceName);
   const fileBodyMarkdown = filePath ? await readCommandInput(filePath) : "";
   assertNoLocalRawSecretValue(fileBodyMarkdown, { command: "access-token create" });
+  const config = loadWorkspaceConfig(workspaceName);
 
   return createAccessToken({
     apply,

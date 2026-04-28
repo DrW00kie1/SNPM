@@ -7,8 +7,22 @@ import path from "node:path";
 import { loadWorkspaceConfig, resolveWorkspaceConfigPath, validateWorkspaceConfig } from "../src/notion/config.mjs";
 import { getManagedDocStarterDocScaffold } from "../src/notion/managed-doc-policy.mjs";
 
+function withClearedWorkspaceConfigDir(fn) {
+  const previous = process.env.SNPM_WORKSPACE_CONFIG_DIR;
+  try {
+    delete process.env.SNPM_WORKSPACE_CONFIG_DIR;
+    return fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.SNPM_WORKSPACE_CONFIG_DIR;
+    } else {
+      process.env.SNPM_WORKSPACE_CONFIG_DIR = previous;
+    }
+  }
+}
+
 test("loadWorkspaceConfig returns the validated Infrastructure HQ config", () => {
-  const config = loadWorkspaceConfig("infrastructure-hq.example");
+  const config = withClearedWorkspaceConfigDir(() => loadWorkspaceConfig("infrastructure-hq.example"));
   assert.equal(config.notionVersion, "2026-03-11");
   assert.equal(config.projectStarter.children[0].title, "Ops");
   assert.equal(config.policyPack.version, 1);
@@ -25,7 +39,7 @@ test("loadWorkspaceConfig returns the validated Infrastructure HQ config", () =>
 });
 
 test("resolveWorkspaceConfigPath points at the expected workspace file", () => {
-  const configPath = resolveWorkspaceConfigPath("infrastructure-hq");
+  const configPath = withClearedWorkspaceConfigDir(() => resolveWorkspaceConfigPath("infrastructure-hq"));
   assert.match(configPath, /config[\\/]workspaces[\\/]infrastructure-hq\.json$/);
 });
 

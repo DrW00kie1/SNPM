@@ -43,6 +43,15 @@ const SUPPORTED_INTENTS = new Set([
   "generated-output",
 ]);
 
+const REPO_OWNED_INTENTS = new Set([
+  "implementation-note",
+  "design-spec",
+  "task-breakdown",
+  "investigation",
+  "repo-doc",
+  "generated-output",
+]);
+
 function buildCommandStep(command, reason) {
   return {
     kind: "command",
@@ -803,8 +812,12 @@ export async function recommendProjectUpdate({
     throw new Error(`Unsupported --intent "${intent}". Supported intents are: planning, runbook, secret, token, generated-secret, generated-token, project-doc, template-doc, workspace-doc, implementation-note, design-spec, task-breakdown, investigation, repo-doc, generated-output.`);
   }
 
-  const client = workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);
-  const needsProjectDiagnosis = !["template-doc", "workspace-doc"].includes(intent);
+  const needsWorkspaceClient = !REPO_OWNED_INTENTS.has(intent);
+  const client = needsWorkspaceClient
+    ? workspaceClient || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion)
+    : workspaceClient;
+  const needsProjectDiagnosis = !["template-doc", "workspace-doc"].includes(intent)
+    && !REPO_OWNED_INTENTS.has(intent);
   const diagnosis = needsProjectDiagnosis
     ? await diagnoseProjectImpl({
       config,

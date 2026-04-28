@@ -23,6 +23,7 @@ import {
 
 const CLI_PATH = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const PUBLIC_WORKSPACE_CONFIG_DIR = path.join(REPO_ROOT, "config", "workspaces");
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json");
 const JSON_CONTRACTS_URL = new URL("../src/contracts/json-contracts.mjs", import.meta.url);
@@ -53,6 +54,13 @@ function runCli(args, options = {}) {
       ...options.env,
     },
   });
+}
+
+function publicWorkspaceConfigEnv(env = {}) {
+  return {
+    ...env,
+    SNPM_WORKSPACE_CONFIG_DIR: PUBLIC_WORKSPACE_CONFIG_DIR,
+  };
 }
 
 function runNpmScript(script, args = []) {
@@ -908,10 +916,9 @@ test("cli sync check reports review-output diagnostics when artifact writing fai
   const missingTokenEnv = "SNPM_REVIEW_OUTPUT_FAILURE_TEST_TOKEN_SHOULD_NOT_EXIST_9F44";
 
   try {
-    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
     writeFileSync(manifestPath, `${JSON.stringify({
       version: 2,
-      workspace: "infrastructure-hq",
+      workspace: "infrastructure-hq.example",
       project: "SNPM",
       entries: [{
         kind: "planning-page",
@@ -931,9 +938,7 @@ test("cli sync check reports review-output diagnostics when artifact writing fai
       "--review-output",
       reviewOutputPath,
     ], {
-      env: {
-        [missingTokenEnv]: "",
-      },
+      env: publicWorkspaceConfigEnv({ [missingTokenEnv]: "" }),
     });
     const payload = parseJsonPayloadFromMixedStdout(result.stdout);
     const reviewDiagnostic = payload.diagnostics.find((diagnostic) => (
@@ -1719,14 +1724,17 @@ test("cli plan-change --manifest-draft prints contract-validated JSON only", asy
     "--manifest-draft",
     "--project",
     "SNPM",
+    "--workspace",
+    "infrastructure-hq.example",
   ], {
     input: `${JSON.stringify({
-      goal: "Prepare a Sprint 1F template documentation update.",
+      goal: "Prepare a repo-owned implementation note.",
       targets: [{
-        type: "template-doc",
-        docPath: "Templates > Project Templates > Overview",
+        type: "implementation-note",
+        repoPath: "notes/sprint-1f.md",
       }],
     })}\n`,
+    env: publicWorkspaceConfigEnv(),
   });
   const parsed = JSON.parse(result.stdout);
 
@@ -1737,15 +1745,17 @@ test("cli plan-change --manifest-draft prints contract-validated JSON only", asy
   assert.equal(parsed.projectName, "SNPM");
   assert.deepEqual(parsed.manifestDraft, {
     version: 2,
-    workspace: "infrastructure-hq",
+    workspace: "infrastructure-hq.example",
     project: "SNPM",
-    entries: [{
-      kind: "template-doc",
-      docPath: "Templates > Project Templates > Overview",
-      file: "notion/templates/project-templates/overview.md",
-    }],
+    entries: [],
   });
-  assert.deepEqual(parsed.manifestUnsupportedTargets, []);
+  assert.deepEqual(parsed.manifestUnsupportedTargets, [{
+    index: 0,
+    type: "implementation-note",
+    reason: "Repo-owned targets are not Notion manifest entries.",
+    repoPath: "notes/sprint-1f.md",
+    projectName: "SNPM",
+  }]);
   await assertJsonContractPayload("snpm.plan-change.v1", parsed);
 });
 
@@ -2228,7 +2238,7 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
     writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
     writeFileSync(manifestPath, `${JSON.stringify({
       version: 2,
-      workspace: "infrastructure-hq",
+      workspace: "infrastructure-hq.example",
       project: "SNPM",
       entries: [{
         kind: "planning-page",
@@ -2245,20 +2255,18 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
       "--project-token-env",
       missingTokenEnv,
     ], {
-      env: {
-        [missingTokenEnv]: "",
-      },
+      env: publicWorkspaceConfigEnv({ [missingTokenEnv]: "" }),
     });
     const mixedPayload = parseJsonPayloadFromMixedStdout(mixedResult.stdout);
 
     assert.equal(mixedResult.status, 1);
     assert.equal(mixedResult.stderr, "");
     assert.match(mixedResult.stdout, /^\[planning-page\] Planning > Roadmap \(roadmap\.md\)/);
-    assert.match(mixedResult.stdout, /Error: Set SNPM_OUTPUT_MODE_TEST_TOKEN_SHOULD_NOT_EXIST_8A31/);
+    assert.match(mixedResult.stdout, /Error: (?:Set NOTION_TOKEN|Set INFRASTRUCTURE_HQ_NOTION_TOKEN|GET blocks\/|Local file|ENOENT)/i);
     assert.equal(mixedPayload.ok, false);
     assert.equal(mixedPayload.command, "sync-check");
     assert.equal(mixedPayload.entries[0].status, "error");
-    assert.equal(mixedPayload.entries[0].diagnostics[0].code, "manifest-v2-check-remote-failed");
+    assert.equal(mixedPayload.entries[0].diagnostics[0].code, "manifest-v2-check-local-file-failed");
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -2471,7 +2479,7 @@ test("cli --error-format json covers metadata sidecar parse failures", () => {
     writeFileSync(sidecarPath, "{ invalid sidecar json", "utf8");
     writeFileSync(manifestPath, `${JSON.stringify({
       version: 2,
-      workspace: "infrastructure-hq",
+      workspace: "infrastructure-hq.example",
       project: "SNPM",
       entries: [{
         kind: "planning-page",
@@ -2488,7 +2496,9 @@ test("cli --error-format json covers metadata sidecar parse failures", () => {
       "--manifest",
       manifestPath,
       "--apply",
-    ]);
+    ], {
+      env: publicWorkspaceConfigEnv(),
+    });
     const payload = parseJsonPayloadFromMixedStdout(result.stdout);
 
     assert.equal(result.status, 1);
@@ -2574,10 +2584,9 @@ test("cli manifest v2 diagnostics stay in sync payloads when structured top-leve
   const missingTokenEnv = "SNPM_STRUCTURED_MANIFEST_TOKEN_SHOULD_NOT_EXIST_2F91";
 
   try {
-    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
     writeFileSync(manifestPath, `${JSON.stringify({
       version: 2,
-      workspace: "infrastructure-hq",
+      workspace: "infrastructure-hq.example",
       project: "SNPM",
       entries: [{
         kind: "planning-page",
@@ -2596,9 +2605,7 @@ test("cli manifest v2 diagnostics stay in sync payloads when structured top-leve
       "--project-token-env",
       missingTokenEnv,
     ], {
-      env: {
-        [missingTokenEnv]: "",
-      },
+      env: publicWorkspaceConfigEnv({ [missingTokenEnv]: "" }),
     });
     const payload = parseJsonPayloadFromMixedStdout(result.stdout);
 
@@ -2607,8 +2614,8 @@ test("cli manifest v2 diagnostics stay in sync payloads when structured top-leve
     assert.equal(payload.ok, false);
     assert.equal(payload.command, "sync-check");
     assert.equal(payload.error, undefined);
-    assert.equal(payload.entries[0].diagnostics[0].code, "manifest-v2-check-remote-failed");
-    assert.equal(payload.diagnostics[0].code, "manifest-v2-check-remote-failed");
+    assert.equal(payload.entries[0].diagnostics[0].code, "manifest-v2-check-local-file-failed");
+    assert.equal(payload.diagnostics[0].code, "manifest-v2-check-local-file-failed");
     assert.equal(payload.diagnostics[0].command, "sync-check");
     assert.equal(payload.diagnostics[0].state.phase, "check");
   } finally {
