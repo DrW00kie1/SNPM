@@ -74,13 +74,33 @@ npm run package-contract
 npm run release-check
 ```
 
-`release-audit` is the focused release identity and package-content audit gate. `package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local source-checkout pre-release aggregate gate. If a tested branch does not yet contain `release-audit`, report that explicitly and do not treat the branch as Sprint 1H release-ready.
+`release-audit` is the focused release identity and package-content audit gate. `package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local source-checkout pre-release aggregate gate. If a tested branch does not yet contain `release-audit`, report that explicitly and do not treat the branch as Sprint 1I release-ready.
 
 CI expectations:
 - CI must be secret-free
 - do not provide Notion tokens, private workspace config, real page ids, or `SNPM_WORKSPACE_CONFIG_DIR` pointing at private operator state
 - do not run live Notion verification or mutation commands in CI
 - live workspace verification remains a local operator action when private config and tokens are available
+
+## Sprint 1I Promotion Evidence
+
+Release-candidate and stable promotion reports should include:
+- tested branch, commit, and intended release identifier
+- tested distribution path: source checkout, reviewed Git install, or reviewed tarball install
+- CI status for the exact commit under promotion
+- `release-audit`, `package-contract`, and `release-check` results
+- `npm pack --dry-run --json --ignore-scripts` review result
+- local live `verify-project` and `doctor` results from the operator environment
+- `verify-workspace-docs` result when curated workspace-global or template docs changed
+- branch-protection status for stable promotion
+- explicit approval references for any tag, GitHub Release, or npm publish
+
+Promotion boundaries:
+- a green CI run does not create release approval by itself
+- branch protection is enabled or verified only after green CI on the intended stable branch or default branch
+- release scripts, CI, and tester workflows must not apply branch protection rules
+- do not create tags, GitHub Releases, or npm publishes unless the operator explicitly approves that exact action
+- no npm publish is part of ordinary Sprint 1I testing or promotion
 
 ## Safe Live Validation
 
@@ -126,12 +146,15 @@ Include:
 - tested branch, tag, or commit
 - tested distribution path: source checkout, reviewed Git install, or reviewed tarball install
 - Node.js version when testing Sprint 1G release gates
+- CI status for the exact tested commit when reporting release promotion evidence
 - commands run
 - expected result
 - actual result
 - whether the test touched the live workspace
 - token mode used
 - affected project or path
+- branch-protection status when reporting stable promotion evidence
+- whether tags, GitHub Releases, or npm publish actions were explicitly out of scope or explicitly approved
 - copied CLI output when useful
 
 If you tested a non-`main` branch, say so explicitly.

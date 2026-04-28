@@ -404,6 +404,35 @@ Closeout command families if later applied by an operator: use `page-*` for `Pla
 
 Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, conditionally `Projects > SNPM > Runbooks > Release Readiness`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
 
+## Sprint 1I Release Operations Promotion And Protection Updates
+
+Sprint 1I follows Sprint 1H as the release-operations wedge for repeatable release-candidate and stable promotion. It documents the operator checklist and evidence trail without publishing SNPM, creating GitHub Releases or tags, applying branch protection automatically, adding live Notion to CI, or changing live mutation behavior.
+
+Supported behavior:
+- release-candidate promotion starts from a clean checkout, runs `npm ci`, `release-audit`, `package-contract`, `release-check`, dry-run pack review, green CI confirmation, local live SNPM verification, and evidence capture
+- stable promotion repeats the release-candidate gates, confirms release-candidate findings are closed or explicitly deferred, verifies green CI, then enables or verifies branch protection on the intended stable branch or default branch
+- branch protection is a post-green-CI governance step and is not applied by release scripts, CI, or tester workflows
+- local live SNPM verification remains operator-run with private config and tokens
+- tags, GitHub Releases, and npm publishes require separate explicit approval for each action
+
+Local live verification commands for release evidence:
+
+```powershell
+npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run verify-workspace-docs
+```
+
+Use `verify-workspace-docs` when curated workspace-global or template docs changed. Do not run live verification in CI.
+
+Concise durable Notion summary text:
+
+> Sprint 1I Release Operations Promotion And Protection documents the RC/stable release promotion checklist and evidence requirements. RC promotion requires a clean checkout, `npm ci`, release/package gates, dry-run pack review, green CI, local live SNPM verification, and evidence capture. Stable promotion repeats those gates and verifies or enables branch protection only after green CI. Tags, GitHub Releases, and npm publishes remain separate explicitly approved actions. No Notion command-family ownership, supported surface, CI secret boundary, package visibility, or live mutation behavior changes.
+
+Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Projects > SNPM > Runbooks > Release Readiness` and `Runbooks > Notion Workspace Workflow` only if those runbooks need release-operation checklist guidance; use `doc-*` for `Projects > SNPM` only if that page carries public release status.
+
+Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Projects > SNPM > Runbooks > Release Readiness`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
+
 ## Verification
 
 Project-scoped verification:

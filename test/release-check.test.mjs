@@ -14,6 +14,17 @@ function readPackageJson() {
   return JSON.parse(readRepoFile("package.json"));
 }
 
+function assertIncludesInOrder(text, expectedParts) {
+  let previousIndex = -1;
+
+  for (const part of expectedParts) {
+    const index = text.indexOf(part, previousIndex + 1);
+    assert.notEqual(index, -1, `Expected to find ${part}`);
+    assert.ok(index > previousIndex, `Expected ${part} to appear after previous release gate`);
+    previousIndex = index;
+  }
+}
+
 test("package metadata exposes Node 22 release-check scripts", () => {
   const packageJson = readPackageJson();
 
@@ -21,9 +32,10 @@ test("package metadata exposes Node 22 release-check scripts", () => {
   assert.equal(packageJson.scripts["package-contract"], "npm run test:package-contract");
   assert.equal(
     packageJson.scripts["test:package-contract"],
-    "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs",
+    "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs test/release-governance.test.mjs",
   );
   assert.equal(packageJson.scripts["release-audit"], "node scripts/release-audit.mjs");
+  assert.equal(packageJson.scripts["release-governance"], "node scripts/release-governance.mjs");
   assert.equal(packageJson.scripts["release-check"], "node scripts/release-check.mjs");
 });
 
@@ -40,20 +52,26 @@ test("CI runs the secret-free release check on Node 22 and 24 across Ubuntu and 
   assert.doesNotMatch(workflow, /\bsecrets\./i);
   assert.doesNotMatch(workflow, /\bNOTION\b/i);
   assert.doesNotMatch(workflow, /\benv:\s*\n/i);
+  assert.doesNotMatch(workflow, /\brelease-governance\b/i);
+  assert.doesNotMatch(workflow, /\bverify-project|doctor|recommend\b/i);
 });
 
 test("release-check runs the full local release gate without live Notion commands", () => {
   const script = readRepoFile("scripts", "release-check.mjs");
 
-  assert.match(script, /full test suite/);
-  assert.match(script, /test:package-contract/);
-  assert.match(script, /release audit/);
-  assert.match(script, /scripts\/release-audit\.mjs/);
-  assert.match(script, /pack", "--dry-run", "--json", "--ignore-scripts/);
-  assert.match(script, /src\/cli\.mjs", "--help/);
-  assert.match(script, /capabilities smoke/);
-  assert.match(script, /discover smoke/);
-  assert.doesNotMatch(script, /verify-project|doctor|recommend|NOTION/i);
+  assertIncludesInOrder(script, [
+    '{ label: "full test suite", command: "npm", args: ["test"] }',
+    '{ label: "package contract tests", command: "npm", args: ["run", "test:package-contract"] }',
+    '{ label: "release audit", command: "node", args: ["scripts/release-audit.mjs"] }',
+    '{ label: "package dry run", command: "npm", args: ["pack", "--dry-run", "--json", "--ignore-scripts"] }',
+    '{ label: "CLI help smoke", command: "node", args: ["src/cli.mjs", "--help"] }',
+    '{ label: "capabilities smoke", command: "npm", args: ["run", "capabilities"] }',
+    '{ label: "discover smoke", command: "npm", args: ["run", "discover", "--", "--project", "SNPM"] }',
+  ]);
+  assert.doesNotMatch(script, /verify-project|doctor|recommend|NOTION|SNPM_NOTION_TOKEN/i);
+  assert.doesNotMatch(script, /\brelease-governance\b/i);
+  assert.doesNotMatch(script, /\bprocess\.env\.(?:SNPM_)?NOTION/i);
+  assert.doesNotMatch(script, /\bsecrets\./i);
 });
 
 test("release-audit scans packed paths and text contents for package leaks", () => {

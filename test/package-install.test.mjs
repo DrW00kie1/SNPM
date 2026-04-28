@@ -115,6 +115,33 @@ function assertUpdatedNodeEngineContract(packageJson) {
   );
 }
 
+function assertSafePackageIdentity(packageJson) {
+  assert.equal(packageJson.name, "snpm");
+  assert.equal(packageJson.private, true);
+  assert.deepEqual(packageJson.repository, {
+    type: "git",
+    url: "git+https://github.com/DrW00kie1/SNPM.git",
+  });
+  assert.deepEqual(packageJson.bugs, {
+    url: "https://github.com/DrW00kie1/SNPM/issues",
+  });
+  assert.equal(packageJson.homepage, "https://github.com/DrW00kie1/SNPM#readme");
+}
+
+function assertNoNpmPublishPosture(packageJson) {
+  assert.equal(packageJson.publishConfig, undefined);
+  assert.equal(packageJson.scripts?.publish, undefined);
+  assert.equal(packageJson.scripts?.prepublish, undefined);
+  assert.equal(packageJson.scripts?.prepublishOnly, undefined);
+  assert.equal(packageJson.scripts?.postpublish, undefined);
+  assert.equal(packageJson.scripts?.release, undefined);
+  assert.equal(packageJson.config?.registry, undefined);
+  assert.equal(packageJson.config?.token, undefined);
+  assert.equal(packageJson.config?.npmToken, undefined);
+  assert.equal(packageJson.npmToken, undefined);
+  assert.equal(packageJson.nodeAuthToken, undefined);
+}
+
 function runSnpm(binPath, args, { cwd, env = {}, input } = {}) {
   const command = process.platform === "win32" ? "cmd.exe" : binPath;
   const commandArgs = process.platform === "win32"
@@ -172,7 +199,8 @@ test("package metadata exposes an snpm executable while remaining private", () =
   const packageJson = readPackageJson();
   const cliSource = readFileSync(path.join(REPO_ROOT, "src", "cli.mjs"), "utf8");
 
-  assert.equal(packageJson.private, true);
+  assertSafePackageIdentity(packageJson);
+  assertNoNpmPublishPosture(packageJson);
   assertUpdatedNodeEngineContract(packageJson);
   assert.deepEqual(packageJson.bin, {
     snpm: "./src/cli.mjs",

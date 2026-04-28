@@ -14,7 +14,8 @@ Current active hardening wedge:
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure output wedge, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
 - Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
 - Sprint 1G CI And Release Gates completed the Node 22+, secret-free CI, and local package/release contract check wedge
-- Sprint 1H Release Identity And Governance is the active release-governance wedge for distribution identity, npm-name boundaries, manual branch-protection requirements, and release-audit/release-check gates
+- Sprint 1H Release Identity And Governance completed the release-governance wedge for distribution identity, npm-name boundaries, manual branch-protection requirements, and release-audit/release-check gates
+- Sprint 1I Release Operations Promotion And Protection is the active release-operations wedge for RC/stable promotion checklists, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
 
 ## Product Direction
 
@@ -479,6 +480,42 @@ Out of scope:
 Durable Notion closeout draft:
 - Sprint 1H Release Identity And Governance documents SNPM's current distribution as source checkout plus reviewed Git/tarball install only. There is no npm publish yet; the unscoped `snpm` npm name is occupied and must not be used, and any future npm publication requires an approved owned scoped package. Release readiness is gated by release-audit/release-check review, while GitHub Releases, npm publish, tags, and branch protection remain explicit manual governance actions. The sprint does not change Notion command-family ownership, supported surfaces, secret boundaries, CI secret boundaries, or live mutation behavior.
 
+### Sprint 1I: Release Operations Promotion And Protection
+
+Goal:
+- make RC and stable release promotion operationally repeatable without turning release gates into publishing, tagging, GitHub Release, branch-protection, or live Notion mutation automation
+
+Deliverables:
+- step-by-step release-candidate promotion checklist covering clean clone, `npm ci`, release/package gates, dry-run pack review, green CI, local live SNPM verification, and release evidence capture
+- step-by-step stable promotion checklist that repeats the RC gates, closes or defers RC findings, verifies branch protection after green CI, and captures stable release evidence
+- docs that branch protection is enabled or verified only after green CI on the intended stable branch or default branch
+- docs that tags, GitHub Releases, and npm publishes require separate explicit approval and are never side effects of release checks
+- release evidence expectations covering exact commit, intended identifier, CI status, local gate results, dry-run pack review, live SNPM verification, branch-protection status, and Notion closeout targets
+- Notion closeout draft text naming durable planning/runbook targets and owning command families
+
+Exit criteria:
+- an operator can perform RC or stable promotion from repo docs without guessing which checks are local, which checks are CI-only, and which live verification steps require private config and tokens
+- release evidence is sufficient to reconstruct the promoted commit, tested distribution path, CI status, local gate outputs, live SNPM verification status, and branch-protection status
+- docs do not imply npm publish, tag creation, GitHub Release creation, branch-protection mutation, or live Notion mutation happens automatically
+- no Notion command-family ownership, supported surface, stale-write protection, secret boundary, CI secret boundary, package visibility, or live mutation behavior changes
+
+Status:
+- Sprint 1I is scoped as the active release-operations wedge after Sprint 1H
+- release gates remain local and secret-free unless explicitly described as operator-run live verification
+- local live SNPM verification remains separate from CI and requires private operator config and tokens
+- release evidence and Notion closeout targets are documentation requirements, not automated mutation behavior
+
+Out of scope:
+- npm publish
+- GitHub Release or tag creation
+- package or repository visibility changes
+- applying branch protection from repo-local scripts, CI, or release checks
+- live Notion verification or mutation in CI
+- changing Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior
+
+Durable Notion closeout draft:
+- Sprint 1I Release Operations Promotion And Protection documents the RC/stable promotion checklist and evidence trail. RC promotion requires a clean checkout, `npm ci`, `release-audit`, `package-contract`, `release-check`, dry-run pack review, green CI, local live `verify-project`/`doctor`, and evidence capture. Stable promotion repeats those gates, verifies or enables branch protection only after green CI, and records branch-protection status. Tags, GitHub Releases, and npm publishes remain separate explicitly approved actions. No Notion command-family ownership, supported surface, CI secret boundary, package visibility, or live mutation behavior changes.
+
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
@@ -564,9 +601,10 @@ Status:
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure reporting wedge before broader feature expansion
 - Sprint 1F Limited JSON Contract Schemas completed the narrow hardening wedge for selected agent-facing JSON contracts without changing public operator behavior
 - Sprint 1G CI And Release Gates completed the narrow release-readiness wedge for Node 22+, secret-free CI, and local package/release contract checks
-- Sprint 1H Release Identity And Governance is the next narrow release-governance wedge, focused on distribution identity, npm-name boundaries, manual branch protection, and release-audit/release-check gates
+- Sprint 1H Release Identity And Governance completed the narrow release-governance wedge, focused on distribution identity, npm-name boundaries, manual branch protection, and release-audit/release-check gates
+- Sprint 1I Release Operations Promotion And Protection is the next narrow release-operations wedge, focused on RC/stable promotion steps, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1H
+- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1I
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.

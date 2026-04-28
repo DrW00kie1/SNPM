@@ -582,7 +582,14 @@ test("npm run examples in help capabilities have registered package scripts", ()
 test("package scripts align with command registry metadata", () => {
   const capabilities = buildCapabilityMap();
   const packageScriptEntries = Object.entries(packageJson.scripts);
-  const releaseGateScripts = new Set(["test", "package-contract", "test:package-contract", "release-audit", "release-check"]);
+  const releaseGateScripts = new Set([
+    "test",
+    "package-contract",
+    "test:package-contract",
+    "release-audit",
+    "release-governance",
+    "release-check",
+  ]);
   const registryScriptTargets = new Map();
   const registryMetadataScripts = new Map();
 

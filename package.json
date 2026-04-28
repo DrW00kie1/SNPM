@@ -5,6 +5,14 @@
   "type": "module",
   "license": "MIT",
   "description": "Workspace-first Infrastructure HQ Notion automation and project bootstrap tooling.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrW00kie1/SNPM.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DrW00kie1/SNPM/issues"
+  },
+  "homepage": "https://github.com/DrW00kie1/SNPM#readme",
   "bin": {
     "snpm": "./src/cli.mjs"
   },
@@ -98,8 +106,9 @@
     "consistency-audit": "node src/cli.mjs doctor --consistency-audit",
     "truth-audit": "node src/cli.mjs doctor --truth-audit",
     "package-contract": "npm run test:package-contract",
-    "test:package-contract": "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs",
+    "test:package-contract": "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs test/release-governance.test.mjs",
     "release-audit": "node scripts/release-audit.mjs",
+    "release-governance": "node scripts/release-governance.mjs",
     "release-check": "node scripts/release-check.mjs",
     "test": "node --test"
   }
