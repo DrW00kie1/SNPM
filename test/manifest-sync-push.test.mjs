@@ -15,7 +15,7 @@ import {
 } from "../src/notion/manifest-sync-push.mjs";
 import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
-const manifestDir = "C:\\repo";
+const manifestDir = path.resolve("manifest-v2-push-fixture");
 
 function makeEntry(kind, target, file, overrides = {}) {
   const entry = {
