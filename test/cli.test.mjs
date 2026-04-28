@@ -269,6 +269,23 @@ test("validation-bundle npm scripts are not registered", () => {
   assert.equal(packageJson.scripts["validation-bundle-verify"], undefined);
 });
 
+test("transport hardening does not add public CLI flags or command surface", () => {
+  const help = usage();
+  const capabilities = buildCapabilityMap();
+  const packageScripts = Object.keys(packageJson.scripts).join("\n");
+  const publicDiscovery = [
+    help,
+    JSON.stringify(capabilities),
+    packageScripts,
+  ].join("\n");
+
+  assert.doesNotMatch(publicDiscovery, /--timeout\b/);
+  assert.doesNotMatch(publicDiscovery, /--retry\b/);
+  assert.doesNotMatch(publicDiscovery, /\btransport(?:-| )?(?:check|doctor|retry|timeout)\b/i);
+  assert.equal(capabilities.canonicalCommands.some((command) => /transport/i.test(command)), false);
+  assert.equal(Object.keys(packageJson.scripts).some((script) => /transport/i.test(script)), false);
+});
+
 test("discover command help, capability metadata, and npm script are registered", () => {
   const spec = findCommandHelp("discover");
   const capabilities = buildCapabilityMap();

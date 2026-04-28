@@ -214,6 +214,21 @@ Durable Notion closeout draft for this sprint:
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries internal status notes.
 
+## Sprint 1B Notion Transport Hardening Updates
+
+Sprint 1B follows Sprint 1A as an internal hardening wedge for the existing Notion-backed command surface. Public operator behavior stays unchanged: do not add or imply new commands, keep command-family ownership unchanged, and leave README/public command guidance untouched unless a broken pointer is found.
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1B Notion Transport Hardening is approved as an internal reliability and safety pass for existing Notion-backed transport paths. It does not change public operator commands, command-family ownership, or supported surfaces.
+- Roadmap: Mark Sprint 1B as the post-Sprint-1A hardening wedge before broader feature expansion. The scope is the existing Notion-backed command surface, not new mutation capability.
+- Current Cycle: Record that operators should continue using the existing supported workflows; Sprint 1B changes implementation transport posture only, not public operator behavior.
+- Runbook: No new operator steps are required for Sprint 1B. Keep existing Notion workflow guidance unchanged unless an existing transport failure, retry, or safety note needs clarification.
+- Projects > SNPM: If the public command summary is maintained there, avoid adding new command claims; mention Notion transport hardening only as internal reliability work.
+
+Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Runbooks > Notion Workspace Workflow`; use `doc-*` for `Projects > SNPM` only if that page carries internal status notes.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries internal status notes.
+
 ## Verification
 
 Project-scoped verification:

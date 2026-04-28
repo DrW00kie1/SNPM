@@ -170,6 +170,14 @@ function entryDiagnosticCodes(entry) {
   return (entry.diagnostics || []).map((diagnostic) => diagnostic.code);
 }
 
+function throwConfiguredFailure(failure) {
+  if (failure instanceof Error) {
+    throw failure;
+  }
+
+  throw new Error(failure);
+}
+
 function makeFakeAdapters({
   applyFailuresByTarget = new Map(),
   calls = [],
@@ -196,10 +204,10 @@ function makeFakeAdapters({
       if (apply) {
         mutationCalls.push({ kind, target });
         if (applyFailuresByTarget.has(target)) {
-          throw new Error(applyFailuresByTarget.get(target));
+          throwConfiguredFailure(applyFailuresByTarget.get(target));
         }
       } else if (previewFailuresByTarget.has(target)) {
-        throw new Error(previewFailuresByTarget.get(target));
+        throwConfiguredFailure(previewFailuresByTarget.get(target));
       }
 
       const result = previewByTarget.get(target) || previewFor(entry, fileMarkdown);
@@ -219,7 +227,7 @@ function makeFakeAdapters({
       });
 
       if (remoteFailuresByTarget.has(target)) {
-        throw new Error(remoteFailuresByTarget.get(target));
+        throwConfiguredFailure(remoteFailuresByTarget.get(target));
       }
 
       const remoteOverride = remoteByTarget.get(target);
@@ -1116,6 +1124,57 @@ test("manifest v2 push apply blocks remote preflight failures before any mutatio
   ]);
 });
 
+test("manifest v2 push apply blocks transport preflight failures before any mutation", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+  ];
+  const localFiles = new Map([
+    [entries[0].absoluteFilePath, "Local roadmap update\n"],
+    [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+    [entries[1].absoluteFilePath, "Runbook update\n"],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+  ]);
+  const transportError = new Error("Notion transport failed before remote freshness validation.");
+  transportError.name = "NotionTransportError";
+  transportError.kind = "network";
+  transportError.method = "GET";
+  transportError.apiPath = "pages/page-release-smoke-test";
+  const calls = [];
+  const mutationCalls = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      calls,
+      mutationCalls,
+      remoteFailuresByTarget: new Map([["Release Smoke Test", transportError]]),
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    maxMutations: "all",
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+  });
+
+  assert.equal(result.appliedCount, 0);
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /transport failed/i);
+  assert.equal(result.entries[0].status, "push-preview");
+  assert.equal(result.entries[0].applied, false);
+  assert.equal(result.entries[1].status, "error");
+  assert.equal(result.entries[1].applied, false);
+  assert.equal(result.entries[1].failure, transportError.message);
+  assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
+  assert.equal(result.diagnostics[0].state.phase, "apply-preflight");
+  assert.deepEqual(mutationCalls, []);
+  assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
+    "pushLocal:false:Planning > Roadmap",
+    "readRemote:undefined:Planning > Roadmap",
+    "pushLocal:false:Release Smoke Test",
+    "readRemote:undefined:Release Smoke Test",
+  ]);
+});
+
 test("manifest v2 push apply stops on first apply failure and reports partial remote mutations", async () => {
   const entries = [
     makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
@@ -1162,6 +1221,74 @@ test("manifest v2 push apply stops on first apply failure and reports partial re
   ]);
   assert.equal(result.diagnostics[0].entry.target, "Release Smoke Test");
   assert.equal(result.diagnostics[0].targetPath, "Projects > SNPM > Release Smoke Test");
+  assert.deepEqual(result.diagnostics[0].state.priorRemoteMutations, [
+    {
+      kind: "planning-page",
+      target: "Planning > Roadmap",
+      targetPath: "Projects > SNPM > Planning > Roadmap",
+    },
+  ]);
+  assert.deepEqual(mutationCalls.map((call) => call.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+  assert.deepEqual(calls.filter((call) => call.apply === true).map((call) => call.target), [
+    "Planning > Roadmap",
+    "Release Smoke Test",
+  ]);
+});
+
+test("manifest v2 push apply transport failures preserve partial-apply reporting", async () => {
+  const entries = [
+    makeEntry("planning-page", "Planning > Roadmap", "planning/roadmap.md"),
+    makeEntry("runbook", "Release Smoke Test", "runbooks/release-smoke.md"),
+    makeEntry("validation-session", "Session Fixture", "ops/validation/session.md"),
+  ];
+  const localFiles = new Map([
+    [entries[0].absoluteFilePath, "Local roadmap update\n"],
+    [`${entries[0].absoluteFilePath}.snpm-meta.json`, metadataText(entries[0])],
+    [entries[1].absoluteFilePath, "Runbook update\n"],
+    [`${entries[1].absoluteFilePath}.snpm-meta.json`, metadataText(entries[1])],
+    [entries[2].absoluteFilePath, "Validation update\n"],
+    [`${entries[2].absoluteFilePath}.snpm-meta.json`, metadataText(entries[2])],
+  ]);
+  const transportError = new Error("Notion transport failed while applying markdown.");
+  transportError.name = "NotionTransportError";
+  transportError.kind = "timeout";
+  transportError.method = "PATCH";
+  transportError.apiPath = "pages/page-release-smoke-test/markdown";
+  const calls = [];
+  const mutationCalls = [];
+
+  const result = await pushManifestV2SyncManifest({
+    adapters: makeFakeAdapters({
+      applyFailuresByTarget: new Map([["Release Smoke Test", transportError]]),
+      calls,
+      mutationCalls,
+    }),
+    apply: true,
+    config: baseConfig(),
+    manifest: baseManifest(entries),
+    maxMutations: "all",
+    readFileSyncImpl: mapBackedReadFile(localFiles),
+  });
+
+  assert.equal(result.entries[0].status, "pushed");
+  assert.equal(result.entries[0].applied, true);
+  assert.equal(result.entries[1].status, "error");
+  assert.equal(result.entries[1].applied, false);
+  assert.equal(result.entries[2].status, "push-preview");
+  assert.equal(result.entries[2].applied, false);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0], /transport failed while applying markdown/i);
+  assert.match(result.failures[0], /Prior remote mutations: planning-page "Planning > Roadmap"/);
+  assert.match(result.failures[0], /No rollback was attempted/);
+  assert.match(result.recovery, /sync pull --apply/);
+  assert.deepEqual(diagnosticCodes(result), [
+    MANIFEST_V2_PUSH_DIAGNOSTIC_CODES.PARTIAL_APPLY,
+  ]);
+  assert.equal(result.diagnostics[0].state.phase, "partial-apply");
   assert.deepEqual(result.diagnostics[0].state.priorRemoteMutations, [
     {
       kind: "planning-page",

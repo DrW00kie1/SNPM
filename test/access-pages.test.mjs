@@ -452,6 +452,55 @@ test("generated secret helpers redact direct Notion write errors", async () => {
   );
 });
 
+test("generated secret helpers redact transport-shaped Notion write errors", async () => {
+  const sentinel = "postgres://transport-sentinel-secret@example.invalid/db";
+  const childrenMap = new Map([
+    ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],
+    ["project-root", [{ type: "child_page", id: "access", child_page: { title: "Access" } }]],
+    ["access", [{ type: "child_page", id: "domain", child_page: { title: "App & Backend" } }]],
+    ["domain", []],
+  ]);
+  const fixture = makePageFixture({
+    childrenMap,
+    onRequest({ method, apiPath, body }) {
+      if (method === "PATCH" && apiPath.endsWith("/markdown")) {
+        const error = new Error(`Transport failed while sending ${body.replace_content.new_str}`);
+        error.name = "NotionTransportError";
+        error.kind = "network";
+        error.method = "PATCH";
+        error.apiPath = apiPath;
+        error.details = {
+          echoedValue: sentinel,
+        };
+        throw error;
+      }
+      return undefined;
+    },
+  });
+
+  await assert.rejects(
+    () => createGeneratedSecretRecord({
+      apply: true,
+      config: CONFIG,
+      domainTitle: "App & Backend",
+      generatedValue: sentinel,
+      projectName: "SNPM",
+      title: "DATABASE_URL",
+      resolveClient: fixture.resolveClient,
+      syncClient: fixture.syncClient,
+    }),
+    (error) => {
+      assert.match(error.message, /\[SNPM REDACTED SECRET OUTPUT\]/);
+      assert.doesNotMatch(error.message, /transport-sentinel-secret/);
+      assert.doesNotMatch(String(error), /transport-sentinel-secret/);
+      assert.doesNotMatch(JSON.stringify(error), /transport-sentinel-secret/);
+      return true;
+    },
+  );
+
+  assert.doesNotMatch(JSON.stringify(fixture.markdownByPageId), /transport-sentinel-secret/);
+});
+
 test("updateGeneratedSecretRecord replaces only the managed Raw Value in memory", async () => {
   const childrenMap = new Map([
     ["projects", [{ type: "child_page", id: "project-root", child_page: { title: "SNPM" } }]],

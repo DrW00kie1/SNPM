@@ -94,9 +94,9 @@ Specialized or experimental lanes:
 
 Active hardening sequence:
 - Sprint 0 retired the browser-driven validation-bundle lane; validation-session workflows stay on the existing API-visible command families plus manual UI checks where needed
-- Sprint 1A Child Runner Hardening is an internal reliability and safety pass for existing child-process execution paths
-- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1A
-- Notion transport hardening is the next wedge after child runner hardening
+- Sprint 1A Child Runner Hardening completed the internal reliability and safety pass for existing child-process execution paths
+- Sprint 1B Notion Transport Hardening is the active internal reliability and safety pass for the existing Notion-backed command surface
+- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1B
 
 ## Why SNPM Beats A Generic Connector
 
@@ -147,7 +147,7 @@ Those surfaces continue to use their own command families.
 ### Phase 1: Validation-Session Manual Bundle
 - keep `validation-sessions verify --bundle` as the stable API-visible check
 - keep the API-managed database, schema, row properties, and row body as the supported SNPM-managed surface
-- keep Sprint 1A child-runner hardening internal to existing execution paths, without reintroducing a validation-bundle command lane or adding new operator commands
+- keep Sprint 1A child-runner hardening and Sprint 1B Notion transport hardening internal to existing execution and Notion-backed transport paths, without reintroducing a validation-bundle command lane or adding new operator commands
 - treat surrounding Notion UI elements as explicit manual checks returned by bundle verification:
   - `Active Sessions`
   - `Quick Intake`

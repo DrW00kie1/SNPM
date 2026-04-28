@@ -16,12 +16,6 @@ const EXPECTED_RETIRED_CANDIDATES = [
   "validation-bundle.apply",
   "validation-bundle.verify",
 ];
-const EXPECTED_ACTIVE_VALIDATION_BUNDLE_COMMANDS = [
-  "validation-bundle apply",
-  "validation-bundle login",
-  "validation-bundle preview",
-  "validation-bundle verify",
-];
 
 function readInventory() {
   return JSON.parse(readFileSync(PRE_SPRINT_0_JSON, "utf8"));
@@ -120,13 +114,7 @@ test("pre-sprint-0 markdown inventory summarizes the JSON baseline", () => {
 });
 
 test("current validation-bundle command retirement state is not partial", () => {
-  const currentCommands = currentValidationBundleCommands();
-
-  if (currentCommands.length === 0) {
-    return;
-  }
-
-  assert.deepEqual(currentCommands, EXPECTED_ACTIVE_VALIDATION_BUNDLE_COMMANDS);
+  assert.deepEqual(currentValidationBundleCommands(), []);
 });
 
 test("Playwright dependency is not retained after active validation-bundle command retirement", () => {
