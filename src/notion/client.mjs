@@ -4,7 +4,7 @@ import {
   parseNotionError,
 } from "./errors.mjs";
 
-export const DEFAULT_NOTION_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_NOTION_REQUEST_TIMEOUT_MS = 60_000;
 
 async function readJsonResponse(method, apiPath, response) {
   if (response.status === 204) return null;
