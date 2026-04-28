@@ -260,6 +260,34 @@ Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries public command or internal status notes.
 
+## Sprint 1D Command Metadata Registry And Package Readiness Updates
+
+Sprint 1D follows Sprint 1C as the command discovery and package/readiness contract wedge. Public Notion operator behavior stays unchanged: do not add or imply new Notion mutation commands, keep command-family ownership unchanged, and keep live workspace mutation on the existing approved surfaces.
+
+Registry behavior:
+- CLI help and `capabilities` are generated from the shared command metadata registry.
+- `capabilities` is the full machine-readable command registry for coding agents after first contact.
+- `discover` remains the compact first-contact command and should be used before deeper registry inspection.
+- Registry metadata includes command names, aliases, flags, examples, surface, auth scope, mutation mode, stability, and feature-specific safety metadata where applicable.
+
+Package/readiness behavior:
+- package metadata declares the installed executable as `snpm`.
+- installed CLI use must still load real workspace config from private operator state through `SNPM_WORKSPACE_CONFIG_DIR` or an equivalent explicit private path.
+- the package allowlist is limited to runtime source, required operator docs, public examples/config examples, assets, README, and LICENSE.
+- private workspace config, real page ids, task memory, mutation journals, sidecars, review/scaffold/closeout artifacts, env files, and browser/auth state must not be packed.
+- package publishing or repository/package visibility changes remain separate operator actions after reviewed `npm pack --dry-run` output.
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1D Command Metadata Registry And Package Readiness is approved as the command discovery and packaging contract follow-up after Sprint 1C. CLI help and `capabilities` now share registry-derived command metadata, while package metadata defines the installed `snpm` executable, Node runtime expectation, and packed-file allowlist. No Notion command-family ownership, supported surface, or live mutation behavior changes.
+- Roadmap: Mark Sprint 1D complete. The installed CLI/readiness lane now has registry-derived command metadata, executable package metadata, explicit package file contract, private workspace config boundary through `SNPM_WORKSPACE_CONFIG_DIR`, and `npm pack --dry-run` review before any public package or visibility change.
+- Current Cycle: Operators should continue using `discover` for first contact and `capabilities` for the full machine-readable command registry. Source-checkout mode remains valid; installed mode uses `snpm ...` only with private workspace config outside the package or consumer repo. Live Notion mutation still uses the existing owning command families.
+- Runbook: Update `Runbooks > Notion Workspace Workflow` only if the live runbook lacks the operator guidance for `discover`/`capabilities`, installed CLI mode, `SNPM_WORKSPACE_CONFIG_DIR`, package allowlist review, and the no-new-Notion-command boundary. If that guidance is already present, no runbook change is required for Sprint 1D.
+- Projects > SNPM: If the public command summary is maintained there, mention that command discovery is registry-derived and installed CLI readiness is backed by package metadata; avoid claiming new Notion mutation capability.
+
+Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` only if `Runbooks > Notion Workspace Workflow` needs the operator guidance update; use `doc-*` for `Projects > SNPM` only if that page carries public command or internal status notes.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, and `Projects > SNPM > Planning > Current Cycle`. Note `Runbooks > Notion Workspace Workflow` only if operator guidance changes.
+
 ## Verification
 
 Project-scoped verification:

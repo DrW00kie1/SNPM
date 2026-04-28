@@ -54,7 +54,7 @@ npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTI
 
 ### Installed CLI Mode
 
-Installed use is the target cross-repo operator model once package metadata is public-ready. In that mode, run the package executable from any repo instead of switching into a source checkout:
+Installed use is the target cross-repo operator model backed by the package executable metadata. In that mode, run the package executable from any repo instead of switching into a source checkout:
 
 ```powershell
 snpm discover --project "Project Name"
@@ -67,7 +67,7 @@ Installed mode must not rely on private config inside the package. Keep the real
 $env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspace-configs"
 ```
 
-Until the package exposes the executable and passes the public-readiness checks below, use source checkout mode.
+For default local operation, source checkout mode remains the safest path. Installed mode is for reviewed tarball or Git installs with private workspace config supplied outside the package.
 
 ## The Safe Mutation Loop
 
@@ -162,7 +162,7 @@ SNPM keeps the public repo and live workspace separated:
 
 Public-readiness expectations:
 - the source tree remains safe to publish as MIT-licensed source only when private workspace config and task-local memory stay ignored
-- package publishing requires an explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
+- package metadata must keep the installed `snpm` executable, Node runtime expectation, and explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
 - package publishing must exclude private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, environment files, and local browser/auth state
 - installed CLI use must load real workspace config through `SNPM_WORKSPACE_CONFIG_DIR` or another explicit operator-provided path, not bundled private config
 - changing GitHub or package visibility is a separate operator action after `npm pack --dry-run` output is reviewed

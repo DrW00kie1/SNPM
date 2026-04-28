@@ -8,6 +8,8 @@ Generated: 2026-04-27T19:32:11.466Z
 
 This inventory preserves the pre-removal command surface so Sprint 0 deletion is auditable. It is not a supported-command guide after Sprint 0 lands.
 
+For the current supported command surface, use `npm run capabilities`. The live command registry is generated from the shared CLI help metadata; this historical inventory is not updated for later Sprint 1D package/readiness changes.
+
 ## Retired Candidates
 
 - validation-bundle.login

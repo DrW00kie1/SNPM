@@ -1,3 +1,10 @@
+import {
+  compoundFamilySpecs,
+  createCommandRegistry,
+  createCommandSpec,
+  normalizeCommandName,
+} from "./command-registry.mjs";
+
 const OPT_WORKSPACE = "--workspace infrastructure-hq";
 const OPT_PROJECT = '--project "Project Name"';
 const OPT_PROJECT_TOKEN = "--project-token-env PROJECT_NAME_NOTION_TOKEN";
@@ -154,156 +161,6 @@ const SECRET_UNSUPPORTED_LOCAL_MARKDOWN_NOTES = [
   "Raw local markdown edit, diff, and push flows are disabled until a metadata-only edit design exists.",
   "Use the exec subcommand for runtime secret consumption.",
 ];
-
-function createCommandSpec({
-  canonical,
-  aliases = [],
-  summary,
-  usageLines,
-  requiredFlags = [],
-  optionalFlags = [],
-  examples = [],
-  notes = [],
-  surface,
-  authScope,
-  mutationMode,
-  stability,
-  capabilityMetadata = {},
-}) {
-  const normalizedCanonical = normalizeCommandName(canonical);
-  const hyphenAlias = normalizedCanonical.includes(" ")
-    ? normalizedCanonical.replace(/\s+/g, "-")
-    : null;
-  const metadata = inferCommandMetadata(normalizedCanonical, {
-    surface,
-    authScope,
-    mutationMode,
-    stability,
-  });
-
-  return {
-    canonical: normalizedCanonical,
-    aliases: [...new Set([hyphenAlias, ...aliases].filter(Boolean).map(normalizeCommandName))],
-    summary,
-    usageLines,
-    requiredFlags,
-    optionalFlags,
-    examples,
-    notes,
-    ...metadata,
-    ...capabilityMetadata,
-  };
-}
-
-function compoundFamilySpecs({ family, subcommands }) {
-  return subcommands.map((subcommand) => createCommandSpec({
-    canonical: `${family} ${subcommand.name}`,
-    aliases: subcommand.aliases || [],
-    summary: subcommand.summary,
-    usageLines: subcommand.usageLines,
-    requiredFlags: subcommand.requiredFlags,
-    optionalFlags: subcommand.optionalFlags,
-    examples: subcommand.examples,
-    notes: subcommand.notes,
-    surface: subcommand.surface,
-    authScope: subcommand.authScope,
-    mutationMode: subcommand.mutationMode,
-    stability: subcommand.stability,
-    capabilityMetadata: subcommand.capabilityMetadata,
-  }));
-}
-
-function commandRoot(canonical) {
-  return canonical.split(" ")[0];
-}
-
-function commandVerb(canonical) {
-  const parts = canonical.split(" ");
-  return parts.length > 1 ? parts[1] : parts[0];
-}
-
-function inferCommandSurface(canonical) {
-  const root = commandRoot(canonical);
-  const surfaces = {
-    "access-domain": "access",
-    "access-token": "access",
-    "build-record": "builds",
-    capabilities: "cli",
-    "create-project": "project-bootstrap",
-    discover: "first-contact",
-    doc: "managed-docs",
-    doctor: "project-health",
-    journal: "mutation-journal",
-    page: "planning",
-    "plan-change": "planning",
-    recommend: "routing",
-    runbook: "runbooks",
-    "scaffold-docs": "project-doc-scaffold",
-    "secret-record": "access",
-    sync: "manifest-sync",
-    "validation-session": "validation-sessions",
-    "validation-sessions": "validation-sessions",
-    "verify-project": "project-verification",
-    "verify-workspace-docs": "workspace-doc-verification",
-  };
-
-  return surfaces[root] || root;
-}
-
-function inferAuthScope(canonical) {
-  const root = commandRoot(canonical);
-
-  if (root === "capabilities") {
-    return "none";
-  }
-
-  if (root === "journal") {
-    return "local-filesystem";
-  }
-
-  if (root === "create-project" || root === "verify-workspace-docs") {
-    return "workspace-token";
-  }
-
-  if (root === "doc") {
-    return "workspace-or-project-token";
-  }
-
-  if (root === "sync") {
-    return "project-token";
-  }
-
-  return "project-token-optional";
-}
-
-function inferMutationMode(canonical) {
-  const root = commandRoot(canonical);
-  const verb = commandVerb(canonical);
-  const readOnlyVerbs = new Set(["capabilities", "check", "diff", "discover", "doctor", "help", "list", "plan-change", "preview", "pull", "recommend", "verify", "verify-project", "verify-workspace-docs"]);
-
-  if (root === "create-project") {
-    return "live-mutation";
-  }
-
-  if (readOnlyVerbs.has(verb)) {
-    return "read-only";
-  }
-
-  return "apply-gated";
-}
-
-function inferStability() {
-  return "stable";
-}
-
-function inferCommandMetadata(canonical, overrides = {}) {
-  return {
-    surface: overrides.surface || inferCommandSurface(canonical),
-    authScope: overrides.authScope || inferAuthScope(canonical),
-    mutationMode: overrides.mutationMode || inferMutationMode(canonical),
-    stability: overrides.stability || inferStability(canonical),
-  };
-}
 
 const SINGLE_COMMAND_SPECS = [
   createCommandSpec({
@@ -2173,14 +2030,6 @@ const FAMILY_COMMAND_SPECS = [
 
 const COMMAND_SPECS = [...SINGLE_COMMAND_SPECS, ...FAMILY_COMMAND_SPECS, ...COMPOUND_COMMAND_SPECS];
 
-const COMMAND_SPEC_INDEX = new Map();
-for (const spec of COMMAND_SPECS) {
-  COMMAND_SPEC_INDEX.set(spec.canonical, spec);
-  for (const alias of spec.aliases) {
-    COMMAND_SPEC_INDEX.set(alias, spec);
-  }
-}
-
 const GLOBAL_COMMAND_GROUPS = [
   {
     title: "Core Commands:",
@@ -2224,6 +2073,12 @@ const GLOBAL_COMMAND_GROUPS = [
   },
 ];
 
+const COMMAND_REGISTRY = createCommandRegistry({
+  commandSpecs: COMMAND_SPECS,
+  commandGroups: GLOBAL_COMMAND_GROUPS,
+  schemaVersion: 1,
+});
+
 function formatSection(title, lines) {
   if (!lines || lines.length === 0) {
     return [];
@@ -2252,110 +2107,22 @@ function isHelpToken(token) {
   return HELP_TOKENS.has(token);
 }
 
-export function normalizeCommandName(command) {
-  return command.trim().replace(/\s+/g, " ").toLowerCase();
-}
+export { normalizeCommandName };
 
 export function findCommandHelp(command) {
-  return COMMAND_SPEC_INDEX.get(normalizeCommandName(command)) || null;
-}
-
-function copyOptionalCapabilityFields(target, spec) {
-  const optionalFields = [
-    "notionMutation",
-    "localFileWrites",
-    "journalWrites",
-    "sidecarWrites",
-    "truthAudit",
-    "consistencyAudit",
-    "auditFlags",
-    "npmScripts",
-    "staleAfterDaysDefault",
-    "staleAfterDaysCompatibleAuditFlags",
-    "supportedTruthAuditSurfaces",
-    "truthAuditExclusions",
-    "truthAuditNonGoals",
-    "supportedConsistencyAuditRules",
-    "consistencyAuditExclusions",
-    "consistencyAuditNonGoals",
-    "sidecarRefresh",
-    "supportedManifestVersions",
-    "supportedManifestV2EntryKinds",
-    "manifestV2Selection",
-    "reviewOutput",
-    "maxMutations",
-    "structuredDiagnostics",
-    "diagnosticFields",
-    "diagnosticScope",
-    "diagnosticPurpose",
-    "diagnosticNonGoals",
-    "firstContact",
-    "supportedScaffoldKinds",
-    "scaffoldTargets",
-    "plannerModes",
-    "manifestDraft",
-    "manifestDraftEntryKinds",
-    "manifestDraftExcludedTargetTypes",
-    "secretOutput",
-    "rawSecretExport",
-    "localSecretPersistence",
-    "reviewOutputRedaction",
-    "secretConsumption",
-    "secretDeliveryModes",
-    "rawSecretInput",
-    "rawSecretArgvInput",
-    "generatedSecretIngestion",
-    "generatorExecution",
-    "generatorOutputPolicy",
-    "childProcessExecution",
-    "childOutputRedaction",
-    "supported",
-    "supportStatus",
-    "replacementCommand",
-  ];
-
-  for (const field of optionalFields) {
-    if (!(field in spec)) {
-      continue;
-    }
-
-    target[field] = Array.isArray(spec[field]) ? [...spec[field]] : spec[field];
-  }
-
-  return target;
-}
-
-function commandCapability(spec) {
-  return copyOptionalCapabilityFields({
-    canonical: spec.canonical,
-    aliases: [...spec.aliases],
-    summary: spec.summary,
-    usageLines: [...spec.usageLines],
-    requiredFlags: [...spec.requiredFlags],
-    optionalFlags: [...spec.optionalFlags],
-    examples: [...spec.examples],
-    notes: [...spec.notes],
-    surface: spec.surface,
-    authScope: spec.authScope,
-    mutationMode: spec.mutationMode,
-    stability: spec.stability,
-  }, spec);
+  return COMMAND_REGISTRY.findCommandHelp(command);
 }
 
 export function buildCapabilityMap() {
-  const commands = COMMAND_SPECS.map(commandCapability);
+  return COMMAND_REGISTRY.buildCapabilityMap();
+}
 
+export function commandRegistryContract() {
   return {
-    schemaVersion: 1,
-    commandGroups: GLOBAL_COMMAND_GROUPS.map((group) => ({
-      title: group.title.replace(/:$/, ""),
-      entries: group.entries.map(([label, summary]) => ({
-        label,
-        summary,
-      })),
-    })),
-    canonicalCommands: commands.map((command) => command.canonical),
-    commands,
+    schemaVersion: COMMAND_REGISTRY.schemaVersion,
+    canonicalCommands: COMMAND_SPECS.map((spec) => spec.canonical),
+    lookupEntries: COMMAND_REGISTRY.lookupEntries(),
+    diagnostics: COMMAND_REGISTRY.diagnostics(),
   };
 }
 

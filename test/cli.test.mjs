@@ -17,6 +17,8 @@ import {
 import {
   buildCapabilityMap,
   capabilityJson,
+  commandRegistryContract,
+  commandUsage,
 } from "../src/cli-help.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
@@ -190,6 +192,36 @@ test("help registry resolves command aliases to the canonical command", () => {
   assert.equal(findCommandHelp("journal list")?.canonical, "journal list");
 });
 
+test("command registry contract has unique lookups and complete command metadata", () => {
+  const contract = commandRegistryContract();
+  const canonicalSet = new Set(contract.canonicalCommands);
+
+  assert.equal(contract.schemaVersion, 1);
+  assert.equal(canonicalSet.size, contract.canonicalCommands.length);
+  assert.deepEqual(contract.diagnostics, {
+    duplicateCanonicals: [],
+    lookupCollisions: [],
+    missingMetadata: [],
+    invalidEnumValues: [],
+  });
+
+  for (const entry of contract.lookupEntries) {
+    assert.equal(findCommandHelp(entry.lookup)?.canonical, entry.canonical);
+    assert.ok(canonicalSet.has(entry.canonical));
+  }
+});
+
+test("command registry contract preserves capability canonical ordering", () => {
+  const contract = commandRegistryContract();
+  const capabilities = buildCapabilityMap();
+
+  assert.deepEqual(capabilities.canonicalCommands, contract.canonicalCommands);
+  assert.deepEqual(
+    capabilities.commands.map((command) => command.canonical),
+    contract.canonicalCommands,
+  );
+});
+
 test("capability map is schema-versioned and includes existing commands from the help registry", () => {
   const capabilities = buildCapabilityMap();
   const pagePush = capabilities.commands.find((command) => command.canonical === "page push");
@@ -227,6 +259,7 @@ test("capability map is schema-versioned and includes existing commands from the
     authScope: registryPagePush.authScope,
     mutationMode: registryPagePush.mutationMode,
     stability: registryPagePush.stability,
+    contract: registryPagePush.contract,
   });
 });
 
@@ -416,6 +449,7 @@ test("scaffold-docs help, capability entry, and npm script are registered", () =
     authScope: spec.authScope,
     mutationMode: spec.mutationMode,
     stability: spec.stability,
+    contract: spec.contract,
     notionMutation: "none",
     localFileWrites: "output-dir-gated",
     journalWrites: "none",
@@ -444,6 +478,90 @@ test("npm run examples in help capabilities have registered package scripts", ()
       assert.ok(
         packageScripts.has(match[1]),
         `${command.canonical} example references missing npm script ${match[1]}`,
+      );
+    }
+  }
+});
+
+test("package scripts align with command registry metadata", () => {
+  const capabilities = buildCapabilityMap();
+  const packageScriptEntries = Object.entries(packageJson.scripts);
+  const registryScriptTargets = new Map();
+  const registryMetadataScripts = new Map();
+
+  for (const command of capabilities.commands) {
+    for (const script of [command.canonical, ...command.aliases]) {
+      if (script.includes(" ")) {
+        continue;
+      }
+
+      registryScriptTargets.set(script, command.canonical);
+    }
+
+    for (const script of command.contract?.npmScripts || []) {
+      registryMetadataScripts.set(script, command.canonical);
+      assert.ok(
+        packageJson.scripts[script],
+        `${command.canonical} metadata references missing npm script ${script}`,
+      );
+    }
+  }
+
+  for (const [script, commandLine] of packageScriptEntries) {
+    if (script === "test") {
+      continue;
+    }
+
+    assert.doesNotMatch(script, /validation-bundle/i);
+    assert.doesNotMatch(commandLine, /validation-bundle/i);
+
+    const canonical = registryScriptTargets.get(script);
+    if (canonical) {
+      assert.equal(commandLine, `node src/cli.mjs ${canonical}`);
+      continue;
+    }
+
+    assert.ok(
+      registryMetadataScripts.has(script),
+      `${script} package script is not represented by command registry aliases or npmScripts metadata`,
+    );
+  }
+
+  assert.equal(packageJson.scripts["truth-audit"], "node src/cli.mjs doctor --truth-audit");
+  assert.equal(packageJson.scripts["consistency-audit"], "node src/cli.mjs doctor --consistency-audit");
+  assert.equal(registryMetadataScripts.get("truth-audit"), "doctor");
+  assert.equal(registryMetadataScripts.get("consistency-audit"), "doctor");
+});
+
+test("capability map preserves all registry metadata fields", () => {
+  const capabilities = buildCapabilityMap();
+  const baseFields = new Set([
+    "canonical",
+    "aliases",
+    "summary",
+    "usageLines",
+    "requiredFlags",
+    "optionalFlags",
+    "examples",
+    "notes",
+    "surface",
+    "authScope",
+    "mutationMode",
+    "stability",
+  ]);
+
+  for (const command of capabilities.commands) {
+    const spec = findCommandHelp(command.canonical);
+
+    for (const [field, value] of Object.entries(spec)) {
+      if (baseFields.has(field)) {
+        continue;
+      }
+
+      assert.deepEqual(
+        command[field],
+        value,
+        `${command.canonical} capability omitted registry metadata field ${field}`,
       );
     }
   }
@@ -513,6 +631,70 @@ test("secret-bearing access help and capabilities document consume-only output",
   assert.equal(packageJson.scripts["secret-record-push"], "node src/cli.mjs secret-record push");
   assert.equal(packageJson.scripts["access-token-diff"], "node src/cli.mjs access-token diff");
   assert.equal(packageJson.scripts["access-token-push"], "node src/cli.mjs access-token push");
+});
+
+test("secret help and capabilities do not advertise deprecated raw secret output flags", () => {
+  const publicHelpText = [
+    usage(),
+    commandUsage("secret-record"),
+    commandUsage("secret-record pull"),
+    commandUsage("secret-record generate"),
+    commandUsage("access-token"),
+    commandUsage("access-token pull"),
+    commandUsage("access-token generate"),
+  ].join("\n");
+  const capabilitiesText = capabilityJson();
+  const publicDiscoveryText = `${publicHelpText}\n${capabilitiesText}`;
+  const capabilities = buildCapabilityMap();
+  const secretPullCapability = capabilities.commands.find((command) => command.canonical === "secret-record pull");
+  const tokenPullCapability = capabilities.commands.find((command) => command.canonical === "access-token pull");
+  const secretGenerateCapability = capabilities.commands.find((command) => command.canonical === "secret-record generate");
+  const tokenGenerateCapability = capabilities.commands.find((command) => command.canonical === "access-token generate");
+
+  assert.doesNotMatch(publicDiscoveryText, /--raw-secret-output/);
+  assert.doesNotMatch(publicDiscoveryText, /--allow-repo-secret-output/);
+  assert.doesNotMatch(publicDiscoveryText, /\.snpm[\\/]secrets/i);
+  assert.doesNotMatch(capabilitiesText, /"rawSecretOutput"/);
+  assert.doesNotMatch(capabilitiesText, /"repoSecretOutputGuard"/);
+  assert.match(publicHelpText, /secret-record exec/);
+  assert.match(publicHelpText, /access-token exec/);
+  assert.match(publicHelpText, /secret-record generate/);
+  assert.match(publicHelpText, /access-token generate/);
+  assert.equal(secretPullCapability?.rawSecretExport, "unsupported");
+  assert.equal(tokenPullCapability?.rawSecretExport, "unsupported");
+  assert.equal(secretGenerateCapability?.rawSecretExport, "unsupported");
+  assert.equal(tokenGenerateCapability?.rawSecretExport, "unsupported");
+  assert.equal(secretGenerateCapability?.rawSecretArgvInput, "unsupported");
+  assert.equal(tokenGenerateCapability?.rawSecretArgvInput, "unsupported");
+});
+
+test("pull command help documents stdout body and stderr metadata streaming mode", () => {
+  const streamingPullCommands = [
+    "doc pull",
+    "page pull",
+    "access-domain pull",
+    "runbook pull",
+    "build-record pull",
+    "validation-session pull",
+  ];
+
+  for (const command of streamingPullCommands) {
+    const text = commandUsage(command);
+
+    assert.match(text, /--output <file\|->/, `${command} should advertise file-or-stdout output`);
+    assert.match(text, /--metadata-output <path>/, `${command} should advertise explicit streamed metadata output`);
+    assert.match(text, /markdown body is written to stdout and the structured metadata is written to stderr/i);
+  }
+
+  const secretPullText = commandUsage("secret-record pull");
+  const tokenPullText = commandUsage("access-token pull");
+
+  assert.match(secretPullText, /--output <file\|->/);
+  assert.match(secretPullText, /redacted-only/i);
+  assert.doesNotMatch(secretPullText, /--metadata-output <path>/);
+  assert.match(tokenPullText, /--output <file\|->/);
+  assert.match(tokenPullText, /redacted-only/i);
+  assert.doesNotMatch(tokenPullText, /--metadata-output <path>/);
 });
 
 test("sync check, pull, and push help document manifest v2 boundaries", () => {
@@ -1833,6 +2015,86 @@ test("cli journal list prints JSON only without live Notion", () => {
     command: "journal-list",
     entries: [],
   });
+});
+
+test("cli hyphenated aliases preserve stdout, stderr, exit code, and JSON payloads", () => {
+  const journalPath = fileURLToPath(new URL("../.missing-alias-test-journal.ndjson", import.meta.url));
+  const env = {
+    SNPM_JOURNAL_PATH: journalPath,
+  };
+  const spacedResult = runCli(["journal", "list", "--limit", "1"], { env });
+  const hyphenatedResult = runCli(["journal-list", "--limit", "1"], { env });
+
+  assert.equal(spacedResult.status, 0);
+  assert.equal(hyphenatedResult.status, 0);
+  assert.equal(spacedResult.stderr, "");
+  assert.equal(hyphenatedResult.stderr, "");
+  assert.deepEqual(JSON.parse(spacedResult.stdout), JSON.parse(hyphenatedResult.stdout));
+  assert.deepEqual(JSON.parse(hyphenatedResult.stdout), {
+    ok: true,
+    command: "journal-list",
+    entries: [],
+  });
+});
+
+test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-cli-output-modes-"));
+  const manifestPath = path.join(tempDir, "snpm.sync.json");
+  const markdownPath = path.join(tempDir, "roadmap.md");
+  const missingTokenEnv = "SNPM_OUTPUT_MODE_TEST_TOKEN_SHOULD_NOT_EXIST_8A31";
+
+  try {
+    const jsonOnly = runCli(["discover", "--project", "SNPM"]);
+    const parsedJsonOnly = JSON.parse(jsonOnly.stdout);
+
+    assert.equal(jsonOnly.status, 0);
+    assert.equal(jsonOnly.stderr, "");
+    assert.equal(parsedJsonOnly.ok, true);
+    assert.equal(parsedJsonOnly.command, "discover");
+
+    const stderrOnlyFailure = runCli(["verify-project"]);
+
+    assert.equal(stderrOnlyFailure.status, 1);
+    assert.equal(stderrOnlyFailure.stdout, "");
+    assert.match(stderrOnlyFailure.stderr, /Provide --name "Project Name"/);
+
+    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
+    writeFileSync(manifestPath, `${JSON.stringify({
+      version: 2,
+      workspace: "infrastructure-hq",
+      project: "SNPM",
+      entries: [{
+        kind: "planning-page",
+        pagePath: "Planning > Roadmap",
+        file: "roadmap.md",
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const mixedResult = runCli([
+      "sync",
+      "check",
+      "--manifest",
+      manifestPath,
+      "--project-token-env",
+      missingTokenEnv,
+    ], {
+      env: {
+        [missingTokenEnv]: "",
+      },
+    });
+    const mixedPayload = parseJsonPayloadFromMixedStdout(mixedResult.stdout);
+
+    assert.equal(mixedResult.status, 1);
+    assert.equal(mixedResult.stderr, "");
+    assert.match(mixedResult.stdout, /^\[planning-page\] Planning > Roadmap \(roadmap\.md\)/);
+    assert.match(mixedResult.stdout, /Error: Set SNPM_OUTPUT_MODE_TEST_TOKEN_SHOULD_NOT_EXIST_8A31/);
+    assert.equal(mixedPayload.ok, false);
+    assert.equal(mixedPayload.command, "sync-check");
+    assert.equal(mixedPayload.entries[0].status, "error");
+    assert.equal(mixedPayload.entries[0].diagnostics[0].code, "manifest-v2-check-remote-failed");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("cli unknown command help prints the error plus global help and exits non-zero", () => {

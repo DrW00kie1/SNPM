@@ -23,7 +23,7 @@ Supported on the current active line:
 - intent-driven `recommend`
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
-- JSON-only `capabilities` for LLM-readable command discovery
+- JSON-only `capabilities` for registry-derived LLM-readable command discovery
 - read-only `plan-change` for deterministic target-file planning before mutation
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
@@ -86,6 +86,15 @@ Plan-change manifest draft behavior:
 - safe follow-up starts with operator review, then `sync check` or `sync pull`; `sync push` remains a separate preview/apply workflow against a reviewed manifest file
 - the planner does not write files, sidecars, review artifacts, journals, or Notion content, and it does not add audit gates or batch apply behavior
 
+Command metadata and package-readiness behavior:
+- CLI help and `capabilities` share one command metadata registry rather than separate hand-maintained surfaces
+- `capabilities` reports canonical commands, aliases, flags, examples, surfaces, auth scope, mutation mode, stability, and feature-specific command metadata
+- `discover` remains the compact first-contact command; `capabilities` is the full registry for deeper inspection
+- package metadata declares the installed `snpm` executable and Node 20+ runtime expectation
+- the package file allowlist is explicit and excludes private workspace config, task memory, mutation artifacts, env files, and browser/auth state
+- public package or repository visibility changes remain separate operator actions after `npm pack --dry-run` review
+- this registry/package contract does not add Notion mutation commands, broaden supported surfaces, or change command-family ownership
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
@@ -96,9 +105,10 @@ Active hardening sequence:
 - Sprint 0 retired the browser-driven validation-bundle lane; validation-session workflows stay on the existing API-visible command families plus manual UI checks where needed
 - Sprint 1A Child Runner Hardening completed the internal reliability and safety pass for existing child-process execution paths
 - Sprint 1B Notion Transport Hardening completed the internal reliability and safety pass for the existing Notion-backed command surface
-- Sprint 1C Installable CLI Smoke is the active packaging and cross-repo usage wedge for source-checkout versus installed CLI operation
-- public Notion operator behavior, command-family ownership, and supported surfaces remain unchanged during Sprint 1C
-- installed/public use is gated on package executable readiness, an explicit packed-file allowlist, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
+- Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
+- Sprint 1D Command Metadata Registry And Package Readiness completed registry-derived command discovery and the package/readiness contract
+- public Notion operator behavior, command-family ownership, and supported surfaces remain unchanged during Sprint 1D
+- installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
 
@@ -210,7 +220,8 @@ Keep these boundaries:
 - manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - browser/UI automation is not a supported SNPM mutation lane; UI-only validation-session elements remain manual checks surfaced by `validation-sessions verify --bundle`
-- installed CLI packaging must use an explicit allowlist and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
+- command metadata must stay registry-derived so CLI help and `capabilities` do not drift
+- installed CLI packaging must use the package executable metadata and explicit allowlist, and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
 - installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 
 ## Success Criteria

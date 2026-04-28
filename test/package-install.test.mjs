@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { capabilityJson } from "../src/cli-help.mjs";
+
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const NPM_COMMAND = "npm";
 
@@ -81,6 +83,15 @@ test("package metadata exposes an snpm executable while remaining private", () =
   assert.match(cliSource, /^#!\/usr\/bin\/env node\r?\n/);
 });
 
+test("package metadata keeps validation-bundle scripts absent", () => {
+  const packageJson = readPackageJson();
+  const scriptNames = Object.keys(packageJson.scripts);
+  const scriptCommands = Object.values(packageJson.scripts).join("\n");
+
+  assert.equal(scriptNames.some((script) => /validation-bundle/i.test(script)), false);
+  assert.doesNotMatch(scriptCommands, /validation-bundle/i);
+});
+
 test("package tarball contains runtime files and excludes local-only materials", () => {
   const files = packDryRunFiles();
   const fileSet = new Set(files);
@@ -97,9 +108,16 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(fileSet.has("research.md"), false);
   assert.equal(fileSet.has("plan.md"), false);
   assert.equal(fileSet.has("AGENTS.md"), false);
+  assert.equal(fileSet.has(".env"), false);
+  assert.equal(fileSet.has(".npmrc"), false);
+  assert.equal(fileSet.has(".snpm-closeout"), false);
+  assert.equal(files.some((file) => file.startsWith(".snpm")), false);
   assert.equal(files.some((file) => file.startsWith("test/")), false);
   assert.equal(files.some((file) => file.startsWith("tasks/")), false);
   assert.equal(files.some((file) => file.toLowerCase().endsWith(".docx")), false);
+  assert.equal(files.some((file) => /^src\/(?:commands\/|notion-ui\/).*validation-bundle/i.test(file)), false);
+  assert.equal(files.some((file) => /^src\/notion-ui\//i.test(file)), false);
+  assert.equal(files.some((file) => /(?:^|\/)validation-bundle(?:\.|\/)/i.test(file)), false);
 });
 
 test("packed package installs an snpm bin that runs from outside the source checkout", () => {
@@ -131,10 +149,12 @@ test("packed package installs an snpm bin that runs from outside the source chec
     const help = runSnpm(binPath, ["--help"], { cwd: consumerDir, env });
     assert.equal(help.status, 0, help.stderr);
     assert.match(help.stdout, /node src\/cli\.mjs <command> \[options\]/);
+    assert.doesNotMatch(help.stdout, /validation-bundle/i);
 
     const capabilities = runSnpm(binPath, ["capabilities"], { cwd: consumerDir, env });
     assert.equal(capabilities.status, 0, capabilities.stderr);
-    assert.equal(JSON.parse(capabilities.stdout).schemaVersion, 1);
+    assert.deepEqual(JSON.parse(capabilities.stdout), JSON.parse(capabilityJson()));
+    assert.doesNotMatch(capabilities.stdout, /validation-bundle/i);
 
     const discover = runSnpm(binPath, ["discover", "--project", "SNPM"], { cwd: consumerDir, env });
     assert.equal(discover.status, 0, discover.stderr);
@@ -144,6 +164,11 @@ test("packed package installs an snpm bin that runs from outside the source chec
     const journal = runSnpm(binPath, ["journal", "list", "--limit", "1"], { cwd: consumerDir, env });
     assert.equal(journal.status, 0, journal.stderr);
     assert.deepEqual(JSON.parse(journal.stdout).entries, []);
+
+    const validationBundleHelp = runSnpm(binPath, ["validation-bundle", "verify", "--help"], { cwd: consumerDir, env });
+    assert.equal(validationBundleHelp.status, 1);
+    assert.match(validationBundleHelp.stderr, /Unknown command: validation-bundle verify/);
+    assert.doesNotMatch(validationBundleHelp.stdout, /Command: validation-bundle verify/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

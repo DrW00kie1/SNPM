@@ -9,7 +9,8 @@ Current active hardening wedge:
 - Sprint 0 retired the browser-driven validation-bundle lane while preserving validation-session API workflows
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing child-process execution without changing public operator behavior or adding commands
 - Sprint 1B Notion Transport Hardening completed the existing Notion-backed command surface wedge, with public operator behavior, command names, and command-family ownership unchanged
-- Sprint 1C Installable CLI Smoke is the active packaging and cross-repo usage wedge, focused on source-checkout versus installed CLI operation, public-readiness checks, and private config boundaries
+- Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
+- Sprint 1D Command Metadata Registry And Package Readiness completed the follow-up package/readiness contract: registry-derived help/capabilities, package executable metadata, packed-file allowlist, and private config boundary
 
 ## Product Direction
 
@@ -297,9 +298,9 @@ Exit criteria:
 - public-readiness remains gated on package executable metadata and reviewed pack contents
 
 Status:
-- Sprint 1C Installable CLI Smoke is active on the installable CLI branch
+- Sprint 1C Installable CLI Smoke is complete as the source-checkout versus installed CLI guidance wedge
 - Notion command behavior, supported surfaces, and command-family ownership are unchanged
-- installed CLI use remains a packaging target until the executable and packed-file allowlist are verified
+- installed CLI use remains gated by package/readiness checks and private workspace config boundaries
 
 Out of scope:
 - new Notion mutation commands or surfaces
@@ -309,6 +310,38 @@ Out of scope:
 
 Durable Notion closeout draft:
 - Sprint 1C Installable CLI Smoke documents the supported source-checkout operator mode and the target installed CLI mode. Installed CLI use must load real workspace config from private operator state through `SNPM_WORKSPACE_CONFIG_DIR`; private workspace config, task memory, mutation artifacts, env files, and browser/auth state must stay out of the public package. The sprint does not change Notion command-family ownership, supported surfaces, or live mutation behavior.
+
+### Sprint 1D: Command Metadata Registry And Package Readiness
+
+Goal:
+- make the shipped command surface discoverable from one metadata registry and make package readiness explicit without changing live Notion behavior
+
+Deliverables:
+- shared command metadata registry powering CLI help and `capabilities`
+- registry output that includes canonical commands, aliases, flags, examples, surfaces, auth scope, mutation mode, stability, and feature-specific metadata
+- package executable metadata for installed `snpm ...` invocation
+- package readiness contract covering Node engine support, packed-file allowlist, private config exclusion, and `npm pack --dry-run` review before public package or visibility changes
+- docs that keep `discover` as first contact and `capabilities` as the full machine-readable registry
+
+Exit criteria:
+- an operator or coding agent can discover the supported command surface without scraping README prose or duplicating command metadata
+- installed CLI readiness is tied to package metadata and packed contents rather than vendoring SNPM into consumer repos
+
+Status:
+- Sprint 1D is complete on the active line
+- `capabilities` is generated from the same command metadata registry as CLI help
+- package metadata declares the `snpm` executable, Node 20+ engine requirement, and explicit packed-file allowlist
+- the package remains private until a separate operator action changes package or repository visibility after reviewed `npm pack --dry-run` output
+- public Notion operator behavior, command-family ownership, supported surfaces, and live mutation behavior are unchanged
+
+Out of scope:
+- new Notion mutation commands or surfaces
+- changing workspace config schema
+- publishing a package or changing repository visibility
+- bundling private workspace config, real page ids, task memory, mutation artifacts, env files, or browser/auth state
+
+Durable Notion closeout draft:
+- Sprint 1D Command Metadata Registry And Package Readiness completes the command discovery and package contract follow-up after Sprint 1C. CLI help and `capabilities` now share registry-derived command metadata, and package metadata defines the installed `snpm` executable plus the packed-file allowlist and Node runtime expectation. The sprint does not change Notion command-family ownership, supported surfaces, or live mutation behavior.
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
@@ -391,9 +424,9 @@ Out of scope:
 Status:
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing generated-secret child execution and other existing child-runner usage without changing supported operator commands
 - Sprint 1B Notion Transport Hardening completed the follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
-- Sprint 1C Installable CLI Smoke is the active follow-up after Sprint 1B, focused on packaging and cross-repo invocation boundaries before broader feature expansion
+- Sprint 1D Command Metadata Registry And Package Readiness is the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1C
+- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1D
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.
