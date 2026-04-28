@@ -95,8 +95,10 @@ Specialized or experimental lanes:
 Active hardening sequence:
 - Sprint 0 retired the browser-driven validation-bundle lane; validation-session workflows stay on the existing API-visible command families plus manual UI checks where needed
 - Sprint 1A Child Runner Hardening completed the internal reliability and safety pass for existing child-process execution paths
-- Sprint 1B Notion Transport Hardening is the active internal reliability and safety pass for the existing Notion-backed command surface
-- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1B
+- Sprint 1B Notion Transport Hardening completed the internal reliability and safety pass for the existing Notion-backed command surface
+- Sprint 1C Installable CLI Smoke is the active packaging and cross-repo usage wedge for source-checkout versus installed CLI operation
+- public Notion operator behavior, command-family ownership, and supported surfaces remain unchanged during Sprint 1C
+- installed/public use is gated on package executable readiness, an explicit packed-file allowlist, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
 
@@ -180,8 +182,9 @@ Those surfaces continue to use their own command families.
 - keep policy-pack changes reviewable and backward compatible with the existing Infrastructure HQ config shape
 - allow policy packs to declare preview-first starter doc scaffolds, but do not use them as a shortcut for drift audit, consistency checks, hidden Notion mutation, or broad batch apply
 - keep `scaffold-docs` preview-first and local-file-only within approved `project-doc` and `planning-page` starter targets
-- keep pinned install/use from other repos straightforward
+- keep pinned install/use from other repos straightforward after package public-readiness checks pass
 - keep the CLI as the policy layer for other Codex threads
+- support both source-checkout mode and installed CLI mode without vendoring private workspace config into consumer repos or packages
 - add wrappers only after the CLI workflows are stable
 
 ### Phase 4: Expand Only Proven Surfaces
@@ -207,6 +210,8 @@ Keep these boundaries:
 - manifest v2 recovery diagnostics are metadata for review and manual recovery, not rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply
 - validation-session v1 sync is not a precedent for generalized mixed-surface push
 - browser/UI automation is not a supported SNPM mutation lane; UI-only validation-session elements remain manual checks surfaced by `validation-sessions verify --bundle`
+- installed CLI packaging must use an explicit allowlist and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
+- installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 
 ## Success Criteria
 

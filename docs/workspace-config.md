@@ -1,18 +1,20 @@
 # Workspace Config Ownership
 
-Workspace configuration lives in:
+In source-checkout mode, workspace configuration lives in:
 
 `config/workspaces/infrastructure-hq.json`
 
 The real workspace config is private local operator state and is ignored by git. The public repo ships `config/workspaces/infrastructure-hq.example.json` with placeholder page ids. Copy that file to `config/workspaces/infrastructure-hq.json` and replace every placeholder before running live SNPM commands.
 
-For automation or tests that keep private config outside the repo, set:
+For automation, tests, installed CLI use, or source checkouts that keep private config outside the repo, set:
 
 ```powershell
 $env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspaces"
 ```
 
 SNPM will then load `<workspace>.json` from that directory.
+
+In installed CLI mode, `SNPM_WORKSPACE_CONFIG_DIR` is the expected boundary for real page ids. The package must not include private workspace config, and operators should keep the config directory in local private storage rather than inside a consumer repo.
 
 It currently owns:
 - Notion API version

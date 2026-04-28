@@ -23,6 +23,8 @@ SNPM is not a generic Notion CMS. It is a policy layer for project operations.
 
 Requires Node.js 20+ and a Notion integration token for live workspace commands.
 
+### Source Checkout Mode
+
 ```powershell
 git clone https://github.com/DrW00kie1/SNPM.git C:\SNPM
 Set-Location C:\SNPM
@@ -49,6 +51,23 @@ npm run doctor -- --project "Project Name" --project-token-env PROJECT_NAME_NOTI
 ```
 
 `discover` is the compact starting point. It prints JSON only: what SNPM is, where to run it from, what not to vendor into consumer repos, and which safe command to run next.
+
+### Installed CLI Mode
+
+Installed use is the target cross-repo operator model once package metadata is public-ready. In that mode, run the package executable from any repo instead of switching into a source checkout:
+
+```powershell
+snpm discover --project "Project Name"
+snpm doctor --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Installed mode must not rely on private config inside the package. Keep the real workspace config in an operator-owned directory and point the CLI at it:
+
+```powershell
+$env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspace-configs"
+```
+
+Until the package exposes the executable and passes the public-readiness checks below, use source checkout mode.
 
 ## The Safe Mutation Loop
 
@@ -141,7 +160,12 @@ SNPM keeps the public repo and live workspace separated:
 - Notion mutation is apply-gated and restricted to approved surfaces
 - `truth-audit` and `consistency-audit` are advisory read-only checks
 
-Public-readiness note: the current source tree is MIT licensed and safe to publish as source, but it remains configured by local private workspace files. Changing GitHub visibility is a separate operator action.
+Public-readiness expectations:
+- the source tree remains safe to publish as MIT-licensed source only when private workspace config and task-local memory stay ignored
+- package publishing requires an explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
+- package publishing must exclude private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, environment files, and local browser/auth state
+- installed CLI use must load real workspace config through `SNPM_WORKSPACE_CONFIG_DIR` or another explicit operator-provided path, not bundled private config
+- changing GitHub or package visibility is a separate operator action after `npm pack --dry-run` output is reviewed
 
 ## Command Discovery
 
@@ -174,6 +198,8 @@ Public packaging smoke:
 ```powershell
 npm pack --dry-run
 ```
+
+Before public packaging, verify that the packed file list is allowlisted and does not include private workspace config, `.snpm*` artifacts, generated review/scaffold/closeout output, task-memory files, or environment files.
 
 Live verification, when private config and tokens are present:
 

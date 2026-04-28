@@ -301,6 +301,8 @@ test("discover command help, capability metadata, and npm script are registered"
   assert.equal(command?.journalWrites, "none");
   assert.match(commandText(spec), /--project "Project Name"/);
   assert.match(commandText(spec), /C:\\SNPM/);
+  assert.match(commandText(spec), /source-checkout npm script commands/);
+  assert.match(commandText(spec), /snpm discover --project "Project Name"/);
   assert.match(commandText(spec), /does not read Notion/);
   assert.equal(packageJson.scripts.discover, "node src/cli.mjs discover");
 });
@@ -1430,6 +1432,8 @@ test("cli discover help prints first-contact command help", () => {
   assert.match(result.stdout, /Command: discover/);
   assert.match(result.stdout, /--project "Project Name"/);
   assert.match(result.stdout, /C:\\SNPM/);
+  assert.match(result.stdout, /snpm discover --project "Project Name"/);
+  assert.match(result.stdout, /source-checkout npm script commands/);
   assert.match(result.stdout, /does not read Notion/);
   assert.equal(result.stderr, "");
 });
@@ -1456,6 +1460,22 @@ test("cli discover prints compact JSON first-contact guidance without side effec
     assert.equal(parsed.snpm.project, "SNPM");
     assert.equal(parsed.snpm.projectTokenEnv, "SNPM_NOTION_TOKEN");
     assert.match(parsed.boundaries.noVendoring, /Do not vendor SNPM scripts/);
+    assert.equal(
+      parsed.commandForms.sourceCheckout.firstContactCommand,
+      'npm run discover -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    );
+    assert.equal(
+      parsed.commandForms.installedCli.firstContactCommand,
+      'snpm discover --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    );
+    assert.equal(
+      parsed.commandForms.sourceCheckout.safeFirstCommands[0].command,
+      'npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    );
+    assert.equal(
+      parsed.commandForms.installedCli.safeFirstCommands[0].command,
+      'snpm doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+    );
     assert.match(JSON.stringify(parsed.safeFirstCommands), /doctor/);
     assert.match(JSON.stringify(parsed.safeFirstCommands), /recommend/);
     assert.match(JSON.stringify(parsed.safeFirstCommands), /plan-change/);

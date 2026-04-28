@@ -14,6 +14,7 @@ Remote:
 
 ## External usage model
 
+Source-checkout mode:
 - Fresh project threads should use `C:\\SNPM` as the local control repo for Notion bootstrap.
 - Outside repos should not vendor the bootstrap logic, workspace ids, or starter-tree config.
 - Bootstrap is the day-zero requirement; project-token setup is deferred until repo-local Notion automation is needed.
@@ -22,6 +23,16 @@ Remote:
 ```powershell
 Set-Location C:\SNPM
 npm run discover -- --project "Project Name"
+```
+
+Installed CLI mode:
+- Installed mode is the target after package metadata is public-ready.
+- Agents should run the installed executable from the consumer repo instead of vendoring SNPM or switching into a source checkout.
+- Real workspace config must come from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`.
+- Installed-mode first contact is:
+
+```powershell
+snpm discover --project "Project Name"
 ```
 
 - Use `doctor` after discovery for the read-only project health scan.
@@ -47,6 +58,7 @@ That next phase should:
 - add broader page-sync, scaffold, and verification capabilities in a clearly separated roadmap track
 - stay opinionated about Infrastructure HQ workspace boundaries rather than becoming a generic raw Notion shell
 - prefer a package-installable, CLI-first model that other repos and Codex threads can call directly
+- gate installed/public use on an explicit packed-file allowlist that excludes private config, task memory, local mutation artifacts, env files, and browser/auth state
 
 Canonical roadmap:
 - [`docs/operator-roadmap.md`](./operator-roadmap.md)

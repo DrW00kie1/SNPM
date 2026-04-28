@@ -229,6 +229,37 @@ Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries internal status notes.
 
+## Sprint 1C Installable CLI Smoke Updates
+
+Sprint 1C follows Sprint 1B as a packaging and cross-repo usage wedge. Public Notion operator behavior stays unchanged: do not add or imply new Notion mutation commands, keep command-family ownership unchanged, and keep live workspace mutation on the existing approved surfaces.
+
+Operator usage now has two documented modes:
+- Source-checkout mode uses `C:\SNPM`, `npm install`, and `npm run ... -- ...`; this remains the current local development and operator path.
+- Installed CLI mode uses the package executable, shown as `snpm ...`, from a consumer repo after package metadata is public-ready.
+
+Installed CLI mode must keep real workspace config outside the package and consumer repos:
+
+```powershell
+$env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspace-configs"
+```
+
+Public-readiness expectations:
+- package metadata must expose the CLI executable before installed use is claimed as shipped
+- packed contents must be reviewed with `npm pack --dry-run`
+- the package allowlist must include only CLI/runtime files, required operator docs, public examples, and assets
+- private workspace config, task memory, mutation journals, sidecars, review/scaffold/closeout artifacts, env files, and browser/auth state must not be packed
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1C Installable CLI Smoke is approved as a packaging and cross-repo usage wedge. It documents source-checkout mode and installed CLI mode while preserving existing Notion command families, supported surfaces, and live mutation behavior.
+- Roadmap: Mark Sprint 1C as the post-Sprint-1B packaging/public-readiness wedge. Installed CLI use is gated on executable metadata, reviewed packed-file allowlist, and private workspace config via `SNPM_WORKSPACE_CONFIG_DIR`.
+- Current Cycle: Record that operators should continue using source-checkout mode until installed CLI packaging is verified. Installed mode must not vendor SNPM or bundle real workspace page ids into consumer repos or packages.
+- Runbook: Add the operator boundary: source-checkout mode uses `C:\SNPM` and npm scripts; installed CLI mode uses `snpm ...` from the consumer repo with `SNPM_WORKSPACE_CONFIG_DIR` pointing at private config.
+- Projects > SNPM: If the public command summary is maintained there, mention installed CLI mode only as the package-ready invocation model and avoid claiming new Notion command capability.
+
+Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Runbooks > Notion Workspace Workflow`; use `doc-*` for `Projects > SNPM` only if that page carries public command or internal status notes.
+
+Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Runbooks > Notion Workspace Workflow`, and `Projects > SNPM` only if that page carries public command or internal status notes.
+
 ## Verification
 
 Project-scoped verification:

@@ -39,6 +39,8 @@ export function buildDiscoverPayload({
   const nameFlag = `--name ${quote(normalizedProjectName)}`;
   const envFlag = tokenFlag(normalizedProjectTokenEnv);
   const recommendedEnvFlag = tokenFlag(recommendedProjectTokenEnv);
+  const sourceDiscoverCommand = `npm run discover -- ${projectFlag}${envFlag}`;
+  const installedDiscoverCommand = `snpm discover ${projectFlag}${envFlag}`;
 
   return {
     ok: true,
@@ -53,7 +55,7 @@ export function buildDiscoverPayload({
       recommendedProjectTokenEnv,
     },
     boundaries: {
-      useControlRepo: `Run SNPM commands from ${SNPM_RUN_CONTEXT}.`,
+      useControlRepo: `Use ${SNPM_RUN_CONTEXT} for source-checkout npm-script operation; installed snpm CLI commands may run from a caller repo without vendoring SNPM internals.`,
       noVendoring: "Do not vendor SNPM scripts, workspace ids, workspace config, starter-tree config, or Notion page ids into consumer repos.",
       consumerRepoOwns: [
         "source code",
@@ -68,6 +70,50 @@ export function buildDiscoverPayload({
         "Access records",
         "durable project operations state",
       ],
+    },
+    commandForms: {
+      sourceCheckout: {
+        context: `Use this form when you have the SNPM source checkout at ${SNPM_RUN_CONTEXT}.`,
+        firstContactCommand: sourceDiscoverCommand,
+        setupCommands: [
+          {
+            command: `Set-Location ${SNPM_RUN_CONTEXT}`,
+            reason: "Switch the shell to the SNPM control repo before invoking npm scripts.",
+          },
+        ],
+        safeFirstCommands: [
+          {
+            command: `npm run doctor -- ${projectFlag}${envFlag}`,
+            reason: "Read-only project health and managed-surface scan.",
+          },
+          {
+            command: `npm run recommend -- ${projectFlag} --intent <intent>${envFlag}`,
+            reason: "Resolve Notion-vs-repo ownership when the target surface is unclear.",
+          },
+          {
+            command: `npm run plan-change -- --targets-file <path|-> ${projectFlag}${envFlag}`,
+            reason: "Plan coordinated multi-target documentation changes before mutation.",
+          },
+        ],
+      },
+      installedCli: {
+        context: "Use this form when SNPM is installed as the snpm CLI on PATH.",
+        firstContactCommand: installedDiscoverCommand,
+        safeFirstCommands: [
+          {
+            command: `snpm doctor ${projectFlag}${envFlag}`,
+            reason: "Read-only project health and managed-surface scan.",
+          },
+          {
+            command: `snpm recommend ${projectFlag} --intent <intent>${envFlag}`,
+            reason: "Resolve Notion-vs-repo ownership when the target surface is unclear.",
+          },
+          {
+            command: `snpm plan-change --targets-file <path|-> ${projectFlag}${envFlag}`,
+            reason: "Plan coordinated multi-target documentation changes before mutation.",
+          },
+        ],
+      },
     },
     safeFirstCommands: [
       {

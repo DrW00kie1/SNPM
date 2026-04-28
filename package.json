@@ -5,6 +5,17 @@
   "type": "module",
   "license": "MIT",
   "description": "Workspace-first Infrastructure HQ Notion automation and project bootstrap tooling.",
+  "bin": {
+    "snpm": "./src/cli.mjs"
+  },
+  "files": [
+    "src/",
+    "docs/",
+    "assets/readme/",
+    "README.md",
+    "LICENSE",
+    "config/workspaces/*.example.json"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },

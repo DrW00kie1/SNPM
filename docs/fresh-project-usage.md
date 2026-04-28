@@ -1,10 +1,12 @@
 # Fresh Project Usage
 
-SNPM can be used from a Codex thread attached to a different repo as long as `C:\\SNPM` is available locally.
+SNPM can be used from a Codex thread attached to a different repo in source-checkout mode as long as `C:\\SNPM` is available locally. After the package is public-ready, installed CLI mode can run the same command surface from the consumer repo without vendoring SNPM.
 
 This page describes the current shipped cross-repo bootstrap flow. For the broader planned operator model, see [operator roadmap](./operator-roadmap.md).
 
 ## Day-zero workflow
+
+### Source checkout mode
 
 1. Start the new repo and choose the project name there.
 2. In that thread, switch command context to `C:\\SNPM`.
@@ -25,6 +27,23 @@ npm run create-project -- --name "Project Name"
 5. Let SNPM create `Projects > <Project Name>` from `Templates > Project Templates`.
 6. Treat the created Notion subtree as part of the new repo's operating context for planning, runbooks, status, and operational notes.
 
+### Installed CLI mode
+
+Installed mode is the target once the package exposes a public-ready executable and packed-file allowlist. In that mode, do not switch to `C:\\SNPM` and do not copy SNPM into the consumer repo. Run the installed command from the consumer repo:
+
+```powershell
+snpm discover --project "Project Name"
+snpm doctor --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+```
+
+Installed mode must use private operator config outside the package:
+
+```powershell
+$env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspace-configs"
+```
+
+Use source checkout mode until installed CLI packaging has passed `npm pack --dry-run` review and the published package excludes private workspace config and local artifacts.
+
 ## Ownership boundary
 
 SNPM owns:
@@ -40,6 +59,8 @@ The new repo owns:
 - product-specific operational truth
 
 Do not copy SNPM scripts, config, or page ids into the new repo.
+
+The installed package also must not carry private workspace config. Treat `SNPM_WORKSPACE_CONFIG_DIR` as the normal installed-mode boundary for real page ids.
 
 ## When a project token is needed later
 
@@ -59,6 +80,6 @@ npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME
 
 If a fresh repo wants to document this boundary in its own `AGENTS.md` or onboarding docs, use wording close to:
 
-> Use `C:\\SNPM` for Infrastructure HQ Notion bootstrap, verification, routing, and approved live mutations. Do not vendor SNPM scripts, workspace ids, workspace config, starter-tree config, or Notion page ids into this repo. Start with `Set-Location C:\\SNPM` and `npm run discover -- --project "Project Name"`. Use `recommend` or `plan-change` when the owning surface is unclear. Set up a project-scoped Notion token only if this repo later needs its own Notion automation.
+> Use SNPM for Infrastructure HQ Notion bootstrap, verification, routing, and approved live mutations. In source-checkout mode, start with `Set-Location C:\\SNPM` and `npm run discover -- --project "Project Name"`. In installed CLI mode, run `snpm discover --project "Project Name"` from this repo and set `SNPM_WORKSPACE_CONFIG_DIR` to the private operator config directory. Do not vendor SNPM scripts, workspace ids, workspace config, starter-tree config, or Notion page ids into this repo. Use `recommend` or `plan-change` when the owning surface is unclear. Set up a project-scoped Notion token only if this repo later needs its own Notion automation.
 
 For the fuller fresh-agent handoff, see [agent quickstart](./agent-quickstart.md).

@@ -474,6 +474,7 @@ const SINGLE_COMMAND_SPECS = [
     summary: "Print compact first-contact guidance for a fresh agent using SNPM from another repo.",
     usageLines: [
       'node src/cli.mjs discover --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'snpm discover --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
     ],
     requiredFlags: [
       OPT_PROJECT,
@@ -485,10 +486,12 @@ const SINGLE_COMMAND_SPECS = [
     examples: [
       'node src/cli.mjs discover --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run discover -- --project "Project Name"',
+      'snpm discover --project "Project Name"',
     ],
     notes: [
       "discover is the compact first-contact command for fresh Codex threads and prints JSON only.",
-      "It tells the agent to run from C:\\SNPM, not to vendor SNPM scripts/config/page ids, and to start with doctor, recommend, or plan-change.",
+      "It includes both source-checkout npm script commands and installed CLI commands for first contact.",
+      "It tells the agent to run source-checkout commands from C:\\SNPM, not to vendor SNPM scripts/config/page ids, and to start with doctor, recommend, or plan-change.",
       "discover is static guidance: it does not read Notion, write local files, write sidecars, mutate Notion, or append mutation journal entries.",
       "Use capabilities only after first contact when the full machine-readable command map is needed.",
     ],

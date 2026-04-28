@@ -8,7 +8,8 @@ The goal is to make SNPM a better utility for coding LLMs that need to create an
 Current active hardening wedge:
 - Sprint 0 retired the browser-driven validation-bundle lane while preserving validation-session API workflows
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing child-process execution without changing public operator behavior or adding commands
-- Sprint 1B Notion Transport Hardening is the active wedge for the existing Notion-backed command surface, with public operator behavior, command names, and command-family ownership unchanged
+- Sprint 1B Notion Transport Hardening completed the existing Notion-backed command surface wedge, with public operator behavior, command names, and command-family ownership unchanged
+- Sprint 1C Installable CLI Smoke is the active packaging and cross-repo usage wedge, focused on source-checkout versus installed CLI operation, public-readiness checks, and private config boundaries
 
 ## Product Direction
 
@@ -278,6 +279,37 @@ Out of scope:
 - manifest create/adopt entries
 - rollback, automatic retries, transaction semantics, and broad batch apply
 
+### Sprint 4.1C: Installable CLI Smoke
+
+Goal:
+- prove SNPM can be documented and smoke-tested as both a source checkout and an installed CLI without changing Notion command-family ownership
+
+Deliverables:
+- source-checkout guidance that keeps `npm run ... -- ...` workflows available for local development and current operator use
+- installed CLI guidance that uses the package executable from consumer repos once package metadata is public-ready
+- `SNPM_WORKSPACE_CONFIG_DIR` guidance for installed use so real workspace config stays in private operator storage
+- public packaging expectations for a packed-file allowlist that excludes private workspace config, task memory, generated artifacts, env files, and browser/auth state
+- packaging smoke verification through `npm pack --dry-run` before any public package or visibility change
+
+Exit criteria:
+- operators can tell when to use source-checkout mode versus installed CLI mode
+- installed CLI docs do not imply vendoring SNPM into consumer repos or bundling real Notion page ids
+- public-readiness remains gated on package executable metadata and reviewed pack contents
+
+Status:
+- Sprint 1C Installable CLI Smoke is active on the installable CLI branch
+- Notion command behavior, supported surfaces, and command-family ownership are unchanged
+- installed CLI use remains a packaging target until the executable and packed-file allowlist are verified
+
+Out of scope:
+- new Notion mutation commands or surfaces
+- changing workspace config schema
+- publishing a package or changing repository visibility as part of implementation
+- bundling private workspace config or page ids
+
+Durable Notion closeout draft:
+- Sprint 1C Installable CLI Smoke documents the supported source-checkout operator mode and the target installed CLI mode. Installed CLI use must load real workspace config from private operator state through `SNPM_WORKSPACE_CONFIG_DIR`; private workspace config, task memory, mutation artifacts, env files, and browser/auth state must stay out of the public package. The sprint does not change Notion command-family ownership, supported surfaces, or live mutation behavior.
+
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
@@ -358,9 +390,10 @@ Out of scope:
 
 Status:
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing generated-secret child execution and other existing child-runner usage without changing supported operator commands
-- Sprint 1B Notion Transport Hardening is the active follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
+- Sprint 1B Notion Transport Hardening completed the follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
+- Sprint 1C Installable CLI Smoke is the active follow-up after Sprint 1B, focused on packaging and cross-repo invocation boundaries before broader feature expansion
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1B
+- public operator behavior, command names, and command-family ownership remain unchanged during Sprint 1C
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.
