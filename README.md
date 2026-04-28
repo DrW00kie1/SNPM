@@ -21,7 +21,7 @@ SNPM is not a generic Notion CMS. It is a policy layer for project operations.
 
 ## Quick Start
 
-Requires Node.js 20+ and a Notion integration token for live workspace commands.
+Requires Node.js 22+ and a Notion integration token for live workspace commands.
 
 ### Source Checkout Mode
 
@@ -162,7 +162,7 @@ SNPM keeps the public repo and live workspace separated:
 
 Public-readiness expectations:
 - the source tree remains safe to publish as MIT-licensed source only when private workspace config and task-local memory stay ignored
-- package metadata must keep the installed `snpm` executable, Node runtime expectation, and explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
+- package metadata must keep the installed `snpm` executable, Node 22+ runtime expectation, and explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
 - package publishing must exclude private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, environment files, and local browser/auth state
 - installed CLI use must load real workspace config through `SNPM_WORKSPACE_CONFIG_DIR` or another explicit operator-provided path, not bundled private config
 - changing GitHub or package visibility is a separate operator action after `npm pack --dry-run` output is reviewed
@@ -203,6 +203,19 @@ Structured errors are a reporting contract only. They do not add retries, rollba
 
 SNPM has limited schemas for selected agent-facing JSON contracts only. They stabilize payloads such as structured CLI errors, discover, capabilities, plan-change, manifest v2 diagnostics, pull metadata, and mutation journal entries without rewriting every success payload or changing mutation behavior. See [Limited JSON contract schemas](docs/json-contract-schemas.md).
 
+## CI And Release Gates
+
+CI and local release gates are intentionally secret-free. They must not require Notion tokens, private workspace config, or live workspace access, and they must not run live Notion verification or mutation commands.
+
+Local release gate commands:
+
+```powershell
+npm run package-contract
+npm run release-check
+```
+
+`package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local all-up pre-release gate for the source checkout. Live Notion verification remains an operator-run local step only when private config and tokens are available.
+
 ## Development
 
 ```powershell
@@ -213,6 +226,7 @@ npm test
 Public packaging smoke:
 
 ```powershell
+npm run package-contract
 npm pack --dry-run
 ```
 

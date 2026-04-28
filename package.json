@@ -17,7 +17,7 @@
     "config/workspaces/*.example.json"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "access-domain-adopt": "node src/cli.mjs access-domain adopt",
@@ -84,6 +84,9 @@
     "verify-workspace-docs": "node src/cli.mjs verify-workspace-docs",
     "consistency-audit": "node src/cli.mjs doctor --consistency-audit",
     "truth-audit": "node src/cli.mjs doctor --truth-audit",
+    "package-contract": "npm run test:package-contract",
+    "test:package-contract": "node --test test/package-install.test.mjs test/release-check.test.mjs",
+    "release-check": "node scripts/release-check.mjs",
     "test": "node --test"
   }
 }

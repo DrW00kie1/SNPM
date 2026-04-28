@@ -52,6 +52,25 @@ npm test
 node src/cli.mjs --help
 ```
 
+## CI And Release Gate Checks
+
+Sprint 1G release-gate checks run on Node.js 22+.
+
+Local release-readiness checks:
+
+```powershell
+npm run package-contract
+npm run release-check
+```
+
+`package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local source-checkout pre-release aggregate gate.
+
+CI expectations:
+- CI must be secret-free
+- do not provide Notion tokens, private workspace config, real page ids, or `SNPM_WORKSPACE_CONFIG_DIR` pointing at private operator state
+- do not run live Notion verification or mutation commands in CI
+- live workspace verification remains a local operator action when private config and tokens are available
+
 ## Safe Live Validation
 
 Read-heavy live checks:
@@ -94,6 +113,7 @@ npm run verify-workspace-docs
 
 Include:
 - tested branch, tag, or commit
+- Node.js version when testing Sprint 1G release gates
 - commands run
 - expected result
 - actual result

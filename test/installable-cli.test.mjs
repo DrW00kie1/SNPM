@@ -46,6 +46,132 @@ function makeCallerRepo(tempDir) {
   return callerRepo;
 }
 
+function quoteWindowsCommandArg(arg) {
+  const value = String(arg);
+  if (value === "") {
+    return "\"\"";
+  }
+
+  return /[\s"]/u.test(value) ? `"${value.replace(/"/g, "\"\"")}"` : value;
+}
+
+function runNpm(args, { cwd }) {
+  const command = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : "npm";
+  const commandArgs = process.platform === "win32"
+    ? ["/d", "/s", "/c", ["npm", ...args].map(quoteWindowsCommandArg).join(" ")]
+    : args;
+
+  return spawnSync(command, commandArgs, {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+  });
+}
+
+function packAndInstallSnpm(tempDir) {
+  const packDir = path.join(tempDir, "pack");
+  const consumerRoot = path.join(tempDir, "consumer");
+  mkdirSync(packDir, { recursive: true });
+  mkdirSync(consumerRoot, { recursive: true });
+
+  const packResult = runNpm(["pack", "--silent", "--pack-destination", packDir, "--ignore-scripts"], { cwd: REPO_ROOT });
+  assert.equal(packResult.status, 0, packResult.stderr || packResult.stdout);
+  const tarballName = packResult.stdout.trim().split(/\r?\n/u).at(-1);
+  assert.ok(tarballName, `Expected npm pack to print a tarball name. stdout: ${packResult.stdout}`);
+  const tarballPath = path.resolve(packDir, tarballName);
+
+  writeFileSync(path.join(consumerRoot, "package.json"), `${JSON.stringify({
+    private: true,
+    type: "module",
+  }, null, 2)}\n`);
+  const installResult = runNpm(
+    ["install", "--silent", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
+    { cwd: consumerRoot },
+  );
+  assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
+
+  return consumerRoot;
+}
+
+function writeNotionFetchPreload(preloadPath) {
+  const markdownByPageId = [
+    ["private-workspace-projects-page-id", "Canonical Source: Projects\nLast Updated: 2026-04-28\n\n---\n# Projects\n"],
+    ["private-workspace-templates-page-id", "Canonical Source: Templates \\> Project Templates\nLast Updated: 2026-04-28\n\n---\n# Project Templates\n"],
+  ];
+  const preloadSource = `
+const markdownByPageId = new Map(${JSON.stringify(markdownByPageId)});
+
+function jsonResponse(payload, { status = 200 } = {}) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+globalThis.fetch = async (url, options = {}) => {
+  const parsed = new URL(url);
+  const method = String(options.method || "GET").toUpperCase();
+  const apiPath = parsed.pathname.replace(/^\\/v1\\//u, "");
+
+  if (method === "GET" && apiPath.startsWith("pages/") && apiPath.endsWith("/markdown")) {
+    const pageId = apiPath.slice("pages/".length, -"/markdown".length);
+    if (markdownByPageId.has(pageId)) {
+      return jsonResponse({
+        markdown: markdownByPageId.get(pageId),
+        truncated: false,
+        unknown_block_ids: [],
+      });
+    }
+  }
+
+  if (method === "GET" && apiPath.startsWith("blocks/") && apiPath.endsWith("/children")) {
+    return jsonResponse({
+      object: "list",
+      results: [],
+      has_more: false,
+      next_cursor: null,
+    });
+  }
+
+  return jsonResponse({
+    object: "error",
+    code: "unexpected_test_request",
+    message: "Unexpected " + method + " " + apiPath,
+  }, { status: 500 });
+};
+`;
+  writeFileSync(preloadPath, preloadSource);
+}
+
+function nodeOptionsWithImport(modulePath) {
+  const preloadOption = `--import=${pathToFileURL(modulePath).href}`;
+  return process.env.NODE_OPTIONS
+    ? `${process.env.NODE_OPTIONS} ${preloadOption}`
+    : preloadOption;
+}
+
+function runInstalledSnpm({ args, consumerRoot, cwd, env = {} }) {
+  const binPath = path.join(
+    consumerRoot,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "snpm.cmd" : "snpm",
+  );
+  const command = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : binPath;
+  const commandArgs = process.platform === "win32"
+    ? ["/d", "/s", "/c", [binPath, ...args].map(quoteWindowsCommandArg).join(" ")]
+    : args;
+
+  return spawnSync(command, commandArgs, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...env,
+    },
+  });
+}
+
 function runConfigProbe({ cwd, installRoot, env = {}, script }) {
   const configUrl = pathToFileURL(path.join(installRoot, "src", "notion", "config.mjs")).href;
   return spawnSync(process.execPath, ["--input-type=module", "-e", `
@@ -87,6 +213,45 @@ test("installed config loading ignores caller repo ./config/workspaces from outs
     assert.equal(payload.notionVersion, "2026-03-11");
     assert.equal(payload.starterRoot, "Ops");
     assert.equal(path.dirname(payload.configPath), path.join(installRoot, "config", "workspaces"));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("packed snpm binary uses SNPM_WORKSPACE_CONFIG_DIR from outside the source repo", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-packed-runtime-config-"));
+  try {
+    const consumerRoot = packAndInstallSnpm(tempDir);
+    const callerRepo = makeCallerRepo(tempDir);
+    const callerWorkspaceDir = path.join(callerRepo, "config", "workspaces");
+    writeFileSync(
+      path.join(callerWorkspaceDir, "private-workspace.json"),
+      "{ this caller-local private workspace config must not be read",
+    );
+
+    const privateConfigDir = path.join(tempDir, "private-workspaces");
+    writeWorkspaceConfig(privateConfigDir, "private-workspace");
+    const preloadPath = path.join(tempDir, "notion-fetch-preload.mjs");
+    writeNotionFetchPreload(preloadPath);
+
+    const result = runInstalledSnpm({
+      consumerRoot,
+      cwd: callerRepo,
+      args: ["verify-workspace-docs", "--workspace", "private-workspace"],
+      env: {
+        NODE_OPTIONS: nodeOptionsWithImport(preloadPath),
+        NOTION_TOKEN: "test-notion-token",
+        SNPM_WORKSPACE_CONFIG_DIR: privateConfigDir,
+      },
+    });
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(result.stderr, "");
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.ok, true);
+    assert.equal(payload.command, "verify-workspace-docs");
+    assert.deepEqual(payload.checkedPaths, ["Projects", "Templates > Project Templates"]);
+    assert.deepEqual(payload.failures, []);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

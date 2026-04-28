@@ -27,6 +27,7 @@ Supported on the current active line:
 - read-only `plan-change` for deterministic target-file planning before mutation
 - opt-in structured CLI failure reporting through `--error-format json|text` or `SNPM_ERROR_FORMAT`
 - limited JSON contract schemas for selected agent-facing payloads
+- Node 22+ CI/release gate contract with local `package-contract` and `release-check` scripts
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -92,7 +93,7 @@ Command metadata and package-readiness behavior:
 - CLI help and `capabilities` share one command metadata registry rather than separate hand-maintained surfaces
 - `capabilities` reports canonical commands, aliases, flags, examples, surfaces, auth scope, mutation mode, stability, and feature-specific command metadata
 - `discover` remains the compact first-contact command; `capabilities` is the full registry for deeper inspection
-- package metadata declares the installed `snpm` executable and Node 20+ runtime expectation
+- package metadata declares the installed `snpm` executable and Node 22+ runtime expectation
 - the package file allowlist is explicit and excludes private workspace config, task memory, mutation artifacts, env files, and browser/auth state
 - public package or repository visibility changes remain separate operator actions after `npm pack --dry-run` review
 - this registry/package contract does not add Notion mutation commands, broaden supported surfaces, or change command-family ownership
@@ -112,6 +113,14 @@ Limited JSON contract schema behavior:
 - schema coverage must not change stdout/stderr placement, `capabilities.schemaVersion`, manifest semantics, secret handling, command-family ownership, supported surfaces, or mutation behavior
 - the reference lives in [Limited JSON contract schemas](./json-contract-schemas.md)
 
+CI and release gate behavior:
+- Node 22+ is the runtime contract for source checkout development, CI, and package readiness
+- CI is secret-free and must not require Notion tokens, private workspace config, real page ids, or live workspace access
+- CI must not run live Notion verification or mutation commands
+- `package-contract` is the focused local package metadata and packed-file contract check
+- `release-check` is the local source-checkout pre-release aggregate gate
+- live Notion verification remains an operator-run local step when private config and tokens are available
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
@@ -125,8 +134,9 @@ Active hardening sequence:
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed registry-derived command discovery and the package/readiness contract
 - Sprint 1E Structured CLI Errors completed opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
-- Sprint 1F Limited JSON Contract Schemas adds bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
-- installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
+- Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
+- Sprint 1G CI And Release Gates adds the Node 22+ runtime contract, secret-free CI boundary, and local `package-contract`/`release-check` gates without changing Notion mutation behavior
+- installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
 
@@ -241,6 +251,8 @@ Keep these boundaries:
 - command metadata must stay registry-derived so CLI help and `capabilities` do not drift
 - structured CLI errors are stderr-only failure formatting; they must not change successful command output, success schemas, retry behavior, or Notion mutation semantics
 - limited JSON contract schemas cover selected agent-facing contracts only; they must not become a broad success-payload rewrite, add raw secret exposure, change `capabilities.schemaVersion`, or alter stdout/stderr, retry, mutation, manifest, or command-family semantics
+- CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
+- local `package-contract` and `release-check` are release gates, not Notion command families or live workspace verification
 - installed CLI packaging must use the package executable metadata and explicit allowlist, and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
 - installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 

@@ -346,6 +346,35 @@ Closeout command families if later applied by an operator: use `page-*` for `Pla
 
 Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, and conditionally `Projects > SNPM > Product Hardening Plan`.
 
+## Sprint 1G CI And Release Gates Updates
+
+Sprint 1G follows Sprint 1F as a release-readiness wedge for CI, package contract checks, and local release gates. It does not create a new Notion workflow and does not change live mutation behavior.
+
+Supported behavior:
+- Node 22+ is the runtime contract for source checkout development, CI, and package readiness
+- CI is secret-free and must not use Notion tokens, private workspace config, real page ids, or live workspace access
+- CI must not run live Notion verification or mutation commands
+- local `package-contract` checks the package metadata, runtime, executable, packed-file allowlist, and private-artifact exclusion contract
+- local `release-check` is the source-checkout pre-release aggregate gate
+- live Notion verification remains a local operator action with private config and tokens
+
+Out of scope:
+- live Notion verification or mutation in CI
+- adding Notion tokens or private workspace config to CI/package outputs
+- changing Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior
+- publishing the package or changing repository/package visibility
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1G CI And Release Gates is approved as a release-readiness hardening wedge. SNPM now treats Node 22+ as the runtime contract, keeps CI secret-free with no live Notion access, and uses local `package-contract` and `release-check` scripts before release promotion.
+- Roadmap: Mark Sprint 1G after Sprint 1F and before broader feature expansion. The release path now has explicit Node 22+, package contract, release-check, and no-live-Notion-in-CI gates while preserving supported command families and live mutation behavior.
+- Current Cycle: Operators should run `npm run package-contract` and `npm run release-check` locally before release or visibility changes. Run live Notion verification separately only from an operator environment with private config and tokens.
+- Runbook: Update `Runbooks > Notion Workspace Workflow` only if it documents release promotion or CI expectations; note that CI is secret-free and live Notion verification remains local/off-CI.
+- Projects > SNPM: If the public command summary is maintained there, mention release readiness as Node 22+ plus secret-free CI and local release gates, not as new Notion command capability.
+
+Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` only if `Runbooks > Notion Workspace Workflow` needs release/CI guidance; use `doc-*` for `Projects > SNPM` only if that page carries public command or release-readiness status.
+
+Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
+
 ## Verification
 
 Project-scoped verification:

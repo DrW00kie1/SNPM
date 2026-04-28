@@ -12,7 +12,8 @@ Current active hardening wedge:
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed the follow-up package/readiness contract: registry-derived help/capabilities, package executable metadata, packed-file allowlist, and private config boundary
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure output wedge, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
-- Sprint 1F Limited JSON Contract Schemas is the active narrow hardening wedge for selected agent-facing JSON contracts, without rewriting every success payload or changing mutation semantics
+- Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
+- Sprint 1G CI And Release Gates is the active release-readiness wedge for Node 22+, secret-free CI, and local package/release contract checks
 
 ## Product Direction
 
@@ -332,7 +333,7 @@ Exit criteria:
 Status:
 - Sprint 1D is complete on the active line
 - `capabilities` is generated from the same command metadata registry as CLI help
-- package metadata declares the `snpm` executable, Node 20+ engine requirement, and explicit packed-file allowlist
+- package metadata declares the `snpm` executable, Node 22+ engine requirement, and explicit packed-file allowlist
 - the package remains private until a separate operator action changes package or repository visibility after reviewed `npm pack --dry-run` output
 - public Notion operator behavior, command-family ownership, supported surfaces, and live mutation behavior are unchanged
 
@@ -408,6 +409,39 @@ Out of scope:
 
 Durable Notion closeout draft:
 - Sprint 1F Limited JSON Contract Schemas stabilizes selected agent-facing JSON contracts only. It documents and checks the bounded contracts that agents consume, while leaving command-specific success payloads, stdout/stderr placement, Notion mutation behavior, command-family ownership, and secret boundaries unchanged. This is compatibility hardening, not a global schema rewrite.
+
+### Sprint 1G: CI And Release Gates
+
+Goal:
+- make CI and local release readiness explicit, secret-free, and aligned on the Node 22+ runtime contract without changing live Notion behavior
+
+Deliverables:
+- Node 22+ runtime contract reflected in package readiness docs, operator docs, and CI expectations
+- secret-free CI gate that does not require Notion tokens, private workspace config, or live workspace access
+- local `package-contract` script for package metadata, runtime, executable, packed-file allowlist, and private-artifact exclusion checks
+- local `release-check` script as the source-checkout pre-release aggregate gate
+- docs that separate CI/package gates from live Notion verification and mutation workflows
+- durable Notion closeout draft with the owning surfaces and command families for operator promotion
+
+Exit criteria:
+- CI can run on Node 22+ without secrets and without touching the live Notion workspace
+- operators can run `npm run package-contract` and `npm run release-check` locally before a release or visibility change
+- release docs make clear that live Notion verification remains a local operator action with private config and tokens
+- no command-family ownership, supported surface, stale-write protection, or live mutation behavior changes
+
+Status:
+- Sprint 1G is scoped as the active release-readiness wedge after Sprint 1F
+- CI/release checks are package/runtime gates, not live Notion verification
+- public Notion operator behavior and supported command families are unchanged
+
+Out of scope:
+- live Notion verification or mutation in CI
+- storing Notion tokens, private workspace config, page ids, generated artifacts, sidecars, task memory, closeout artifacts, or environment files in CI/package outputs
+- publishing the package or changing repository/package visibility
+- adding new Notion mutation commands, broadening supported surfaces, or changing command-specific success payloads
+
+Durable Notion closeout draft:
+- Sprint 1G CI And Release Gates promotes SNPM release readiness to a Node 22+ runtime contract with secret-free CI and local `package-contract`/`release-check` scripts. CI must not use Notion tokens, private workspace config, or live workspace access, and live Notion verification remains an operator-run local step. The sprint does not change Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior.
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
@@ -492,9 +526,10 @@ Status:
 - Sprint 1B Notion Transport Hardening completed the follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
 - Sprint 1D Command Metadata Registry And Package Readiness completed the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure reporting wedge before broader feature expansion
-- Sprint 1F Limited JSON Contract Schemas is the next narrow hardening wedge, focused on selected agent-facing JSON contracts without changing public operator behavior
+- Sprint 1F Limited JSON Contract Schemas completed the narrow hardening wedge for selected agent-facing JSON contracts without changing public operator behavior
+- Sprint 1G CI And Release Gates is the next narrow release-readiness wedge, focused on Node 22+, secret-free CI, and local package/release contract checks
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1F
+- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1G
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.
