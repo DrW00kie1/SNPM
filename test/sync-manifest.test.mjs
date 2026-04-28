@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 import { parseSyncManifest, validateSyncManifest } from "../src/notion/sync-manifest.mjs";
 
-const manifestPath = path.join("C:\\repo", "snpm.sync.json");
+const manifestPath = path.join(path.resolve("sync-manifest-fixture"), "snpm.sync.json");
 const workspace = "infrastructure-hq";
 const project = "Tall Man Training";
 const rawPageId = "12345678-1234-1234-1234-123456789abc";
@@ -221,7 +221,7 @@ test("parseSyncManifest rejects v2 invalid file paths", () => {
 test("parseSyncManifest rejects v2 duplicate files", () => {
   assert.throws(() => parseV2([
     { kind: "planning-page", pagePath: "Planning > Roadmap", file: "shared.md" },
-    { kind: "runbook", title: "Release Smoke Test", file: ".\\shared.md" },
+    { kind: "runbook", title: "Release Smoke Test", file: "./shared.md" },
   ]), /same file/i);
 });
 

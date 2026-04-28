@@ -43,6 +43,10 @@ function makeCallerRepo(tempDir) {
     path.join(callerWorkspaceDir, "infrastructure-hq.json"),
     "{ this caller-local workspace config must not be read",
   );
+  writeFileSync(
+    path.join(callerWorkspaceDir, "infrastructure-hq.example.json"),
+    "{ this caller-local example workspace config must not be read",
+  );
   return callerRepo;
 }
 
@@ -198,8 +202,8 @@ test("installed config loading ignores caller repo ./config/workspaces from outs
       cwd: callerRepo,
       installRoot,
       script: `
-        const configPath = resolveWorkspaceConfigPath("infrastructure-hq");
-        const config = loadWorkspaceConfig("infrastructure-hq");
+        const configPath = resolveWorkspaceConfigPath("infrastructure-hq.example");
+        const config = loadWorkspaceConfig("infrastructure-hq.example");
         console.log(JSON.stringify({
           configPath,
           notionVersion: config.notionVersion,

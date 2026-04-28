@@ -2235,7 +2235,6 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
     assert.equal(stderrOnlyFailure.stdout, "");
     assert.match(stderrOnlyFailure.stderr, /Provide --name "Project Name"/);
 
-    writeFileSync(markdownPath, "# Local Roadmap\n", "utf8");
     writeFileSync(manifestPath, `${JSON.stringify({
       version: 2,
       workspace: "infrastructure-hq.example",

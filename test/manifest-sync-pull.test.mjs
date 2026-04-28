@@ -9,7 +9,7 @@ import {
 import { pullManifestV2SyncManifest } from "../src/notion/manifest-sync-pull.mjs";
 import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
-const manifestDir = "C:\\repo";
+const manifestDir = path.resolve("manifest-v2-pull-fixture");
 
 function makeEntry(kind, target, file, overrides = {}) {
   const entry = {
