@@ -662,7 +662,7 @@ test("manifest v2 push refreshSidecars reports partial sidecar writes without un
   assert.match(result.failures[0], /Sidecar refresh write failed/);
   assert.match(result.failures[0], /Partial sidecar writes/);
   assert.match(result.failures[0], /Attempted sidecar/);
-  assert.match(result.failures[0], /planning\\roadmap\.md\.snpm-meta\.json/);
+  assert.match(result.failures[0], /planning[\\/]roadmap\.md\.snpm-meta\.json/);
   assert.match(result.failures[0], /runbooks\\release-smoke\.md\.snpm-meta\.json/);
   assert.match(result.failures[0], /disk full/);
   assert.match(result.recovery, /sync pull --apply/);

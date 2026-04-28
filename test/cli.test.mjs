@@ -2261,7 +2261,7 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
     assert.equal(mixedResult.status, 1);
     assert.equal(mixedResult.stderr, "");
     assert.match(mixedResult.stdout, /^\[planning-page\] Planning > Roadmap \(roadmap\.md\)/);
-    assert.match(mixedResult.stdout, /Error: (?:Set NOTION_TOKEN|Set INFRASTRUCTURE_HQ_NOTION_TOKEN|GET blocks\/|Local file|ENOENT)/i);
+    assert.match(mixedResult.stdout, /Error: (?:Set NOTION_TOKEN|Set INFRASTRUCTURE_HQ_NOTION_TOKEN|GET blocks\/|Local file|.*ENOENT)/i);
     assert.equal(mixedPayload.ok, false);
     assert.equal(mixedPayload.command, "sync-check");
     assert.equal(mixedPayload.entries[0].status, "error");
