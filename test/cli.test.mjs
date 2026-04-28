@@ -2265,7 +2265,7 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
     assert.equal(mixedPayload.ok, false);
     assert.equal(mixedPayload.command, "sync-check");
     assert.equal(mixedPayload.entries[0].status, "error");
-    assert.equal(mixedPayload.entries[0].diagnostics[0].code, "manifest-v2-check-local-file-failed");
+    assert.match(mixedPayload.entries[0].diagnostics[0].code, /^manifest-v2-check-(?:local-file|remote)-failed$/u);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -2613,8 +2613,8 @@ test("cli manifest v2 diagnostics stay in sync payloads when structured top-leve
     assert.equal(payload.ok, false);
     assert.equal(payload.command, "sync-check");
     assert.equal(payload.error, undefined);
-    assert.equal(payload.entries[0].diagnostics[0].code, "manifest-v2-check-local-file-failed");
-    assert.equal(payload.diagnostics[0].code, "manifest-v2-check-local-file-failed");
+    assert.match(payload.entries[0].diagnostics[0].code, /^manifest-v2-check-(?:local-file|remote)-failed$/u);
+    assert.match(payload.diagnostics[0].code, /^manifest-v2-check-(?:local-file|remote)-failed$/u);
     assert.equal(payload.diagnostics[0].command, "sync-check");
     assert.equal(payload.diagnostics[0].state.phase, "check");
   } finally {

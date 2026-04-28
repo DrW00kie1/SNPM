@@ -499,7 +499,7 @@ test("manifest v2 pull apply reports partial local writes when a filesystem writ
   assert.equal(result.failures.length, 1);
   assert.match(result.failures[0], /Partial local writes/);
   assert.match(result.failures[0], /planning[\\/]roadmap\.md/);
-  assert.match(result.failures[0], /runbooks\\release-smoke\.md/);
+  assert.match(result.failures[0], /runbooks[\\/]release-smoke\.md/);
   assert.match(result.failures[0], /disk full/);
   assert.deepEqual(writes.map((write) => write[0]), [
     entries[0].absoluteFilePath,

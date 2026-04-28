@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -1837,7 +1838,19 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
   throw new Error(`Unknown command: ${command}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+function isDirectCliInvocation(argvPath = process.argv[1]) {
+  if (!argvPath) {
+    return false;
+  }
+
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(argvPath)).href;
+  } catch {
+    return import.meta.url === pathToFileURL(argvPath).href;
+  }
+}
+
+if (isDirectCliInvocation()) {
   let errorFormat = DEFAULT_ERROR_FORMAT;
   let command = null;
 
