@@ -7,6 +7,7 @@ import {
   targetForManifestV2SyncEntry,
 } from "../src/notion/manifest-sync-check.mjs";
 import { pullManifestV2SyncManifest } from "../src/notion/manifest-sync-pull.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 const manifestDir = "C:\\repo";
 
@@ -262,6 +263,8 @@ test("manifest v2 pull preview reports existing, missing, in-sync, drift, and fa
   assert.equal(result.diagnostics[0].entry.file, "ops/validation/session.md");
   assert.equal(result.diagnostics[0].entry.metadataPath, `${entries[3].absoluteFilePath}.snpm-meta.json`);
   assert.deepEqual(result.diagnostics[0].state, { phase: "preflight" });
+  assertJsonContract("snpm.manifest-v2.diagnostic.v1", result.diagnostics[0]);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
   assert.equal(result.failures.length, 1);
   assert.deepEqual(calls.map((call) => `${call.kind}:${call.target}`), [
     "planning-page:Planning > Roadmap",
@@ -315,6 +318,7 @@ test("manifest v2 pull apply writes changed files and sidecars for all successfu
   assert.equal(result.appliedCount, 3);
   assert.equal(result.driftCount, 2);
   assert.deepEqual(result.failures, []);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
   assert.deepEqual(writes.map((write) => write[0]), [
     entries[0].absoluteFilePath,
     `${entries[0].absoluteFilePath}.snpm-meta.json`,

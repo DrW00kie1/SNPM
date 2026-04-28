@@ -222,6 +222,66 @@ test("secret-record and access-token generate wrappers preflight before generato
   assert.equal(tokenResult.generatorWillRun, false);
 });
 
+test("secret-record generate wrapper does not serialize generator failure payloads", async () => {
+  const childStdout = "child-stdout-generated-secret";
+  const childStderr = "child-stderr-token";
+  const envValue = "PROJECT_TOKEN_ENV_VALUE";
+  const rawNotionBody = "## Raw Value\nnotion-body-secret";
+  const stackValue = "Error: stack sentinel\n    at secretGenerator";
+
+  await assert.rejects(
+    () => runSecretRecordGenerate({
+      apply: true,
+      childArgs: ["node", "scripts/generate-dsn.mjs"],
+      createGeneratedSecretRecordImpl: async () => ({
+        applied: false,
+        authMode: "project-token",
+        bodyMarkdown: rawNotionBody,
+        targetPath: "Projects > SNPM > Access > App & Backend > DATABASE_URL",
+      }),
+      cwd: process.cwd(),
+      domainTitle: "App & Backend",
+      mode: "create",
+      projectName: "SNPM",
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      runGeneratedSecretCommandImpl: () => ({
+        ok: false,
+        failure: "Generator command failed to start.",
+        stdout: "",
+        stderr: "",
+        outputSuppressed: true,
+        diagnostics: {
+          stdout: childStdout,
+          stderr: childStderr,
+          envValue,
+          stack: stackValue,
+        },
+      }),
+      title: "DATABASE_URL",
+      workspaceConfig: { workspace: "fake" },
+    }),
+    (error) => {
+      const serialized = JSON.stringify({
+        message: error.message,
+        name: error.name,
+      });
+      assert.match(serialized, /Generator command failed to start/);
+      for (const value of [
+        childStdout,
+        childStderr,
+        envValue,
+        rawNotionBody,
+        stackValue,
+        "secretGenerator",
+        "SNPM_NOTION_TOKEN",
+      ]) {
+        assert.equal(serialized.includes(value), false);
+      }
+      return true;
+    },
+  );
+});
+
 test("secret-bearing exec wrappers reject invalid cwd before config load, pull, or spawn", async () => {
   const calls = [];
 

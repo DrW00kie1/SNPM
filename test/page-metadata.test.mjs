@@ -11,6 +11,7 @@ import {
   normalizeLivePageMetadata,
   validatePullPageMetadata,
 } from "../src/notion/page-metadata.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 const BASE_METADATA = {
   schema: PAGE_METADATA_SCHEMA,
@@ -74,6 +75,7 @@ test("buildPullPageMetadata creates the strict sidecar shape", () => {
   });
 
   assert.deepEqual(metadata, BASE_METADATA);
+  assertJsonContract("snpm.pull-metadata.v1", metadata);
 });
 
 test("validatePullPageMetadata rejects missing and malformed metadata", () => {
@@ -98,6 +100,40 @@ test("validatePullPageMetadata rejects page body, diffs, tokens, env values, and
       new RegExp(`unsupported field "${fieldName}"`),
     );
   }
+});
+
+test("validatePullPageMetadata failure messages do not serialize sensitive field values", () => {
+  const sensitiveValues = [
+    "raw-notion-body-sentinel",
+    "ntn_token_sentinel",
+    "PROJECT_TOKEN_ENV_VALUE",
+    "generated-secret-sentinel",
+    "Error: stack sentinel\n    at secret-generator",
+  ];
+  const metadata = {
+    ...BASE_METADATA,
+    bodyMarkdown: sensitiveValues[0],
+    token: sensitiveValues[1],
+    envValue: sensitiveValues[2],
+    generatedValue: sensitiveValues[3],
+    stack: sensitiveValues[4],
+  };
+
+  assert.throws(
+    () => validatePullPageMetadata(metadata),
+    (error) => {
+      const serialized = JSON.stringify({
+        message: error.message,
+        name: error.name,
+      });
+      assert.match(error.message, /unsupported field "bodyMarkdown"/);
+      for (const value of sensitiveValues) {
+        assert.equal(serialized.includes(value), false);
+      }
+      assert.equal(serialized.includes("secret-generator"), false);
+      return true;
+    },
+  );
 });
 
 test("assertPullPageMetadataFresh rejects command, workspace, target, page, and project mismatches", () => {

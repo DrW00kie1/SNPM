@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { writeManifestV2PreviewReviewArtifacts } from "../src/commands/sync-review-output.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 function tempReviewDir() {
   return mkdtempSync(path.join(os.tmpdir(), "snpm-sync-review-"));
@@ -99,6 +100,7 @@ test("writeManifestV2PreviewReviewArtifacts writes deterministic summary and ent
     assert.equal(first.written, true);
     assert.equal(first.entryCount, 2);
     assert.equal(first.diffCount, 1);
+    assertJsonContract("snpm.manifest-v2.review-output.v1", first);
     assert.deepEqual(secondSnapshot, firstSnapshot);
 
     const summary = readJson(path.join(reviewDir, "summary.json"));

@@ -10,6 +10,8 @@ import {
   summarizeDiff,
   tryRecordMutationJournalEntry,
 } from "../src/commands/mutation-journal.mjs";
+import { validatePullPageMetadata } from "../src/notion/page-metadata.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 test("getMutationJournalPath uses env override or local app data default", () => {
   assert.equal(
@@ -32,6 +34,16 @@ test("summarizeDiff hashes the diff without storing its content", () => {
 });
 
 test("buildMutationJournalEntry records operational metadata only", () => {
+  const pullMetadata = {
+    schema: "snpm.pull-metadata.v1",
+    commandFamily: "page",
+    workspaceName: "infrastructure-hq",
+    targetPath: "Projects > SNPM > Planning > Roadmap",
+    pageId: "page-1",
+    authMode: "project-token",
+    lastEditedTime: "2026-04-23T19:00:00.000Z",
+    pulledAt: "2026-04-23T19:01:00.000Z",
+  };
   const entry = buildMutationJournalEntry({
     command: "page-push",
     surface: "planning",
@@ -44,14 +56,7 @@ test("buildMutationJournalEntry records operational metadata only", () => {
       projectId: "project-1",
       targetPath: "Projects > SNPM > Planning > Roadmap",
       metadata: {
-        schema: "snpm.pull-metadata.v1",
-        commandFamily: "page",
-        workspaceName: "infrastructure-hq",
-        targetPath: "Projects > SNPM > Planning > Roadmap",
-        pageId: "page-1",
-        authMode: "project-token",
-        lastEditedTime: "2026-04-23T19:00:00.000Z",
-        pulledAt: "2026-04-23T19:01:00.000Z",
+        ...pullMetadata,
         bodyMarkdown: "# should not be copied",
         token: "secret-token",
         projectTokenEnv: "SNPM_NOTION_TOKEN",
@@ -81,16 +86,7 @@ test("buildMutationJournalEntry records operational metadata only", () => {
     "targetPath",
     "timestamp",
   ].sort());
-  assert.deepEqual(entry.revision, {
-    schema: "snpm.pull-metadata.v1",
-    commandFamily: "page",
-    workspaceName: "infrastructure-hq",
-    targetPath: "Projects > SNPM > Planning > Roadmap",
-    pageId: "page-1",
-    authMode: "project-token",
-    lastEditedTime: "2026-04-23T19:00:00.000Z",
-    pulledAt: "2026-04-23T19:01:00.000Z",
-  });
+  assert.deepEqual(entry.revision, validatePullPageMetadata(pullMetadata));
   assert.equal(entry.diff.additions, 1);
   assert.equal(entry.diff.deletions, 1);
   assert.deepEqual(Object.keys(entry.diff).sort(), ["additions", "deletions", "hash"]);
@@ -101,6 +97,62 @@ test("buildMutationJournalEntry records operational metadata only", () => {
   assert.equal(serialized.includes("SNPM_NOTION_TOKEN"), false);
   assert.equal(serialized.includes("PROJECT_NOTION_TOKEN"), false);
   assert.equal(serialized.includes("ntn_secret"), false);
+  assertJsonContract("snpm.mutation-journal.v1", entry);
+});
+
+test("buildMutationJournalEntry omits unsafe revision fields and raw failure diagnostics", () => {
+  const childStdout = "child-stdout-generated-secret";
+  const childStderr = "child-stderr-token";
+  const rawBody = "# Raw Notion body\nsecret body";
+  const envValue = "PROJECT_TOKEN_ENV_VALUE";
+  const token = "ntn_secret_journal_contract";
+  const stack = "Error: stack sentinel\n    at writeGeneratedSecret";
+  const pullMetadata = {
+    schema: "snpm.pull-metadata.v1",
+    commandFamily: "secret-record",
+    workspaceName: "infrastructure-hq",
+    targetPath: "Projects > SNPM > Access > App & Backend > DATABASE_URL",
+    pageId: "secret-page",
+    projectId: "project-page",
+    authMode: "project-token",
+    lastEditedTime: "2026-04-23T19:00:00.000Z",
+    pulledAt: "2026-04-23T19:01:00.000Z",
+  };
+
+  const entry = buildMutationJournalEntry({
+    command: "secret-record-generate",
+    surface: "secret-record",
+    timestamp: "04-23-2026 12:00:00",
+    result: {
+      applied: true,
+      authMode: "project-token",
+      diff: `-${childStdout}\n+${childStderr}\n`,
+      pageId: "secret-page",
+      targetPath: pullMetadata.targetPath,
+      metadata: {
+        ...pullMetadata,
+        bodyMarkdown: rawBody,
+        stdout: childStdout,
+        stderr: childStderr,
+        token,
+        envValue,
+        stack,
+      },
+      failure: `failed with ${token}`,
+      stdout: childStdout,
+      stderr: childStderr,
+      currentBodyMarkdown: rawBody,
+      nextBodyMarkdown: rawBody.replace("secret body", "new secret body"),
+      stack,
+    },
+  });
+
+  assert.deepEqual(entry.revision, validatePullPageMetadata(pullMetadata));
+  const serialized = JSON.stringify(entry);
+  for (const value of [childStdout, childStderr, rawBody, envValue, token, stack, "writeGeneratedSecret"]) {
+    assert.equal(serialized.includes(value), false);
+  }
+  assertJsonContract("snpm.mutation-journal.v1", entry);
 });
 
 test("buildMutationJournalEntry for secret-bearing commands excludes body and raw diff text", () => {

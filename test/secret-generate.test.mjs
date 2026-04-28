@@ -64,6 +64,7 @@ test("runGeneratedSecretCommand redactor redacts exact generated value", () => {
 });
 
 test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and stderr without echoing output", () => {
+  const spawnStack = "Error: spawn stack token\n    at generated-secret-child";
   const nonzeroResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
     spawnSyncImpl: () => ({
@@ -99,12 +100,16 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
 
   const errorResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
-    spawnSyncImpl: () => ({ error: new Error("spawn failed with secret"), stdout: "secret", stderr: "" }),
+    spawnSyncImpl: () => {
+      const error = new Error("spawn failed with secret");
+      error.stack = spawnStack;
+      return { error, stdout: "secret", stderr: "" };
+    },
   });
   assert.equal(errorResult.ok, false);
   assert.equal(errorResult.failure, "Generator command failed to start.");
   assert.equal(errorResult.stdout, "");
-  assert.doesNotMatch(JSON.stringify(errorResult), /spawn failed with secret|secret/);
+  assert.doesNotMatch(JSON.stringify(errorResult), /spawn failed with secret|secret|generated-secret-child|spawn stack token/);
 
   const stderrResult = runGeneratedSecretCommand({
     childArgs: ["generator-bin"],
@@ -114,6 +119,33 @@ test("runGeneratedSecretCommand rejects nonzero status signals spawn errors and 
   assert.equal(stderrResult.failure, "Generator command wrote to stderr; refusing generated secret ingestion.");
   assert.equal(stderrResult.stderr, "");
   assert.doesNotMatch(JSON.stringify(stderrResult), /warning with secret|"secret"/);
+});
+
+test("runGeneratedSecretCommand failure results suppress child stdout stderr env values and stacks", () => {
+  const childStdout = "child-stdout-generated-value";
+  const childStderr = "child-stderr-token-value";
+  const envValue = "PROJECT_TOKEN_ENV_VALUE";
+  const stackValue = "Error: stack sentinel\n    at secretGenerator";
+
+  const result = runGeneratedSecretCommand({
+    childArgs: ["generator-bin"],
+    env: { PROJECT_TOKEN: envValue },
+    spawnSyncImpl: () => {
+      const error = new Error(`spawn failed ${envValue}`);
+      error.stack = stackValue;
+      return {
+        error,
+        stdout: childStdout,
+        stderr: childStderr,
+      };
+    },
+  });
+
+  assert.equal(result.ok, false);
+  const serialized = JSON.stringify(result);
+  for (const value of [childStdout, childStderr, envValue, stackValue, "secretGenerator"]) {
+    assert.equal(serialized.includes(value), false);
+  }
 });
 
 test("runGeneratedSecretCommand rejects invalid generated values without echoing them", () => {

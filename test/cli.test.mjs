@@ -25,6 +25,7 @@ const CLI_PATH = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json");
+const JSON_CONTRACTS_URL = new URL("../src/contracts/json-contracts.mjs", import.meta.url);
 const SUPPORTED_MANIFEST_VERSIONS = [1, 2];
 const SUPPORTED_MANIFEST_V2_ENTRY_KINDS = [
   "planning-page",
@@ -98,6 +99,42 @@ function assertStructuredCliFailure(result, { category, code, command, messagePa
   assert.equal(payload.error.code, code);
   assert.equal(payload.error.category, category);
   assert.match(payload.error.message, messagePattern);
+}
+
+function assertValidContractResult(result, contractId) {
+  if (result === undefined || result === true) {
+    return;
+  }
+
+  if (result && typeof result === "object") {
+    if ("ok" in result) {
+      assert.equal(result.ok, true, `${contractId} validation failed: ${JSON.stringify(result)}`);
+      return;
+    }
+
+    if ("valid" in result) {
+      assert.equal(result.valid, true, `${contractId} validation failed: ${JSON.stringify(result)}`);
+      return;
+    }
+  }
+
+  assert.fail(`${contractId} validator returned an unsupported result: ${JSON.stringify(result)}`);
+}
+
+async function assertJsonContractPayload(contractId, payload) {
+  let contractsModule;
+  try {
+    contractsModule = await import(JSON_CONTRACTS_URL);
+  } catch (error) {
+    assert.fail(`Expected src/contracts/json-contracts.mjs to export validateJsonContract: ${error.message}`);
+  }
+
+  assert.equal(
+    typeof contractsModule.validateJsonContract,
+    "function",
+    "src/contracts/json-contracts.mjs must export validateJsonContract(contractId, payload)",
+  );
+  assertValidContractResult(await contractsModule.validateJsonContract(contractId, payload), contractId);
 }
 
 function assertSyncPullDocumentsManifestV2Pull(text) {
@@ -263,6 +300,7 @@ test("capability map is schema-versioned and includes existing commands from the
     schemaVersion: 1,
     defaultFormat: "text",
     supportedFormats: ["text", "json"],
+    jsonContracts: ["snpm.cli-error.v1"],
     flag: "--error-format json|text",
     environmentVariable: "SNPM_ERROR_FORMAT",
     precedence: "cli-flag-over-env",
@@ -1635,6 +1673,44 @@ test("cli plan-change --manifest-draft reads stdin targets-file before live rout
   assert.doesNotMatch(result.stderr, /Missing value for --manifest-draft/);
 });
 
+test("cli plan-change --manifest-draft prints contract-validated JSON only", async () => {
+  const result = runCli([
+    "plan-change",
+    "--targets-file",
+    "-",
+    "--manifest-draft",
+    "--project",
+    "SNPM",
+  ], {
+    input: `${JSON.stringify({
+      goal: "Prepare a Sprint 1F template documentation update.",
+      targets: [{
+        type: "template-doc",
+        docPath: "Templates > Project Templates > Overview",
+      }],
+    })}\n`,
+  });
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.command, "plan-change");
+  assert.equal(parsed.projectName, "SNPM");
+  assert.deepEqual(parsed.manifestDraft, {
+    version: 2,
+    workspace: "infrastructure-hq",
+    project: "SNPM",
+    entries: [{
+      kind: "template-doc",
+      docPath: "Templates > Project Templates > Overview",
+      file: "notion/templates/project-templates/overview.md",
+    }],
+  });
+  assert.deepEqual(parsed.manifestUnsupportedTargets, []);
+  await assertJsonContractPayload("snpm.plan-change.v1", parsed);
+});
+
 test("cli discover help prints first-contact command help", () => {
   const result = runCli(["discover", "--help"]);
 
@@ -1648,7 +1724,7 @@ test("cli discover help prints first-contact command help", () => {
   assert.equal(result.stderr, "");
 });
 
-test("cli discover prints compact JSON first-contact guidance without side effects", () => {
+test("cli discover prints compact JSON first-contact guidance without side effects", async () => {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-discover-test-"));
   const journalPath = path.join(tempDir, "journal.ndjson");
   try {
@@ -1692,6 +1768,7 @@ test("cli discover prints compact JSON first-contact guidance without side effec
     assert.match(JSON.stringify(parsed.mutationLoop), /Pull/);
     assert.match(JSON.stringify(parsed.notes), /does not read Notion/);
     assert.equal(existsSync(journalPath), false);
+    await assertJsonContractPayload("snpm.discover.v1", parsed);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -2000,7 +2077,7 @@ test("cli doctor --consistency-audit reaches the doctor command path", () => {
   assert.doesNotMatch(result.stderr, /Missing value for --consistency-audit/);
 });
 
-test("cli capabilities prints JSON only", () => {
+test("cli capabilities prints JSON only", async () => {
   const result = runCli(["capabilities"]);
   const parsed = JSON.parse(result.stdout);
   const planChangeCapability = parsed.commands.find((command) => command.canonical === "plan-change");
@@ -2017,6 +2094,10 @@ test("cli capabilities prints JSON only", () => {
   assert.equal(parsed.commands.find((command) => command.canonical === "doctor")?.consistencyAudit, "optional-advisory-read-only");
   assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.auditFlags.includes("consistency-audit"));
   assert.ok(parsed.commands.find((command) => command.canonical === "doctor")?.npmScripts.includes("consistency-audit"));
+  assert.deepEqual(parsed.commands.find((command) => command.canonical === "capabilities")?.jsonContracts, ["snpm.capabilities.v1.minimal"]);
+  assert.deepEqual(parsed.commands.find((command) => command.canonical === "discover")?.jsonContracts, ["snpm.discover.v1"]);
+  assert.deepEqual(planChangeCapability?.jsonContracts, ["snpm.plan-change.v1"]);
+  assert.deepEqual(planChangeCapability?.manifestDraftJsonContracts, ["snpm.plan-change.v1"]);
   assert.equal(planChangeCapability?.manifestDraft, "optional-read-only-planner-mode");
   assert.deepEqual(planChangeCapability?.plannerModes, ["routing", "manifest-draft"]);
   assert.deepEqual(planChangeCapability?.manifestDraftEntryKinds, [
@@ -2026,6 +2107,7 @@ test("cli capabilities prints JSON only", () => {
     "workspace-doc",
     "runbook",
   ]);
+  await assertJsonContractPayload("snpm.capabilities.v1.minimal", parsed);
 });
 
 test("cli journal list prints JSON only without live Notion", () => {
@@ -2125,7 +2207,7 @@ test("cli output modes cover JSON-only, mixed stdout, and stderr-only failures",
   }
 });
 
-test("cli top-level error format defaults to text and supports env json", () => {
+test("cli top-level error format defaults to text and supports env json", async () => {
   const textResult = runCli(["verify-project"]);
   const jsonResult = runCli(["verify-project"], {
     env: {
@@ -2153,6 +2235,7 @@ test("cli top-level error format defaults to text and supports env json", () => 
       message: 'Provide --name "Project Name".',
     },
   });
+  await assertJsonContractPayload("snpm.cli-error.v1", parsed);
 });
 
 test("cli --error-format flag wins over SNPM_ERROR_FORMAT", () => {

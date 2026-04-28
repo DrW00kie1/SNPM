@@ -26,6 +26,7 @@ Supported on the current active line:
 - JSON-only `capabilities` for registry-derived LLM-readable command discovery
 - read-only `plan-change` for deterministic target-file planning before mutation
 - opt-in structured CLI failure reporting through `--error-format json|text` or `SNPM_ERROR_FORMAT`
+- limited JSON contract schemas for selected agent-facing payloads
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -104,6 +105,13 @@ Structured CLI error behavior:
 - successful stdout payloads and existing success schemas are unchanged
 - structured failures do not add retries, rollback, transaction semantics, mutation behavior, or new command-family ownership
 
+Limited JSON contract schema behavior:
+- limited schemas stabilize selected agent-facing JSON contracts, not every successful command payload
+- covered contract families are structured CLI error v1, discover v1, capabilities v1 minimal shape, plan-change v1, manifest v2 diagnostics/result/review metadata, pull metadata v1, and mutation journal entries
+- command-specific success payloads remain command-specific unless listed in the limited contract reference
+- schema coverage must not change stdout/stderr placement, `capabilities.schemaVersion`, manifest semantics, secret handling, command-family ownership, supported surfaces, or mutation behavior
+- the reference lives in [Limited JSON contract schemas](./json-contract-schemas.md)
+
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
 - manifest v2 create/adopt, Access/build-record entries, rollback, auto-merge, automatic retries, arbitrary CRUD, semantic consistency checks, generic transaction semantics, and generic batch apply
@@ -116,7 +124,8 @@ Active hardening sequence:
 - Sprint 1B Notion Transport Hardening completed the internal reliability and safety pass for the existing Notion-backed command surface
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed registry-derived command discovery and the package/readiness contract
-- Sprint 1E Structured CLI Errors adds opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
+- Sprint 1E Structured CLI Errors completed opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
+- Sprint 1F Limited JSON Contract Schemas adds bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
 - installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
@@ -231,6 +240,7 @@ Keep these boundaries:
 - browser/UI automation is not a supported SNPM mutation lane; UI-only validation-session elements remain manual checks surfaced by `validation-sessions verify --bundle`
 - command metadata must stay registry-derived so CLI help and `capabilities` do not drift
 - structured CLI errors are stderr-only failure formatting; they must not change successful command output, success schemas, retry behavior, or Notion mutation semantics
+- limited JSON contract schemas cover selected agent-facing contracts only; they must not become a broad success-payload rewrite, add raw secret exposure, change `capabilities.schemaVersion`, or alter stdout/stderr, retry, mutation, manifest, or command-family semantics
 - installed CLI packaging must use the package executable metadata and explicit allowlist, and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
 - installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 

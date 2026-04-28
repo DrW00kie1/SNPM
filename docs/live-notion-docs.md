@@ -318,6 +318,34 @@ Closeout command families: use `page-*` for `Planning > Decision Log`, `Planning
 
 Closeout targets: update `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, and `Projects > SNPM > Planning > Current Cycle`. Note `Runbooks > Notion Workspace Workflow` only if operator CLI automation guidance changes.
 
+## Sprint 1F Limited JSON Contract Schemas Updates
+
+Sprint 1F follows Sprint 1E as a narrow compatibility hardening wedge for selected agent-facing JSON contracts. It does not create a new Notion command workflow and does not change live mutation behavior.
+
+Supported behavior:
+- document and validate selected machine-consumed JSON contracts
+- keep schema coverage limited to structured CLI error v1, discover v1, capabilities v1 minimal shape, plan-change v1, manifest v2 diagnostic/result/review metadata, pull metadata v1, and mutation journal entries
+- preserve command-specific success payloads unless a payload is explicitly listed in the limited contract reference
+- keep structured CLI errors on stderr and successful command output on its existing channel
+- keep secret-bearing values out of schema failures, journals, sidecars, review artifacts, and durable closeout text
+
+Out of scope:
+- rewriting every success payload
+- changing `capabilities.schemaVersion`
+- adding new Notion mutation commands or supported surfaces
+- changing command-family ownership, stale-write protection, manifest semantics, mutation journals, or package privacy
+- retries, rollback, transaction semantics, semantic consistency gates, or generic batch apply
+
+Durable Notion closeout draft for this sprint:
+- Decision Log: Sprint 1F Limited JSON Contract Schemas is approved as compatibility hardening for selected agent-facing JSON contracts only. It stabilizes the contracts agents consume without rewriting every success payload, changing stdout/stderr placement, or changing Notion mutation semantics.
+- Roadmap: Sequence Sprint 1F after Sprint 1E and before broader feature expansion. The sprint covers structured CLI errors, discover, capabilities minimal shape, plan-change, manifest v2 diagnostics/result/review metadata, pull metadata, and mutation journal entries while leaving command-specific success payloads unchanged unless explicitly covered.
+- Current Cycle: Operators and agents should treat the limited schemas as validation and compatibility references, not as a new command workflow. Continue using existing owning command families for Notion work and existing verification commands for live workspace health.
+- Product Hardening Plan: Record that limited JSON schemas are a bounded hardening layer for selected machine-consumed payloads. They do not add a broad schema framework, runtime dependency, retry/rollback/transaction behavior, batch apply semantics, raw secret exposure, or new Notion surfaces.
+
+Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `doc-*` for `Root > Product Hardening Plan` only if the strategic hardening sequence needs correction.
+
+Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, and conditionally `Projects > SNPM > Product Hardening Plan`.
+
 ## Verification
 
 Project-scoped verification:

@@ -199,6 +199,10 @@ Supported values are `text` and `json`; the explicit `--error-format` flag wins 
 
 Structured errors are a reporting contract only. They do not add retries, rollback, transaction semantics, broader mutation behavior, or any change to Notion apply safety.
 
+## JSON Contract Boundary
+
+SNPM has limited schemas for selected agent-facing JSON contracts only. They stabilize payloads such as structured CLI errors, discover, capabilities, plan-change, manifest v2 diagnostics, pull metadata, and mutation journal entries without rewriting every success payload or changing mutation behavior. See [Limited JSON contract schemas](docs/json-contract-schemas.md).
+
 ## Development
 
 ```powershell
@@ -236,6 +240,7 @@ npm run verify-workspace-docs
 - [Validation sessions](docs/validation-sessions.md)
 - [Validation-session manual UI bundle](docs/validation-session-ui-bundle.md)
 - [Manifest and validation-session sync](docs/validation-session-sync.md)
+- [Limited JSON contract schemas](docs/json-contract-schemas.md)
 - [Operator roadmap](docs/operator-roadmap.md)
 - [Development plan](docs/development-plan.md)
 - [Live Notion docs registry](docs/live-notion-docs.md)

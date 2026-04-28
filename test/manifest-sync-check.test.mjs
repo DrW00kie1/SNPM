@@ -11,6 +11,7 @@ import {
   targetForManifestV2SyncEntry,
 } from "../src/notion/manifest-sync-check.mjs";
 import { writeManifestV2PreviewReviewArtifacts } from "../src/commands/sync-review-output.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 const manifestDir = "C:\\repo";
 
@@ -308,6 +309,7 @@ test("manifest v2 check handles mixed entries, drift, missing local files, and i
   ]);
   assert.equal(result.entries[2].diff.includes("Template remote"), true);
   assert.equal(result.entries[4].diff.includes("Runbook remote"), true);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
   for (const entry of [result.entries[2], result.entries[4]]) {
     assert.equal("metadata" in entry, false);
     assert.equal("pageId" in entry, false);
@@ -347,6 +349,8 @@ test("manifest v2 check isolates per-entry adapter failures", async () => {
   assert.equal(result.diagnostics[0].entry.target, "Root > Overview");
   assert.equal(result.diagnostics[0].entry.file, "docs/project-overview.md");
   assert.deepEqual(result.diagnostics[0].state, { phase: "check" });
+  assertJsonContract("snpm.manifest-v2.diagnostic.v1", result.diagnostics[0]);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
   assert.equal("failure" in result.entries[0], false);
   assert.equal("failure" in result.entries[2], false);
   assert.equal(result.failures.length, 1);
@@ -391,6 +395,8 @@ test("manifest v2 check review output includes structured diagnostics", async ()
     ]);
     assert.deepEqual(failedEntry.diagnostics.map((diagnostic) => diagnostic.code), ["manifest-v2-check-remote-failed"]);
     assert.equal(failedEntry.failure, "Doc target could not be read.");
+    assertJsonContract("snpm.manifest-v2.review-output.v1", artifacts);
+    assertJsonContract("snpm.manifest-v2.diagnostic.v1", failedEntry.diagnostics[0]);
   } finally {
     rmSync(reviewDir, { recursive: true, force: true });
   }

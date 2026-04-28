@@ -11,7 +11,8 @@ Current active hardening wedge:
 - Sprint 1B Notion Transport Hardening completed the existing Notion-backed command surface wedge, with public operator behavior, command names, and command-family ownership unchanged
 - Sprint 1C Installable CLI Smoke completed the source-checkout versus installed CLI guidance wedge
 - Sprint 1D Command Metadata Registry And Package Readiness completed the follow-up package/readiness contract: registry-derived help/capabilities, package executable metadata, packed-file allowlist, and private config boundary
-- Sprint 1E Structured CLI Errors is the active narrow hardening wedge for opt-in machine-readable failure output, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
+- Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure output wedge, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
+- Sprint 1F Limited JSON Contract Schemas is the active narrow hardening wedge for selected agent-facing JSON contracts, without rewriting every success payload or changing mutation semantics
 
 ## Product Direction
 
@@ -375,6 +376,39 @@ Out of scope:
 Durable Notion closeout draft:
 - Sprint 1E Structured CLI Errors adds opt-in machine-readable CLI failure output through `--error-format json|text` and `SNPM_ERROR_FORMAT`. The default remains human-readable text on stderr, JSON failures are emitted on stderr only, and existing success schemas stay unchanged. This is a reporting hardening wedge only; it does not add retries, rollback, transaction semantics, new mutation behavior, or any command-family ownership changes.
 
+### Sprint 1F: Limited JSON Contract Schemas
+
+Goal:
+- stabilize selected agent-facing JSON contracts with lightweight documented schemas without converting SNPM into a global success-payload schema migration
+
+Deliverables:
+- concise contract reference for selected machine-consumed payloads
+- lightweight schema coverage for structured CLI error v1, discover v1, capabilities v1 minimal shape, plan-change v1, manifest v2 diagnostics/result/review metadata, pull metadata v1, and mutation journal entries
+- tests or readback that prove the selected contracts remain stable without changing command output builders
+- docs that distinguish limited contract validation from success-payload rewrites, runtime dependency expansion, retry behavior, or Notion mutation semantics
+
+Exit criteria:
+- an operator or coding agent can tell which JSON payloads have stable contract coverage and which remain command-specific output
+- selected agent-facing contract checks do not change `capabilities.schemaVersion`, stdout/stderr placement, secret safety, manifest semantics, or apply behavior
+
+Status:
+- Sprint 1F is scoped as a hardening wedge on the active line after Sprint 1E
+- the schemas cover selected machine-consumed contracts only
+- existing successful stdout payloads remain command-specific unless explicitly listed in the limited contract reference
+- structured CLI error JSON remains stderr-only failure reporting
+- manifest v2 diagnostics remain recovery metadata, not rollback, retries, transactions, semantic consistency checks, or generic batch apply
+
+Out of scope:
+- rewriting every success payload
+- introducing a broad JSON schema framework or package dependency
+- changing command-family ownership, supported Notion surfaces, stale-write protection, or mutation behavior
+- changing `capabilities.schemaVersion`
+- exporting raw secret/token values or adding secret-bearing local edit/diff/push paths
+- automatic retries, rollback, transaction semantics, semantic consistency gates, or generic batch apply
+
+Durable Notion closeout draft:
+- Sprint 1F Limited JSON Contract Schemas stabilizes selected agent-facing JSON contracts only. It documents and checks the bounded contracts that agents consume, while leaving command-specific success payloads, stdout/stderr placement, Notion mutation behavior, command-family ownership, and secret boundaries unchanged. This is compatibility hardening, not a global schema rewrite.
+
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
@@ -457,9 +491,10 @@ Status:
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing generated-secret child execution and other existing child-runner usage without changing supported operator commands
 - Sprint 1B Notion Transport Hardening completed the follow-up after Sprint 1A, focused on the existing Notion-backed command surface before broader feature expansion
 - Sprint 1D Command Metadata Registry And Package Readiness completed the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
-- Sprint 1E Structured CLI Errors is the next narrow hardening wedge, focused on opt-in machine-readable failure reporting before broader feature expansion
+- Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure reporting wedge before broader feature expansion
+- Sprint 1F Limited JSON Contract Schemas is the next narrow hardening wedge, focused on selected agent-facing JSON contracts without changing public operator behavior
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, success schemas, mutation semantics, and command-family ownership remain unchanged during Sprint 1E
+- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1F
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.

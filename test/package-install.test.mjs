@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { capabilityJson } from "../src/cli-help.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const JSON_CONTRACTS_URL = new URL("../src/contracts/json-contracts.mjs", import.meta.url);
 const NPM_COMMAND = "npm";
 
 function readPackageJson() {
@@ -56,7 +57,7 @@ function packTo(tempDir) {
   return path.join(tempDir, packResult.filename);
 }
 
-function runSnpm(binPath, args, { cwd, env = {} } = {}) {
+function runSnpm(binPath, args, { cwd, env = {}, input } = {}) {
   const command = process.platform === "win32" ? "cmd.exe" : binPath;
   const commandArgs = process.platform === "win32"
     ? ["/d", "/s", "/c", `${quoteWindowsArg(binPath)} ${args.map(quoteWindowsArg).join(" ")}`]
@@ -67,9 +68,46 @@ function runSnpm(binPath, args, { cwd, env = {} } = {}) {
       ...process.env,
       ...env,
     },
+    input,
     encoding: "utf8",
     windowsHide: true,
   });
+}
+
+function assertValidContractResult(result, contractId) {
+  if (result === undefined || result === true) {
+    return;
+  }
+
+  if (result && typeof result === "object") {
+    if ("ok" in result) {
+      assert.equal(result.ok, true, `${contractId} validation failed: ${JSON.stringify(result)}`);
+      return;
+    }
+
+    if ("valid" in result) {
+      assert.equal(result.valid, true, `${contractId} validation failed: ${JSON.stringify(result)}`);
+      return;
+    }
+  }
+
+  assert.fail(`${contractId} validator returned an unsupported result: ${JSON.stringify(result)}`);
+}
+
+async function assertJsonContractPayload(contractId, payload) {
+  let contractsModule;
+  try {
+    contractsModule = await import(JSON_CONTRACTS_URL);
+  } catch (error) {
+    assert.fail(`Expected src/contracts/json-contracts.mjs to export validateJsonContract: ${error.message}`);
+  }
+
+  assert.equal(
+    typeof contractsModule.validateJsonContract,
+    "function",
+    "src/contracts/json-contracts.mjs must export validateJsonContract(contractId, payload)",
+  );
+  assertValidContractResult(await contractsModule.validateJsonContract(contractId, payload), contractId);
 }
 
 test("package metadata exposes an snpm executable while remaining private", () => {
@@ -120,7 +158,7 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(files.some((file) => /(?:^|\/)validation-bundle(?:\.|\/)/i.test(file)), false);
 });
 
-test("packed package installs an snpm bin that runs from outside the source checkout", () => {
+test("packed package installs an snpm bin that runs from outside the source checkout", async () => {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "snpm-package-install-"));
   try {
     const tarballPath = packTo(tempDir);
@@ -153,13 +191,16 @@ test("packed package installs an snpm bin that runs from outside the source chec
 
     const capabilities = runSnpm(binPath, ["capabilities"], { cwd: consumerDir, env });
     assert.equal(capabilities.status, 0, capabilities.stderr);
-    assert.deepEqual(JSON.parse(capabilities.stdout), JSON.parse(capabilityJson()));
+    const capabilitiesPayload = JSON.parse(capabilities.stdout);
+    assert.deepEqual(capabilitiesPayload, JSON.parse(capabilityJson()));
     assert.doesNotMatch(capabilities.stdout, /validation-bundle/i);
+    await assertJsonContractPayload("snpm.capabilities.v1.minimal", capabilitiesPayload);
 
     const discover = runSnpm(binPath, ["discover", "--project", "SNPM"], { cwd: consumerDir, env });
     assert.equal(discover.status, 0, discover.stderr);
     const discoverPayload = JSON.parse(discover.stdout);
     assert.equal(discoverPayload.commandForms.installedCli.firstContactCommand, 'snpm discover --project "SNPM"');
+    await assertJsonContractPayload("snpm.discover.v1", discoverPayload);
 
     const journal = runSnpm(binPath, ["journal", "list", "--limit", "1"], { cwd: consumerDir, env });
     assert.equal(journal.status, 0, journal.stderr);
@@ -173,7 +214,8 @@ test("packed package installs an snpm bin that runs from outside the source chec
     const structuredFailure = runSnpm(binPath, ["--error-format", "json", "verify-project"], { cwd: consumerDir, env });
     assert.equal(structuredFailure.status, 1);
     assert.equal(structuredFailure.stdout, "");
-    assert.deepEqual(JSON.parse(structuredFailure.stderr), {
+    const structuredFailurePayload = JSON.parse(structuredFailure.stderr);
+    assert.deepEqual(structuredFailurePayload, {
       ok: false,
       schemaVersion: 1,
       command: "verify-project",
@@ -183,6 +225,7 @@ test("packed package installs an snpm bin that runs from outside the source chec
         message: 'Provide --name "Project Name".',
       },
     });
+    await assertJsonContractPayload("snpm.cli-error.v1", structuredFailurePayload);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

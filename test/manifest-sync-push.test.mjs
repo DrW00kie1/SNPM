@@ -13,6 +13,7 @@ import {
   createManifestV2SyncPushAdapters,
   pushManifestV2SyncManifest,
 } from "../src/notion/manifest-sync-push.mjs";
+import { assertJsonContract } from "../src/contracts/json-contracts.mjs";
 
 const manifestDir = "C:\\repo";
 
@@ -335,6 +336,8 @@ test("manifest v2 push preview reports mixed entries without sidecars or mutatio
   ]);
   assert.deepEqual(readCalls.map((call) => call.filePath), entries.map((entry) => entry.absoluteFilePath));
   assert.deepEqual(mutationCalls, []);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
+  assertJsonContract("snpm.manifest-v2.diagnostic.v1", result.diagnostics[0]);
 });
 
 test("manifest v2 push apply validates sidecars and calls push adapters", async () => {
@@ -379,6 +382,8 @@ test("manifest v2 push apply validates sidecars and calls push adapters", async 
   ]);
   assert.equal(result.diagnostics[0].severity, "warning");
   assert.equal(result.diagnostics[0].state.appliedCount, 2);
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
+  assertJsonContract("snpm.manifest-v2.diagnostic.v1", result.diagnostics[0]);
   assert.deepEqual(calls.map((call) => `${call.op}:${call.apply}:${call.target}`), [
     "pushLocal:false:Planning > Roadmap",
     "readRemote:undefined:Planning > Roadmap",
@@ -422,6 +427,8 @@ test("manifest v2 push refreshSidecars is only valid with apply and performs no 
   assert.equal(result.diagnostics[0].severity, "error");
   assert.equal(result.diagnostics[0].safeNextCommand, "sync push --apply --refresh-sidecars");
   assert.equal(result.diagnostics[0].entry.target, "Planning > Roadmap");
+  assertJsonContract("snpm.manifest-v2.sync-result.v1", result);
+  assertJsonContract("snpm.manifest-v2.diagnostic.v1", result.diagnostics[0]);
   assert.deepEqual(calls, []);
   assert.deepEqual(readCalls, []);
   assert.deepEqual(writes, []);

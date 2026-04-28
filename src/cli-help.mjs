@@ -325,6 +325,9 @@ const SINGLE_COMMAND_SPECS = [
       "The capability map is generated from the same registry that powers CLI help.",
       "The command prints JSON only and is safe for automation discovery.",
     ],
+    capabilityMetadata: {
+      jsonContracts: ["snpm.capabilities.v1.minimal"],
+    },
   }),
   createCommandSpec({
     canonical: "discover",
@@ -356,6 +359,7 @@ const SINGLE_COMMAND_SPECS = [
     mutationMode: "read-only",
     capabilityMetadata: {
       firstContact: true,
+      jsonContracts: ["snpm.discover.v1"],
       notionMutation: "none",
       localFileWrites: "none",
       journalWrites: "none",
@@ -427,6 +431,8 @@ const SINGLE_COMMAND_SPECS = [
       "Manifest-draft mode does not write local files, sidecars, mutation journals, or Notion mutations.",
     ],
     capabilityMetadata: {
+      jsonContracts: ["snpm.plan-change.v1"],
+      manifestDraftJsonContracts: ["snpm.plan-change.v1"],
       notionMutation: "none",
       localFileWrites: "none",
       journalWrites: "none",
@@ -2120,6 +2126,7 @@ export function buildCapabilityMap() {
       schemaVersion: 1,
       defaultFormat: "text",
       supportedFormats: ["text", "json"],
+      jsonContracts: ["snpm.cli-error.v1"],
       flag: "--error-format json|text",
       environmentVariable: "SNPM_ERROR_FORMAT",
       precedence: "cli-flag-over-env",
