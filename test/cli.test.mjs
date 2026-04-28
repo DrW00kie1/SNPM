@@ -186,8 +186,11 @@ function assertSyncCapabilityMetadata(command, expected) {
 test("usage includes planning sync plus access, runbook, build-record, validation-session, and manifest sync commands", () => {
   const help = usage();
   assert.match(help, /node src\/cli\.mjs <command> \[options\]/);
+  assert.match(help, /snpm <command> \[options\]/);
   assert.match(help, /node src\/cli\.mjs --help/);
+  assert.match(help, /snpm --help/);
   assert.match(help, /node src\/cli\.mjs help <command>/);
+  assert.match(help, /snpm help <command>/);
   assert.match(help, /create-project/);
   assert.match(help, /capabilities/);
   assert.match(help, /discover/);
@@ -221,7 +224,34 @@ test("usage includes planning sync plus access, runbook, build-record, validatio
   assert.match(help, /npm run scaffold-docs/);
   assert.match(help, /npm run doc-create/);
   assert.match(help, /npm run page-push/);
+  assert.match(help, /snpm verify-project --help/);
+  assert.match(help, /snpm page push -h/);
+  assert.match(help, /snpm sync --help/);
   assert.doesNotMatch(help, /Worker A/);
+});
+
+test("help presentation includes source checkout and installed CLI forms from the registry", () => {
+  const capabilities = buildCapabilityMap();
+  const verifyCapability = capabilities.commands.find((command) => command.canonical === "verify-project");
+  const pagePushCapability = capabilities.commands.find((command) => command.canonical === "page push");
+  const verifyHelp = commandUsage("verify-project");
+  const pagePushHelp = commandUsage("page push");
+  const discoverHelp = commandUsage("discover");
+
+  assert.equal(capabilities.schemaVersion, 1);
+  assert.equal(verifyCapability?.contract.sourceCheckoutForm, "node src/cli.mjs verify-project");
+  assert.equal(verifyCapability?.contract.installedCliForm, "snpm verify-project");
+  assert.equal(pagePushCapability?.contract.sourceCheckoutForm, "node src/cli.mjs page push");
+  assert.equal(pagePushCapability?.contract.installedCliForm, "snpm page push");
+
+  assert.match(verifyHelp, /node src\/cli\.mjs verify-project --name "Project Name"/);
+  assert.match(verifyHelp, /snpm verify-project --name "Project Name"/);
+  assert.match(verifyHelp, /See `node src\/cli\.mjs --help` or `snpm --help`/);
+  assert.match(pagePushHelp, /node src\/cli\.mjs page push --project "Project Name"/);
+  assert.match(pagePushHelp, /snpm page push --project "Project Name"/);
+  assert.match(discoverHelp, /node src\/cli\.mjs discover --project "Project Name"/);
+  assert.match(discoverHelp, /snpm discover --project "Project Name"/);
+  assert.match(discoverHelp, /source-checkout npm script commands/);
 });
 
 test("help registry resolves command aliases to the canonical command", () => {
@@ -552,7 +582,7 @@ test("npm run examples in help capabilities have registered package scripts", ()
 test("package scripts align with command registry metadata", () => {
   const capabilities = buildCapabilityMap();
   const packageScriptEntries = Object.entries(packageJson.scripts);
-  const releaseGateScripts = new Set(["test", "package-contract", "test:package-contract", "release-check"]);
+  const releaseGateScripts = new Set(["test", "package-contract", "test:package-contract", "release-audit", "release-check"]);
   const registryScriptTargets = new Map();
   const registryMetadataScripts = new Map();
 
@@ -1723,6 +1753,25 @@ test("cli discover help prints first-contact command help", () => {
   assert.match(result.stdout, /source-checkout npm script commands/);
   assert.match(result.stdout, /does not read Notion/);
   assert.equal(result.stderr, "");
+});
+
+test("cli help process output exposes source checkout and installed CLI usage", () => {
+  const globalResult = runCli(["--help"]);
+  const commandResult = runCli(["verify-project", "--help"]);
+
+  assert.equal(globalResult.status, 0);
+  assert.equal(globalResult.stderr, "");
+  assert.match(globalResult.stdout, /node src\/cli\.mjs <command> \[options\]/);
+  assert.match(globalResult.stdout, /snpm <command> \[options\]/);
+  assert.match(globalResult.stdout, /npm run verify-project/);
+  assert.match(globalResult.stdout, /snpm verify-project --help/);
+
+  assert.equal(commandResult.status, 0);
+  assert.equal(commandResult.stderr, "");
+  assert.match(commandResult.stdout, /Command: verify-project/);
+  assert.match(commandResult.stdout, /node src\/cli\.mjs verify-project --name "Project Name"/);
+  assert.match(commandResult.stdout, /snpm verify-project --name "Project Name"/);
+  assert.match(commandResult.stdout, /npm run verify-project/);
 });
 
 test("cli discover prints compact JSON first-contact guidance without side effects", async () => {

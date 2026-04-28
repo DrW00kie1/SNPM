@@ -7,41 +7,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { capabilityJson } from "../src/cli-help.mjs";
+import { auditPackedContents, auditPackedPaths } from "../scripts/release-audit.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const JSON_CONTRACTS_URL = new URL("../src/contracts/json-contracts.mjs", import.meta.url);
 const NPM_COMMAND = "npm";
 const PACK_DRY_RUN_ARGS = ["pack", "--dry-run", "--json", "--ignore-scripts"];
 const UPDATED_NODE_ENGINE_MAJOR = 22;
-
-const PACKED_PUBLIC_ALLOWLIST = [
-  /^LICENSE$/,
-  /^README\.md$/,
-  /^package\.json$/,
-  /^assets\/readme\/(?:safe-mutation-loop|secret-boundary|snpm-control-plane)\.png$/,
-  /^config\/workspaces\/[a-z0-9-]+\.example\.json$/,
-  /^docs\/(?:[a-z0-9][a-z0-9-]*\/)?[a-z0-9][a-z0-9-]*\.(?:json|md)$/,
-  /^src\/[a-z0-9][a-z0-9-]*\.mjs$/,
-  /^src\/commands\/[a-z0-9][a-z0-9-]*\.mjs$/,
-  /^src\/contracts\/[a-z0-9][a-z0-9-]*\.mjs$/,
-  /^src\/notion\/[a-z0-9][a-z0-9-]*\.mjs$/,
-];
-
-const PACKED_PRIVATE_DENYLIST = [
-  { label: "private workspace config", pattern: /^config\/workspaces\/(?![^/]+\.example\.json$)/i },
-  { label: "task memory", pattern: /^(?:AGENTS|agents_ver2|plan|research)\.md$|^tasks\//i },
-  { label: ".snpm state", pattern: /^\.snpm(?:\/|$)|^\.snpm-closeout(?:\/|$)/i },
-  { label: "environment files", pattern: /(?:^|\/)\.env(?:$|[./_-])|(?:^|\/)\.npmrc$/i },
-  { label: "DOCX files", pattern: /\.docx$/i },
-  { label: "tests", pattern: /^(?:test|tests)\//i },
-  { label: "closeout artifacts", pattern: /(?:^|\/)closeouts?(?:\/|$)/i },
-  { label: "review artifacts", pattern: /(?:^|\/)review(?:\/|$)/i },
-  { label: "scaffold artifacts", pattern: /(?:^|\/)scaffold(?:\/|$)/i },
-  { label: "browser/session artifacts", pattern: /(?:^|\/)(?:browser|browser-session|sessions?)(?:\/|$)/i },
-  { label: "validation-bundle artifacts", pattern: /validation-bundle/i },
-  { label: "validation-bundle UI sources", pattern: /^src\/notion-ui\//i },
-  { label: "local package artifacts", pattern: /(?:^|\/)(?:node_modules|\.git)(?:\/|$)|\.tgz$/i },
-];
 
 function readPackageJson() {
   return JSON.parse(readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
@@ -121,21 +93,11 @@ function packTo(tempDir) {
 }
 
 function assertPackedPathPolicy(files) {
-  const violations = [];
+  assert.deepEqual(auditPackedPaths(files), []);
+}
 
-  for (const file of files) {
-    if (!PACKED_PUBLIC_ALLOWLIST.some((pattern) => pattern.test(file))) {
-      violations.push(`${file} is not covered by the public package allowlist`);
-    }
-
-    for (const { label, pattern } of PACKED_PRIVATE_DENYLIST) {
-      if (pattern.test(file)) {
-        violations.push(`${file} matches the private package denylist: ${label}`);
-      }
-    }
-  }
-
-  assert.deepEqual(violations, []);
+function assertPackedContentPolicy(files) {
+  assert.deepEqual(auditPackedContents(files, { repoRoot: REPO_ROOT }).violations, []);
 }
 
 function assertUpdatedNodeEngineContract(packageJson) {
@@ -232,15 +194,24 @@ test("package tarball contains runtime files and excludes local-only materials",
   const fileSet = new Set(files);
 
   assertPackedPathPolicy(files);
+  assertPackedContentPolicy(files);
 
   assert.equal(fileSet.has("package.json"), true);
   assert.equal(fileSet.has("README.md"), true);
   assert.equal(fileSet.has("LICENSE"), true);
   assert.equal(fileSet.has("src/cli.mjs"), true);
   assert.equal(fileSet.has("docs/workspace-overview.md"), true);
+  assert.equal(fileSet.has("docs/agent-quickstart.md"), true);
+  assert.equal(fileSet.has("docs/validation-sessions.md"), true);
   assert.equal(fileSet.has("assets/readme/snpm-control-plane.png"), true);
   assert.equal(fileSet.has("config/workspaces/infrastructure-hq.example.json"), true);
 
+  assert.equal(fileSet.has("docs/command-inventory/pre-sprint-0.json"), false);
+  assert.equal(fileSet.has("docs/command-inventory/pre-sprint-0.md"), false);
+  assert.equal(fileSet.has("docs/live-notion-docs.md"), false);
+  assert.equal(fileSet.has("docs/development-plan.md"), false);
+  assert.equal(fileSet.has("docs/operator-roadmap.md"), false);
+  assert.equal(fileSet.has("docs/new-thread-handoff.md"), false);
   assert.equal(fileSet.has("config/workspaces/infrastructure-hq.json"), false);
   assert.equal(fileSet.has("research.md"), false);
   assert.equal(fileSet.has("plan.md"), false);

@@ -27,7 +27,8 @@ Supported on the current active line:
 - read-only `plan-change` for deterministic target-file planning before mutation
 - opt-in structured CLI failure reporting through `--error-format json|text` or `SNPM_ERROR_FORMAT`
 - limited JSON contract schemas for selected agent-facing payloads
-- Node 22+ CI/release gate contract with local `package-contract` and `release-check` scripts
+- Node 22+ CI/release gate contract with local `package-contract`, `release-audit`, and `release-check` gates
+- release identity and governance guardrails for source checkout, reviewed Git install, and reviewed tarball install distribution
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -117,9 +118,19 @@ CI and release gate behavior:
 - Node 22+ is the runtime contract for source checkout development, CI, and package readiness
 - CI is secret-free and must not require Notion tokens, private workspace config, real page ids, or live workspace access
 - CI must not run live Notion verification or mutation commands
+- `release-audit` is the focused release identity and package-content audit gate when present on the branch under review
 - `package-contract` is the focused local package metadata and packed-file contract check
 - `release-check` is the local source-checkout pre-release aggregate gate
 - live Notion verification remains an operator-run local step when private config and tokens are available
+
+Release identity and governance behavior:
+- current distribution is source checkout plus reviewed Git or tarball install only
+- SNPM is not published to npm yet
+- the unscoped npm name `snpm` is occupied by an unrelated package and must not be used for publication
+- any future npm package must use an owned scoped name and requires explicit operator approval
+- GitHub Releases, release tags, and npm publishing are separate explicit release actions
+- `main` branch protection is a manual governance requirement before stable release promotion and is not applied by ordinary release checks
+- a branch missing the expected `release-audit` gate must not be treated as Sprint 1H release-ready even if `release-check` passes
 
 Specialized or experimental lanes:
 - build records and validation sessions are supported narrow project-operation surfaces; keep them on their command families rather than treating them as generic docs
@@ -135,8 +146,9 @@ Active hardening sequence:
 - Sprint 1D Command Metadata Registry And Package Readiness completed registry-derived command discovery and the package/readiness contract
 - Sprint 1E Structured CLI Errors completed opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
 - Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
-- Sprint 1G CI And Release Gates adds the Node 22+ runtime contract, secret-free CI boundary, and local `package-contract`/`release-check` gates without changing Notion mutation behavior
-- installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
+- Sprint 1G CI And Release Gates completed the Node 22+ runtime contract, secret-free CI boundary, and local `package-contract`/`release-check` gates without changing Notion mutation behavior
+- Sprint 1H Release Identity And Governance adds the release identity/distribution boundary, npm name guardrail, manual branch-protection requirement, and release-audit/release-check governance without publishing packages or changing live Notion behavior
+- installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `release-audit`, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 
 ## Why SNPM Beats A Generic Connector
 
@@ -252,7 +264,11 @@ Keep these boundaries:
 - structured CLI errors are stderr-only failure formatting; they must not change successful command output, success schemas, retry behavior, or Notion mutation semantics
 - limited JSON contract schemas cover selected agent-facing contracts only; they must not become a broad success-payload rewrite, add raw secret exposure, change `capabilities.schemaVersion`, or alter stdout/stderr, retry, mutation, manifest, or command-family semantics
 - CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
-- local `package-contract` and `release-check` are release gates, not Notion command families or live workspace verification
+- current distribution is source checkout plus reviewed Git/tarball install only; do not publish to npm as part of release checks
+- the unscoped `snpm` npm name is not available for this project; future npm publication requires an approved owned scoped package name
+- branch protection is a manual governance requirement before stable release promotion, not a repo-local script side effect
+- `release-audit` and `release-check` are gates; they do not create GitHub Releases, tags, branch rules, or npm publishes
+- local `release-audit`, `package-contract`, and `release-check` are release gates, not Notion command families or live workspace verification
 - installed CLI packaging must use the package executable metadata and explicit allowlist, and must not publish private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, env files, or local browser/auth state
 - installed CLI operation must resolve real workspace config from private operator state, normally through `SNPM_WORKSPACE_CONFIG_DIR`
 

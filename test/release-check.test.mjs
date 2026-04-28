@@ -21,8 +21,9 @@ test("package metadata exposes Node 22 release-check scripts", () => {
   assert.equal(packageJson.scripts["package-contract"], "npm run test:package-contract");
   assert.equal(
     packageJson.scripts["test:package-contract"],
-    "node --test test/package-install.test.mjs test/release-check.test.mjs",
+    "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs",
   );
+  assert.equal(packageJson.scripts["release-audit"], "node scripts/release-audit.mjs");
   assert.equal(packageJson.scripts["release-check"], "node scripts/release-check.mjs");
 });
 
@@ -46,9 +47,25 @@ test("release-check runs the full local release gate without live Notion command
 
   assert.match(script, /full test suite/);
   assert.match(script, /test:package-contract/);
+  assert.match(script, /release audit/);
+  assert.match(script, /scripts\/release-audit\.mjs/);
   assert.match(script, /pack", "--dry-run", "--json", "--ignore-scripts/);
   assert.match(script, /src\/cli\.mjs", "--help/);
   assert.match(script, /capabilities smoke/);
   assert.match(script, /discover smoke/);
   assert.doesNotMatch(script, /verify-project|doctor|recommend|NOTION/i);
+});
+
+test("release-audit scans packed paths and text contents for package leaks", () => {
+  const script = readRepoFile("scripts", "release-audit.mjs");
+
+  assert.match(script, /PACKED_PUBLIC_ALLOWLIST/);
+  assert.match(script, /PACKED_PRIVATE_PATH_DENYLIST/);
+  assert.match(script, /PACKED_CONTENT_DENYLIST/);
+  assert.match(script, /auditPackedPaths/);
+  assert.match(script, /auditPackedContents/);
+  assert.match(script, /NPM_TOKEN|NODE_AUTH_TOKEN/);
+  assert.match(script, /validation-bundle/);
+  assert.match(script, /browser session state/);
+  assert.doesNotMatch(script, /verify-project|doctor|recommend/);
 });

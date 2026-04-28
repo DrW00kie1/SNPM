@@ -29,6 +29,8 @@ const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
 const OPT_MAX_MUTATIONS = "--max-mutations <n|all>";
 const HELP_TOKENS = new Set(["--help", "-h"]);
 const SYNC_MANIFEST_VERSIONS = [1, 2];
+const SOURCE_CHECKOUT_PREFIX = "node src/cli.mjs ";
+const INSTALLED_CLI_PREFIX = "snpm ";
 const SYNC_MANIFEST_V2_ENTRY_KINDS = [
   "planning-page",
   "project-doc",
@@ -2097,6 +2099,28 @@ function formatOverviewEntry(label, summary) {
   return `${label.padEnd(50)} ${summary}`;
 }
 
+function installedCliUsageLine(line) {
+  if (!line.startsWith(SOURCE_CHECKOUT_PREFIX)) {
+    return null;
+  }
+
+  return `${INSTALLED_CLI_PREFIX}${line.slice(SOURCE_CHECKOUT_PREFIX.length)}`;
+}
+
+function withInstalledCliUsageLines(usageLines) {
+  const lines = [];
+
+  for (const line of usageLines) {
+    lines.push(line);
+    const installedLine = installedCliUsageLine(line);
+    if (installedLine) {
+      lines.push(installedLine);
+    }
+  }
+
+  return [...new Set(lines)];
+}
+
 function extractCommandTokens(tokens) {
   const commandTokens = [];
   let index = 0;
@@ -2162,13 +2186,13 @@ export function commandUsage(command) {
     `Command: ${spec.canonical}`,
     "",
     ...formatSection("Summary:", [spec.summary]),
-    ...formatSection("Usage:", spec.usageLines),
+    ...formatSection("Usage:", withInstalledCliUsageLines(spec.usageLines)),
     ...formatSection("Aliases:", spec.aliases),
     ...formatSection("Required Flags:", spec.requiredFlags),
     ...formatSection("Optional Flags:", spec.optionalFlags),
     ...formatSection("Examples:", spec.examples),
     ...formatSection("Notes:", spec.notes),
-    'See `node src/cli.mjs --help` for the full command surface.',
+    'See `node src/cli.mjs --help` or `snpm --help` for the full command surface.',
   ];
 
   return lines.join("\n");
@@ -2178,10 +2202,13 @@ export function usage() {
   const lines = [
     "Usage:",
     "  node src/cli.mjs <command> [options]",
+    "  snpm <command> [options]",
     "  node src/cli.mjs --help",
+    "  snpm --help",
     "  node src/cli.mjs help <command>",
+    "  snpm help <command>",
     "",
-    "Use `node src/cli.mjs <command> --help` or `node src/cli.mjs help <command>` for exact flags and examples.",
+    "Use `node src/cli.mjs <command> --help`, `node src/cli.mjs help <command>`, `snpm <command> --help`, or `snpm help <command>` for exact flags and examples.",
     "",
   ];
 
@@ -2194,8 +2221,11 @@ export function usage() {
   lines.push(
     "Examples:",
     "  node src/cli.mjs verify-project --help",
+    "  snpm verify-project --help",
     "  node src/cli.mjs page push -h",
+    "  snpm page push -h",
     "  node src/cli.mjs sync --help",
+    "  snpm sync --help",
     '  npm run verify-project -- --name "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN]',
     '  npm run scaffold-docs -- --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--output-dir <dir>]',
     '  npm run doc-create -- --project "Project Name" --path "Root > Overview" --file <file|-> [--apply]',

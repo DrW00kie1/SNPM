@@ -13,7 +13,8 @@ Current active hardening wedge:
 - Sprint 1D Command Metadata Registry And Package Readiness completed the follow-up package/readiness contract: registry-derived help/capabilities, package executable metadata, packed-file allowlist, and private config boundary
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure output wedge, with default stderr text, success schemas, command-family ownership, and mutation semantics unchanged
 - Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
-- Sprint 1G CI And Release Gates is the active release-readiness wedge for Node 22+, secret-free CI, and local package/release contract checks
+- Sprint 1G CI And Release Gates completed the Node 22+, secret-free CI, and local package/release contract check wedge
+- Sprint 1H Release Identity And Governance is the active release-governance wedge for distribution identity, npm-name boundaries, manual branch-protection requirements, and release-audit/release-check gates
 
 ## Product Direction
 
@@ -443,6 +444,41 @@ Out of scope:
 Durable Notion closeout draft:
 - Sprint 1G CI And Release Gates promotes SNPM release readiness to a Node 22+ runtime contract with secret-free CI and local `package-contract`/`release-check` scripts. CI must not use Notion tokens, private workspace config, or live workspace access, and live Notion verification remains an operator-run local step. The sprint does not change Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior.
 
+### Sprint 1H: Release Identity And Governance
+
+Goal:
+- make release identity, distribution channels, and governance gates explicit before any stable release, GitHub Release, or npm publication
+
+Deliverables:
+- repo docs that state current distribution is source checkout plus reviewed Git or tarball install only
+- no npm publish yet and no claim that the unscoped npm package name `snpm` belongs to this project
+- future npm publishing requires an owned scoped package name and explicit operator approval
+- branch protection for `main` is documented as a manual governance requirement before stable release promotion
+- release readiness uses `release-audit` for focused identity/package-content checks and `release-check` for the aggregate source-checkout pre-release gate
+- Notion closeout draft text naming the durable planning/runbook targets and owning command families
+
+Exit criteria:
+- operators can tell how SNPM is distributed today, what must not be published, and which release gates and manual governance steps must pass before release promotion
+- docs do not imply npm publish, GitHub Release creation, tag creation, or branch-protection mutation happens automatically
+- no Notion command-family ownership, supported surface, stale-write protection, secret boundary, CI secret boundary, or live mutation behavior changes
+
+Status:
+- Sprint 1H is scoped as the active release-governance wedge after Sprint 1G
+- current public distribution remains source checkout plus reviewed Git/tarball install
+- the unscoped npm name `snpm` is occupied by an unrelated package and must not be used for this project
+- npm publishing, GitHub Releases, tag creation, and branch protection remain separate approved operator actions
+
+Out of scope:
+- npm publish
+- creating GitHub Releases or tags
+- changing package visibility or repository visibility
+- applying branch protection from this repo
+- adding live Notion verification or mutation to CI
+- changing Notion command-family ownership, supported surfaces, or live mutation behavior
+
+Durable Notion closeout draft:
+- Sprint 1H Release Identity And Governance documents SNPM's current distribution as source checkout plus reviewed Git/tarball install only. There is no npm publish yet; the unscoped `snpm` npm name is occupied and must not be used, and any future npm publication requires an approved owned scoped package. Release readiness is gated by release-audit/release-check review, while GitHub Releases, npm publish, tags, and branch protection remain explicit manual governance actions. The sprint does not change Notion command-family ownership, supported surfaces, secret boundaries, CI secret boundaries, or live mutation behavior.
+
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
 Goal:
@@ -527,9 +563,10 @@ Status:
 - Sprint 1D Command Metadata Registry And Package Readiness completed the active-line follow-up after Sprint 1C, focused on registry-derived command discovery and package/readiness boundaries before broader feature expansion
 - Sprint 1E Structured CLI Errors completed the opt-in machine-readable failure reporting wedge before broader feature expansion
 - Sprint 1F Limited JSON Contract Schemas completed the narrow hardening wedge for selected agent-facing JSON contracts without changing public operator behavior
-- Sprint 1G CI And Release Gates is the next narrow release-readiness wedge, focused on Node 22+, secret-free CI, and local package/release contract checks
+- Sprint 1G CI And Release Gates completed the narrow release-readiness wedge for Node 22+, secret-free CI, and local package/release contract checks
+- Sprint 1H Release Identity And Governance is the next narrow release-governance wedge, focused on distribution identity, npm-name boundaries, manual branch protection, and release-audit/release-check gates
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1G
+- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1H
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.

@@ -10,6 +10,16 @@ Stable baseline:
 Historical pinned snapshot:
 - `v0.1.0-rc.1`
 
+## Current Distribution And Release Identity
+
+Current release testing targets source checkout plus reviewed Git or tarball install paths only. SNPM has an installed `snpm` executable in package metadata for tarball/Git install smoke tests, but there is no npm publish yet.
+
+Release identity rules for test reports:
+- do not assume the unscoped npm package name `snpm` belongs to this project; that name is occupied by an unrelated package
+- future npm publishing requires an approved owned scoped package name
+- GitHub Releases and npm publishing are explicit maintainer actions, not outcomes of tester workflows
+- branch protection for `main` is a required manual governance step before stable release promotion
+
 ## Scope By Line
 
 Stable baseline on `main`:
@@ -59,11 +69,12 @@ Sprint 1G release-gate checks run on Node.js 22+.
 Local release-readiness checks:
 
 ```powershell
+npm run release-audit
 npm run package-contract
 npm run release-check
 ```
 
-`package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local source-checkout pre-release aggregate gate.
+`release-audit` is the focused release identity and package-content audit gate. `package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local source-checkout pre-release aggregate gate. If a tested branch does not yet contain `release-audit`, report that explicitly and do not treat the branch as Sprint 1H release-ready.
 
 CI expectations:
 - CI must be secret-free
@@ -113,6 +124,7 @@ npm run verify-workspace-docs
 
 Include:
 - tested branch, tag, or commit
+- tested distribution path: source checkout, reviewed Git install, or reviewed tarball install
 - Node.js version when testing Sprint 1G release gates
 - commands run
 - expected result

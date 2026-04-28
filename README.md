@@ -69,6 +69,17 @@ $env:SNPM_WORKSPACE_CONFIG_DIR = "C:\path\to\private\workspace-configs"
 
 For default local operation, source checkout mode remains the safest path. Installed mode is for reviewed tarball or Git installs with private workspace config supplied outside the package.
 
+### Release Identity And Distribution
+
+Current public distribution is source checkout plus reviewed Git or tarball install only. The package metadata exposes an installed `snpm` executable for smoke testing, but SNPM is not published to npm.
+
+Release governance rules:
+- do not publish the current unscoped `snpm` package; the unscoped npm name is occupied by an unrelated package
+- any future npm package must use an owned scoped package name and requires explicit operator approval
+- GitHub Releases, release tags, and npm publishing are separate explicit actions, not side effects of local checks
+- branch protection for `main` is a required manual governance step before stable release promotion
+- release readiness is gated by `release-audit` for focused identity/package-content checks and `release-check` for the aggregate source-checkout pre-release check; a branch missing the expected audit gate is not release-ready
+
 ## The Safe Mutation Loop
 
 ![Safe mutation loop diagram](assets/readme/safe-mutation-loop.png)
@@ -165,7 +176,9 @@ Public-readiness expectations:
 - package metadata must keep the installed `snpm` executable, Node 22+ runtime expectation, and explicit package allowlist for the CLI/runtime files, docs needed for operation, public examples, and assets
 - package publishing must exclude private workspace config, mutation journals, sidecars, review/scaffold/closeout artifacts, task memory, environment files, and local browser/auth state
 - installed CLI use must load real workspace config through `SNPM_WORKSPACE_CONFIG_DIR` or another explicit operator-provided path, not bundled private config
-- changing GitHub or package visibility is a separate operator action after `npm pack --dry-run` output is reviewed
+- current distribution is source checkout plus reviewed Git/tarball install only; there is no npm publish yet
+- future npm publication must not use the occupied unscoped `snpm` name and requires approval for an owned scoped package name
+- changing GitHub visibility, creating GitHub Releases, publishing npm packages, or enabling branch protection are separate operator/governance actions after release gates and review
 
 ## Command Discovery
 
@@ -210,11 +223,12 @@ CI and local release gates are intentionally secret-free. They must not require 
 Local release gate commands:
 
 ```powershell
+npm run release-audit
 npm run package-contract
 npm run release-check
 ```
 
-`package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local all-up pre-release gate for the source checkout. Live Notion verification remains an operator-run local step only when private config and tokens are available.
+`release-audit` is the focused release identity and package-content audit gate. `package-contract` is the focused package metadata and packed-file contract check. `release-check` is the local all-up pre-release gate for the source checkout. If `release-audit` is not present on the branch under review, do not claim Sprint 1H release readiness. Live Notion verification remains an operator-run local step only when private config and tokens are available.
 
 ## Development
 

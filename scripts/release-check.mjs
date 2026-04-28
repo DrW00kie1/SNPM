@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 const checks = [
   { label: "full test suite", command: "npm", args: ["test"] },
   { label: "package contract tests", command: "npm", args: ["run", "test:package-contract"] },
+  { label: "release audit", command: "node", args: ["scripts/release-audit.mjs"] },
   { label: "package dry run", command: "npm", args: ["pack", "--dry-run", "--json", "--ignore-scripts"] },
   { label: "CLI help smoke", command: "node", args: ["src/cli.mjs", "--help"] },
   { label: "capabilities smoke", command: "npm", args: ["run", "capabilities"] },

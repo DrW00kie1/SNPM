@@ -375,6 +375,35 @@ Closeout command families if later applied by an operator: use `page-*` for `Pla
 
 Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
 
+## Sprint 1H Release Identity And Governance Updates
+
+Sprint 1H follows Sprint 1G as a release-governance wedge for release identity, distribution boundaries, and manual promotion requirements. It does not publish SNPM, create GitHub Releases or tags, apply branch protection, add live Notion to CI, or change live mutation behavior.
+
+Supported behavior:
+- current distribution is source checkout plus reviewed Git or tarball install only
+- SNPM is not published to npm yet
+- the unscoped npm package name `snpm` is occupied by an unrelated package and must not be used for this project
+- future npm publishing requires an approved owned scoped package name
+- branch protection for `main` is a manual governance requirement before stable release promotion
+- `release-audit` is the focused release identity/package-content gate and `release-check` is the aggregate source-checkout pre-release gate
+- GitHub Releases, release tags, npm publishing, and branch-protection changes remain explicit operator actions
+
+Out of scope:
+- npm publish
+- GitHub Release or tag creation
+- package or repository visibility changes
+- applying branch protection from repo-local scripts
+- live Notion verification or mutation in CI
+- changing Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior
+
+Concise durable Notion summary text:
+
+> Sprint 1H Release Identity And Governance documents SNPM's current release posture: source checkout plus reviewed Git/tarball install only, with no npm publish yet. The unscoped `snpm` npm name is occupied and must not be used; any future npm package requires an approved owned scoped name. Release readiness is gated by `release-audit` and `release-check`, while GitHub Releases, tags, npm publishing, and `main` branch protection remain explicit manual governance actions. No Notion command-family ownership, supported surface, secret boundary, CI secret boundary, or live mutation behavior changes.
+
+Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Projects > SNPM > Runbooks > Release Readiness` and `Runbooks > Notion Workspace Workflow` only if those runbooks need release-governance guidance; use `doc-*` for `Projects > SNPM` only if that page carries public release-readiness status.
+
+Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, conditionally `Projects > SNPM > Runbooks > Release Readiness`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
+
 ## Verification
 
 Project-scoped verification:
