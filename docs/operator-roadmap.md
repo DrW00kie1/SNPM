@@ -130,7 +130,8 @@ Release identity and governance behavior:
 - the unscoped npm name `snpm` is occupied by an unrelated package and must not be used for publication
 - any future npm package must use an owned scoped name and requires explicit operator approval
 - GitHub Releases, release tags, and npm publishing are separate explicit release actions
-- `main` branch protection is a manual governance requirement before stable release promotion and is not applied by ordinary release checks
+- `main` branch protection is enabled on the current public repo, requires the release-check matrix strictly, disables force pushes, and disables branch deletion
+- PR reviews are not required yet; add them only after reviewer and collaborator policy is explicit
 - a branch missing the expected `release-audit` gate must not be treated as Sprint 1I release-ready even if `release-check` passes
 - release-candidate and stable promotion require release evidence that records exact commit, CI status, package/release gate results, dry-run pack review, local live SNPM verification, and Notion closeout targets
 - stable promotion requires branch protection to be enabled or verified after green CI on the intended stable branch or default branch
@@ -150,9 +151,10 @@ Active hardening sequence:
 - Sprint 1E Structured CLI Errors completed opt-in machine-readable failure reporting without changing default stderr text, success schemas, command-family ownership, supported surfaces, or mutation semantics
 - Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
 - Sprint 1G CI And Release Gates completed the Node 22+ runtime contract, secret-free CI boundary, and local `package-contract`/`release-check` gates without changing Notion mutation behavior
-- Sprint 1H Release Identity And Governance adds the release identity/distribution boundary, npm name guardrail, manual branch-protection requirement, and release-audit/release-check governance without publishing packages or changing live Notion behavior
-- Sprint 1I Release Operations Promotion And Protection adds the operator RC/stable promotion checklist, release evidence expectations, branch-protection-after-green-CI timing, and Notion closeout targets without creating tags, GitHub Releases, npm publishes, or automated branch-rule mutation
+- Sprint 1H Release Identity And Governance completed the release identity/distribution boundary, npm name guardrail, branch-protection requirement, and release-audit/release-check governance without publishing packages or changing live Notion behavior
+- Sprint 1I Release Operations Promotion And Protection completed the operator RC/stable promotion checklist, release evidence expectations, branch-protection-after-green-CI timing, actual protected-main enforcement, and Notion closeout targets without creating tags, GitHub Releases, npm publishes, or changing package/repo visibility
 - installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `release-audit`, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
+- Remaining hardening closure now starts with planning baseline reconciliation, then path/output validators, Notion operation policy, plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 
@@ -270,7 +272,7 @@ Keep these boundaries:
 - CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
 - current distribution is source checkout plus reviewed Git/tarball install only; do not publish to npm as part of release checks
 - the unscoped `snpm` npm name is not available for this project; future npm publication requires an approved owned scoped package name
-- branch protection is a manual governance requirement before stable release promotion, not a repo-local script side effect
+- branch protection is an enforced governance requirement before stable release promotion, not a repo-local script side effect
 - `release-audit` and `release-check` are gates; they do not create GitHub Releases, tags, branch rules, or npm publishes
 - local `release-audit`, `package-contract`, and `release-check` are release gates, not Notion command families or live workspace verification
 - Sprint 1I promotion evidence must include local live `verify-project` and `doctor` results, plus `verify-workspace-docs` when curated workspace-global or template docs changed
