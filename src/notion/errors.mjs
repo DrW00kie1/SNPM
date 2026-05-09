@@ -1,3 +1,20 @@
+import {
+  NOTION_OPERATION_POLICY_FIELDS,
+  buildNotionOperationPolicy,
+} from "./operation-policy.mjs";
+
+function applyOperationPolicy(target, operationPolicy) {
+  if (!operationPolicy) {
+    return;
+  }
+
+  for (const key of NOTION_OPERATION_POLICY_FIELDS) {
+    if (operationPolicy[key] !== undefined) {
+      target[key] = operationPolicy[key];
+    }
+  }
+}
+
 export class NotionApiError extends Error {
   constructor(message, {
     method,
@@ -10,6 +27,7 @@ export class NotionApiError extends Error {
     retryAfterMs,
     retryable,
     attempts = 1,
+    operationPolicy,
   } = {}) {
     super(message);
     this.name = "NotionApiError";
@@ -22,6 +40,7 @@ export class NotionApiError extends Error {
     this.retryAfterMs = retryAfterMs ?? null;
     this.retryable = Boolean(retryable);
     this.attempts = attempts;
+    applyOperationPolicy(this, operationPolicy);
     Object.defineProperties(this, {
       body: {
         value: body || "",
@@ -42,6 +61,7 @@ export class NotionTransportError extends Error {
     code = "network_error",
     retryable = true,
     attempts = 1,
+    operationPolicy,
     cause,
   } = {}) {
     super(message, cause ? { cause } : undefined);
@@ -52,6 +72,7 @@ export class NotionTransportError extends Error {
     this.code = code;
     this.retryable = Boolean(retryable);
     this.attempts = attempts;
+    applyOperationPolicy(this, operationPolicy);
   }
 }
 
@@ -65,6 +86,7 @@ export class NotionParseError extends Error {
     responseTextLength,
     retryable = false,
     attempts = 1,
+    operationPolicy,
     cause,
   } = {}) {
     super(message, cause ? { cause } : undefined);
@@ -78,6 +100,7 @@ export class NotionParseError extends Error {
     this.responseTextLength = responseTextLength ?? null;
     this.retryable = Boolean(retryable);
     this.attempts = attempts;
+    applyOperationPolicy(this, operationPolicy);
   }
 }
 
@@ -95,7 +118,17 @@ function serializeKnownNotionError(error, kind) {
     message: error.message,
   };
 
-  for (const key of ["method", "apiPath", "status", "code", "retryAfter", "retryAfterMs", "retryable", "attempts"]) {
+  for (const key of [
+    "method",
+    "apiPath",
+    "status",
+    "code",
+    "retryAfter",
+    "retryAfterMs",
+    "retryable",
+    "attempts",
+    ...NOTION_OPERATION_POLICY_FIELDS,
+  ]) {
     copySafeField(serialized, error, key);
   }
 
@@ -173,6 +206,12 @@ export async function parseNotionError(method, apiPath, response) {
 
   const code = parsed?.code || null;
   const retryMetadata = parseRetryMetadata(response);
+  const operationPolicy = buildNotionOperationPolicy({
+    method,
+    apiPath,
+    retryable: retryMetadata.retryable,
+    retryAfterMs: retryMetadata.retryAfterMs,
+  });
 
   return new NotionApiError(toMessage(method, apiPath, response.status, code), {
     method,
@@ -181,6 +220,7 @@ export async function parseNotionError(method, apiPath, response) {
     code,
     body,
     details: parsed,
+    operationPolicy,
     ...retryMetadata,
   });
 }

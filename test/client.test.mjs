@@ -97,6 +97,11 @@ test("request parses retry metadata without retrying", async () => {
       assert.equal(error.retryAfterMs, 2000);
       assert.equal(error.retryable, true);
       assert.equal(error.attempts, 1);
+      assert.equal(error.operationKind, "create");
+      assert.equal(error.operationClass, "write");
+      assert.equal(error.safeToAutoRetry, false);
+      assert.equal(error.manualRetryOnly, true);
+      assert.match(error.retryPolicyReason, /manual-retry-only/i);
       return true;
     },
   );
@@ -126,6 +131,10 @@ test("request does not retry mutation-like PATCH failures", async () => {
       assert.ok(error instanceof NotionApiError);
       assert.equal(error.retryable, true);
       assert.equal(error.attempts, 1);
+      assert.equal(error.operationKind, "replace");
+      assert.equal(error.operationClass, "write");
+      assert.equal(error.safeToAutoRetry, false);
+      assert.equal(error.manualRetryOnly, true);
       return true;
     },
   );
@@ -152,7 +161,46 @@ test("requestMaybe preserves HTTP failures as ok false with retry metadata", asy
   assert.equal(response.retryAfterMs, 4000);
   assert.equal(response.retryable, true);
   assert.equal(response.attempts, 1);
+  assert.equal(response.operationKind, "read");
+  assert.equal(response.operationClass, "read");
+  assert.equal(response.safeToAutoRetry, true);
+  assert.equal(response.manualRetryOnly, false);
   assert.ok(response.error instanceof NotionApiError);
+});
+
+test("read retry metadata stays policy-only and does not retry automatically", async () => {
+  let calls = 0;
+  const client = makeNotionClient("token", "2026-03-11", {
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({
+        object: "error",
+        status: 503,
+        code: "service_unavailable",
+        message: "Unavailable.",
+      }), {
+        status: 503,
+        headers: { "Retry-After": "3" },
+      });
+    },
+  });
+
+  await assert.rejects(
+    () => client.request("GET", "pages/flaky"),
+    (error) => {
+      assert.ok(error instanceof NotionApiError);
+      assert.equal(error.retryable, true);
+      assert.equal(error.attempts, 1);
+      assert.equal(error.operationKind, "read");
+      assert.equal(error.operationClass, "read");
+      assert.equal(error.safeToAutoRetry, true);
+      assert.equal(error.manualRetryOnly, false);
+      assert.match(error.retryPolicyReason, /metadata only/i);
+      return true;
+    },
+  );
+
+  assert.equal(calls, 1);
 });
 
 test("network failures throw a normalized transport error", async () => {
@@ -174,6 +222,10 @@ test("network failures throw a normalized transport error", async () => {
       assert.equal(error.retryable, true);
       assert.equal(error.attempts, 1);
       assert.equal(error.cause, cause);
+      assert.equal(error.operationKind, "read");
+      assert.equal(error.operationClass, "read");
+      assert.equal(error.safeToAutoRetry, true);
+      assert.equal(error.manualRetryOnly, false);
       assert.doesNotMatch(error.message, /secret token/);
       return true;
     },
@@ -223,6 +275,8 @@ test("timeouts abort the request and throw a normalized transport error", async 
       assert.equal(error.kind, "transport");
       assert.equal(error.method, "GET");
       assert.equal(error.apiPath, "pages/slow");
+      assert.equal(error.operationKind, "read");
+      assert.equal(error.safeToAutoRetry, true);
       return true;
     },
   );
@@ -247,6 +301,9 @@ test("invalid success JSON throws a normalized parse error", async () => {
       assert.equal(error.responseTextLength, "{ secret body".length);
       assert.equal(error.retryable, false);
       assert.equal(error.attempts, 1);
+      assert.equal(error.operationKind, "read");
+      assert.equal(error.safeToAutoRetry, false);
+      assert.equal(error.manualRetryOnly, false);
       assert.doesNotMatch(error.message, /secret body/);
       return true;
     },

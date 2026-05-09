@@ -4,9 +4,11 @@ The curated managed-doc surface is now supported on `main` for selected root, te
 
 ## Planning Baseline Reconciliation
 
-Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. The remaining hardening queue starts with path/output validator completion, Notion operation policy, plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
+Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. After R1/R2 closeout, the remaining hardening queue starts with plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
 
 Sprint R1 Path And Output Validator Completion updates durable planning only; it does not change Notion command ownership or add mutation surfaces. Closeout should record that malformed local path strings and invalid output/review/metadata destinations now fail before downstream writes or live Notion work.
+
+Sprint R2 Notion Operation Policy And Safe Retry Design updates durable planning and decision tracking. It does not add automatic retries or new Notion command surfaces. Closeout should record that Notion failure metadata now classifies operation kind/class/idempotency and distinguishes protocol retryability from SNPM-safe automatic retry eligibility. Writes and mutation-like calls remain manual-retry-only; read/query calls are metadata-only retry candidates and still execute once.
 
 Durable Notion closeout targets for planning-baseline reconciliation:
 - `Projects > SNPM > Planning > Roadmap`
@@ -445,6 +447,29 @@ Concise durable Notion summary text:
 Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Projects > SNPM > Runbooks > Release Readiness` and `Runbooks > Notion Workspace Workflow` only if those runbooks need release-operation checklist guidance; use `doc-*` for `Projects > SNPM` only if that page carries public release status.
 
 Closeout targets if later applied by an operator: `Projects > SNPM > Planning > Decision Log`, `Projects > SNPM > Planning > Roadmap`, `Projects > SNPM > Planning > Current Cycle`, `Projects > SNPM > Runbooks > Release Readiness`, conditionally `Runbooks > Notion Workspace Workflow`, and conditionally `Projects > SNPM`.
+
+## Sprint R2: Notion Operation Policy Closeout
+
+Durable Notion summary:
+- Roadmap: Mark R2 complete after merge and move the active hardening wedge to R3 Plan Quality Gates.
+- Current Cycle: Record that R2 added operation policy metadata to Notion API/transport/parse failures and `requestMaybe` failure responses without adding automatic retries or changing command behavior.
+- Decision Log: Record the retry-safety decision: `retryable` remains protocol metadata; read/query failures can be classified as safe-to-auto-retry candidates for future work, but all requests still use one attempt. Mutation-like operations are manual-retry-only to avoid duplicate writes or stale side effects.
+- Product Hardening Plan: Record that R0, R1, and R2 are closed and that the next implementation wedge is R3 Plan Quality Gates.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
+
+Post-mutation verification:
+
+```powershell
+npm run verify-project -- --name "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run truth-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
+npm run verify-workspace-docs
+```
 
 ## Verification
 
