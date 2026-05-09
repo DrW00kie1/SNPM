@@ -557,6 +557,23 @@ test("writeManifestV2PreviewReviewArtifacts does not write without a review outp
   }
 });
 
+test("writeManifestV2PreviewReviewArtifacts rejects file review-output paths before writes", () => {
+  const reviewDir = tempReviewDir();
+  const filePath = path.join(reviewDir, "review-file");
+  writeFileSync(filePath, "not a directory\n", "utf8");
+
+  try {
+    assert.throws(() => writeManifestV2PreviewReviewArtifacts({
+      result: baseResult(),
+      reviewOutputDir: filePath,
+    }), /directory path, not a file/i);
+    assert.equal(existsSync(path.join(reviewDir, "summary.json")), false);
+    assert.equal(existsSync(path.join(reviewDir, "entries")), false);
+  } finally {
+    rmSync(reviewDir, { recursive: true, force: true });
+  }
+});
+
 test("writeManifestV2PreviewReviewArtifacts rejects applied results when output is requested", () => {
   const reviewDir = tempReviewDir();
 

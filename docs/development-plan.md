@@ -19,7 +19,7 @@ Current hardening baseline:
 
 Remaining hardening closure queue:
 - R0 Planning Baseline Reconciliation: align repo docs and Notion tracking with the shipped Sprint 1I baseline
-- R1 Path And Output Validator Completion: finish the remaining P0 validator gap for file/output/review/metadata paths before side effects
+- R1 Path And Output Validator Completion: implemented on `codex/path-output-validator-completion` with shared local path validators wired into command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
 - R2 Notion Operation Policy And Safe Retry Design: add explicit operation-kind policy and keep mutation retry behavior conservative
 - R3 Plan Quality Gates: connect `plan-change` to advisory truth and consistency context without making audits blocking gates
 - R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
@@ -544,6 +544,28 @@ Exit criteria:
 
 Out of scope:
 - implementing validators, retries, plan gates, architecture migration, TypeScript, package publishing, tags, GitHub Releases, or visibility changes
+
+### Sprint R1: Path And Output Validator Completion
+
+Goal:
+- close the remaining P0 validator gap for local paths before broader retry, planning, or architecture work
+
+Deliverables:
+- shared validators for local input files, output files, metadata sidecars, manifest files, and output directories
+- command IO validation before local file reads/writes or metadata sidecar writes
+- review-output directory validation before artifact mkdir/write operations
+- manifest and entries-file validation before sync loaders or selector reads
+- scaffold output directory validation before draft or sidecar writes
+
+Exit criteria:
+- malformed path strings fail before filesystem writes, Notion calls, child spawn, or mutation hooks
+- existing absolute path and `-` stdin/stdout behavior remains supported where commands already allow it
+- release/package gates remain green and no Notion command-family ownership or mutation semantics change
+
+Out of scope:
+- changing generic file path resolution semantics
+- forcing all outputs under a repo-local directory
+- adding automatic retries, rollback, broad batch apply, package publishing, tags, GitHub Releases, or TypeScript migration
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 

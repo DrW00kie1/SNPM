@@ -112,6 +112,38 @@ test("runSyncCheck routes manifest v2 to the read-only v2 check engine", async (
   ]);
 });
 
+test("runSyncCheck rejects malformed manifest and entries-file paths before loaders", async () => {
+  let manifestLoaded = false;
+  await assert.rejects(
+    () => runSyncCheck({
+      manifestPath: "bad\0manifest.json",
+      loadSyncManifestImpl: () => {
+        manifestLoaded = true;
+        return manifest(2);
+      },
+      loadWorkspaceConfigImpl: () => config(),
+    }),
+    /manifest path must not contain NUL bytes/i,
+  );
+  assert.equal(manifestLoaded, false);
+
+  let entriesRead = false;
+  await assert.rejects(
+    () => runSyncCheck({
+      entriesFile: " bad-selectors.json",
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      loadSyncManifestImpl: () => manifest(2),
+      loadWorkspaceConfigImpl: () => config(),
+      readFileSyncImpl: () => {
+        entriesRead = true;
+        return "[]";
+      },
+    }),
+    /entries file path must not include leading or trailing whitespace/i,
+  );
+  assert.equal(entriesRead, false);
+});
+
 test("runSyncCheck passes manifest v2 selection and review options to the v2 implementation", async () => {
   const calls = [];
   const result = await runSyncCheck({

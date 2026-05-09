@@ -19,6 +19,7 @@ import {
 } from "./page-markdown.mjs";
 import { projectPath } from "./project-model.mjs";
 import { buildCommand } from "./routing-policy.mjs";
+import { validateLocalDirectoryPath } from "../validators.mjs";
 
 const DEFAULT_STARTER_DOC_SCAFFOLD = [
   {
@@ -712,7 +713,9 @@ export async function scaffoldProjectStarterDocs({
   }
 
   const normalizedProjectName = requireNonEmptyString(projectName, '--project "<Project Name>"');
-  const outputRoot = outputDir ? path.resolve(requireNonEmptyString(outputDir, "--output-dir <path>")) : null;
+  const outputRoot = outputDir
+    ? path.resolve(validateLocalDirectoryPath(outputDir, { label: "--output-dir" }))
+    : null;
   const commandCwd = outputRoot || null;
   const authMode = projectTokenEnv ? "project-token" : "workspace-token";
   const readClient = client || makeNotionClientImpl(getWorkspaceTokenImpl(), config.notionVersion);

@@ -7,6 +7,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import { validateLocalDirectoryPath } from "../validators.mjs";
+
 const REVIEW_ENTRIES_DIR = "entries";
 const SECRET_PATTERNS = [
   /\bntn_[A-Za-z0-9_=-]{8,}\b/g,
@@ -126,7 +128,9 @@ function normalizeReviewDir(reviewOutputDir) {
     return null;
   }
 
-  return path.resolve(reviewOutputDir);
+  return path.resolve(validateLocalDirectoryPath(reviewOutputDir, {
+    label: "review-output directory",
+  }));
 }
 
 function assertInside(parentDir, candidatePath) {

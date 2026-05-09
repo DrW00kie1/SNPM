@@ -62,6 +62,30 @@ test("writeCommandOutput writes markdown to stdout when output path is dash", ()
   });
 });
 
+test("writeCommandOutput rejects malformed and directory output paths before writing", () => {
+  const writes = [];
+
+  assert.throws(
+    () => writeCommandOutput("bad\0path.md", "body", {
+      writeFileSyncImpl: (...args) => writes.push(args),
+      statSyncImpl: () => {
+        throw new Error("stat should not be called for malformed paths");
+      },
+    }),
+    /NUL/i,
+  );
+
+  assert.throws(
+    () => writeCommandOutput("existing-dir", "body", {
+      writeFileSyncImpl: (...args) => writes.push(args),
+      statSyncImpl: () => ({ isDirectory: () => true }),
+    }),
+    /file path, not a directory/i,
+  );
+
+  assert.deepEqual(writes, []);
+});
+
 test("resolveCommandMetadataPath derives the default sidecar path from output", () => {
   assert.equal(resolveCommandMetadataPath("roadmap.md"), "roadmap.md.snpm-meta.json");
 });
@@ -109,6 +133,21 @@ test("writeCommandMetadataSidecar writes JSON to an explicit sidecar path", () =
 
   assert.equal(result.metadataPath, "roadmap.meta.json");
   assert.equal(writes[0][0], "roadmap.meta.json");
+});
+
+test("writeCommandMetadataSidecar rejects directory metadata paths before writing", () => {
+  const writes = [];
+
+  assert.throws(
+    () => writeCommandMetadataSidecar("roadmap.md", { pageId: "page-1" }, {
+      metadataPath: "metadata-dir",
+      writeFileSyncImpl: (...args) => writes.push(args),
+      statSyncImpl: () => ({ isDirectory: () => true }),
+    }),
+    /file path, not a directory/i,
+  );
+
+  assert.deepEqual(writes, []);
 });
 
 test("readCommandMetadataSidecar reads JSON from the default sidecar path", () => {

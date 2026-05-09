@@ -14,13 +14,18 @@ import {
   pullValidationSessionSyncManifest,
   pushValidationSessionSyncManifest,
 } from "../notion/validation-session-sync.mjs";
+import {
+  validateLocalInputFilePath,
+  validateLocalManifestPath,
+} from "../validators.mjs";
 import { tryRecordMutationJournalEntry } from "./mutation-journal.mjs";
 
 function loadManifest(manifestPath, workspaceOverride, {
   loadSyncManifestImpl = loadSyncManifest,
 } = {}) {
+  const validatedManifestPath = validateLocalManifestPath(manifestPath);
   return loadSyncManifestImpl(
-    manifestPath,
+    validatedManifestPath,
     workspaceOverride ? { workspaceOverride } : {},
   );
 }
@@ -61,9 +66,15 @@ function selectorValuesFromEntriesFile(entriesFile, {
     return [];
   }
 
+  const resolvedEntriesFile = entriesFile === "-"
+    ? "-"
+    : validateLocalInputFilePath(entriesFile, {
+      allowDash: false,
+      label: "entries file path",
+    });
   const rawText = entriesFile === "-"
     ? readFileSyncImpl(0, "utf8")
-    : readFileSyncImpl(entriesFile, "utf8");
+    : readFileSyncImpl(resolvedEntriesFile, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(rawText);
