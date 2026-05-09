@@ -130,6 +130,42 @@ test("writeReviewArtifacts redacts secret-bearing access snapshots and diffs", (
   }
 });
 
+test("writeReviewArtifacts rejects malformed review-output paths before mkdir or writes", () => {
+  const calls = [];
+  const explanation = buildOperationalExplanation({
+    surface: "planning",
+    targetPath: "Projects > SNPM > Planning > Roadmap",
+    authMode: "project-token",
+    managedState: "managed",
+    preserveChildren: true,
+    normalizationsApplied: [],
+    warnings: [],
+  });
+
+  assert.throws(
+    () => writeReviewArtifacts({
+      reviewOutput: "bad\0review",
+      command: "page-diff",
+      surface: "planning",
+      result: {
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        authMode: "project-token",
+        currentBodyMarkdown: "",
+        nextBodyMarkdown: "",
+        diff: "",
+        hasDiff: false,
+        applied: false,
+      },
+      explanation,
+      mkdirSyncImpl: (...args) => calls.push(["mkdir", ...args]),
+      writeFileSyncImpl: (...args) => calls.push(["write", ...args]),
+    }),
+    /NUL/i,
+  );
+
+  assert.deepEqual(calls, []);
+});
+
 test("buildOperationalPayload includes explanation and review artifacts", () => {
   const payload = buildOperationalPayload({
     command: "page-diff",

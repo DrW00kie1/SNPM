@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { nowTimestamp } from "../notion/env.mjs";
+import { validateLocalDirectoryPath } from "../validators.mjs";
 import { isSecretBearingSurface, redactSecretResultForOutput } from "./secret-output-safety.mjs";
 
 const TARGET_RESOLUTION_DETAILS = {
@@ -87,16 +88,19 @@ export function writeReviewArtifacts({
   writeFileSyncImpl = writeFileSync,
   nowTimestampImpl = nowTimestamp,
 }) {
-  mkdirSyncImpl(reviewOutput, { recursive: true });
+  const reviewDirectory = validateLocalDirectoryPath(reviewOutput, {
+    label: "review-output directory",
+  });
+  mkdirSyncImpl(reviewDirectory, { recursive: true });
   const safeResult = redactSecretResultForOutput(result, { surface });
   const redaction = isSecretBearingSurface(surface)
     ? safeResult.redaction
     : null;
 
-  const currentPath = path.join(reviewOutput, "current.md");
-  const nextPath = path.join(reviewOutput, "next.md");
-  const diffPath = path.join(reviewOutput, "diff.patch");
-  const metadataPath = path.join(reviewOutput, "metadata.json");
+  const currentPath = path.join(reviewDirectory, "current.md");
+  const nextPath = path.join(reviewDirectory, "next.md");
+  const diffPath = path.join(reviewDirectory, "diff.patch");
+  const metadataPath = path.join(reviewDirectory, "metadata.json");
 
   writeFileSyncImpl(currentPath, safeResult.currentBodyMarkdown || "", "utf8");
   writeFileSyncImpl(nextPath, safeResult.nextBodyMarkdown || safeResult.currentBodyMarkdown || "", "utf8");
@@ -122,7 +126,7 @@ export function writeReviewArtifacts({
   }, null, 2)}\n`, "utf8");
 
   return {
-    directory: reviewOutput,
+    directory: reviewDirectory,
     files: [
       currentPath,
       nextPath,

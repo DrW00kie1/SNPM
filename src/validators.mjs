@@ -92,3 +92,103 @@ export function validateChildCommandArgs(childArgs, {
 
   return childArgs;
 }
+
+function validatePathString(value, {
+  allowDash = false,
+  label = "path",
+} = {}) {
+  if (allowDash && value === "-") {
+    return value;
+  }
+
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Provide a non-empty ${label}.`);
+  }
+
+  if (value !== value.trim()) {
+    throw new Error(`${label} must not include leading or trailing whitespace.`);
+  }
+
+  if (value.includes("\0")) {
+    throw new Error(`${label} must not contain NUL bytes.`);
+  }
+
+  if (value === "-") {
+    throw new Error(`${label} does not support stdin/stdout; provide a real filesystem path.`);
+  }
+
+  return value;
+}
+
+function validateNotExistingDirectory(filePath, {
+  label,
+  statSyncImpl,
+}) {
+  try {
+    const stats = statSyncImpl(filePath);
+    if (stats && typeof stats.isDirectory === "function" && stats.isDirectory()) {
+      throw new Error(`${label} must be a file path, not a directory.`);
+    }
+  } catch (error) {
+    if (/must be a file path/i.test(error.message)) {
+      throw error;
+    }
+  }
+}
+
+export function validateLocalInputFilePath(filePath, {
+  allowDash = true,
+  label = "input file path",
+} = {}) {
+  return validatePathString(filePath, { allowDash, label });
+}
+
+export function validateLocalOutputFilePath(filePath, {
+  allowDash = true,
+  label = "output file path",
+  statSyncImpl = statSync,
+} = {}) {
+  const value = validatePathString(filePath, { allowDash, label });
+  if (value === "-") {
+    return value;
+  }
+
+  validateNotExistingDirectory(value, { label, statSyncImpl });
+  return value;
+}
+
+export function validateLocalMetadataPath(metadataPath, {
+  label = "metadata path",
+  statSyncImpl = statSync,
+} = {}) {
+  const value = validatePathString(metadataPath, { allowDash: false, label });
+  validateNotExistingDirectory(value, { label, statSyncImpl });
+  return value;
+}
+
+export function validateLocalDirectoryPath(directoryPath, {
+  label = "output directory path",
+  statSyncImpl = statSync,
+} = {}) {
+  const value = validatePathString(directoryPath, { allowDash: false, label });
+
+  try {
+    const stats = statSyncImpl(value);
+    if (!stats || typeof stats.isDirectory !== "function" || !stats.isDirectory()) {
+      throw new Error(`${label} must be a directory path, not a file.`);
+    }
+  } catch (error) {
+    if (/must be a directory path/i.test(error.message)) {
+      throw error;
+    }
+  }
+
+  return value;
+}
+
+export function validateLocalManifestPath(manifestPath, options = {}) {
+  return validateLocalInputFilePath(manifestPath, {
+    allowDash: false,
+    label: options.label || "manifest path",
+  });
+}

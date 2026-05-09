@@ -4,6 +4,11 @@ import assert from "node:assert/strict";
 import { getProjectToken } from "../src/notion/env.mjs";
 import {
   validateCwd,
+  validateLocalDirectoryPath,
+  validateLocalInputFilePath,
+  validateLocalManifestPath,
+  validateLocalMetadataPath,
+  validateLocalOutputFilePath,
   validateProjectTokenEnvName,
   validateWorkspaceName,
 } from "../src/validators.mjs";
@@ -75,5 +80,56 @@ test("cwd validator fails before callers can spawn child processes", () => {
       statSyncImpl: () => ({ isDirectory: () => true }),
     }),
     "C:\\SNPM",
+  );
+});
+
+test("local path validators reject unsafe path strings before filesystem work", () => {
+  for (const value of ["", " output.md", "output.md ", "bad\0path.md"]) {
+    assert.throws(
+      () => validateLocalOutputFilePath(value, {
+        statSyncImpl: () => {
+          throw new Error("stat should not be called for malformed strings");
+        },
+      }),
+      /path|whitespace|NUL/i,
+    );
+  }
+
+  assert.equal(validateLocalInputFilePath("-", { allowDash: true }), "-");
+  assert.throws(
+    () => validateLocalManifestPath("-"),
+    /does not support stdin\/stdout/i,
+  );
+});
+
+test("local output and metadata validators reject existing directories before writes", () => {
+  const directoryStat = () => ({ isDirectory: () => true });
+
+  assert.throws(
+    () => validateLocalOutputFilePath("existing-dir", { statSyncImpl: directoryStat }),
+    /file path, not a directory/i,
+  );
+
+  assert.throws(
+    () => validateLocalMetadataPath("existing-dir", { statSyncImpl: directoryStat }),
+    /file path, not a directory/i,
+  );
+});
+
+test("local directory validator rejects existing files before mkdir", () => {
+  assert.equal(
+    validateLocalDirectoryPath("review-output", {
+      statSyncImpl: () => {
+        throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      },
+    }),
+    "review-output",
+  );
+
+  assert.throws(
+    () => validateLocalDirectoryPath("not-a-dir", {
+      statSyncImpl: () => ({ isDirectory: () => false }),
+    }),
+    /directory path, not a file/i,
   );
 });

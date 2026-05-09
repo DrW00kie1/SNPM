@@ -6,6 +6,8 @@ The curated managed-doc surface is now supported on `main` for selected root, te
 
 Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. The remaining hardening queue starts with path/output validator completion, Notion operation policy, plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
 
+Sprint R1 Path And Output Validator Completion updates durable planning only; it does not change Notion command ownership or add mutation surfaces. Closeout should record that malformed local path strings and invalid output/review/metadata destinations now fail before downstream writes or live Notion work.
+
 Durable Notion closeout targets for planning-baseline reconciliation:
 - `Projects > SNPM > Planning > Roadmap`
 - `Projects > SNPM > Planning > Current Cycle`

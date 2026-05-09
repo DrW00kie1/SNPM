@@ -154,7 +154,9 @@ Active hardening sequence:
 - Sprint 1H Release Identity And Governance completed the release identity/distribution boundary, npm name guardrail, branch-protection requirement, and release-audit/release-check governance without publishing packages or changing live Notion behavior
 - Sprint 1I Release Operations Promotion And Protection completed the operator RC/stable promotion checklist, release evidence expectations, branch-protection-after-green-CI timing, actual protected-main enforcement, and Notion closeout targets without creating tags, GitHub Releases, npm publishes, or changing package/repo visibility
 - installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `release-audit`, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
-- Remaining hardening closure now starts with planning baseline reconciliation, then path/output validators, Notion operation policy, plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
+- R0 Planning Baseline Reconciliation completed the protected-main planning baseline after Sprint 1I.
+- R1 Path And Output Validator Completion adds shared local path validators for command IO, review artifacts, manifests, selector files, and scaffold outputs without changing supported command behavior.
+- Remaining hardening closure continues with Notion operation policy, plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 

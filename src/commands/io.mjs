@@ -1,5 +1,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
+import {
+  validateLocalInputFilePath,
+  validateLocalMetadataPath,
+  validateLocalOutputFilePath,
+} from "../validators.mjs";
+
 function readStreamText(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -25,8 +31,12 @@ export async function readCommandInput(
     stdin = process.stdin,
   } = {},
 ) {
-  if (filePath !== "-") {
-    return readFileSyncImpl(filePath, "utf8");
+  const inputPath = validateLocalInputFilePath(filePath, {
+    allowDash: true,
+    label: "input file path",
+  });
+  if (inputPath !== "-") {
+    return readFileSyncImpl(inputPath, "utf8");
   }
 
   return readStreamText(stdin);
@@ -38,37 +48,53 @@ export function writeCommandOutput(
   {
     writeFileSyncImpl = writeFileSync,
     stdout = process.stdout,
+    statSyncImpl,
   } = {},
 ) {
-  if (outputPath !== "-") {
-    writeFileSyncImpl(outputPath, bodyText, "utf8");
+  const resolvedOutputPath = validateLocalOutputFilePath(outputPath, {
+    allowDash: true,
+    label: "output file path",
+    ...(statSyncImpl ? { statSyncImpl } : {}),
+  });
+  if (resolvedOutputPath !== "-") {
+    writeFileSyncImpl(resolvedOutputPath, bodyText, "utf8");
     return {
-      outputPath,
+      outputPath: resolvedOutputPath,
       wroteToStdout: false,
     };
   }
 
   stdout.write(bodyText);
   return {
-    outputPath,
+    outputPath: resolvedOutputPath,
     wroteToStdout: true,
   };
 }
 
-export function resolveCommandMetadataPath(outputPath, metadataPath) {
+export function resolveCommandMetadataPath(outputPath, metadataPath, {
+  statSyncImpl,
+} = {}) {
   if (typeof metadataPath === "string" && metadataPath.trim() !== "") {
-    return metadataPath;
+    return validateLocalMetadataPath(metadataPath, {
+      label: "metadata path",
+      ...(statSyncImpl ? { statSyncImpl } : {}),
+    });
   }
 
   if (outputPath === "-") {
     throw new Error("Provide an explicit metadata path when command input or output uses stdin/stdout.");
   }
 
-  if (typeof outputPath !== "string" || outputPath.trim() === "") {
-    throw new Error("Provide an output path to derive the metadata sidecar path.");
-  }
+  const resolvedOutputPath = validateLocalOutputFilePath(outputPath, {
+    allowDash: false,
+    label: "output path",
+    ...(statSyncImpl ? { statSyncImpl } : {}),
+  });
 
-  return `${outputPath}.snpm-meta.json`;
+  return validateLocalMetadataPath(`${resolvedOutputPath}.snpm-meta.json`, {
+    label: "metadata sidecar path",
+    ...(statSyncImpl ? { statSyncImpl } : {}),
+  });
 }
 
 export function writeCommandMetadataSidecar(
@@ -77,9 +103,12 @@ export function writeCommandMetadataSidecar(
   {
     metadataPath,
     writeFileSyncImpl = writeFileSync,
+    statSyncImpl,
   } = {},
 ) {
-  const resolvedMetadataPath = resolveCommandMetadataPath(outputPath, metadataPath);
+  const resolvedMetadataPath = resolveCommandMetadataPath(outputPath, metadataPath, {
+    ...(statSyncImpl ? { statSyncImpl } : {}),
+  });
   writeFileSyncImpl(resolvedMetadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
 
   return {
@@ -92,9 +121,12 @@ export function readCommandMetadataSidecar(
   {
     metadataPath,
     readFileSyncImpl = readFileSync,
+    statSyncImpl,
   } = {},
 ) {
-  const resolvedMetadataPath = resolveCommandMetadataPath(inputPath, metadataPath);
+  const resolvedMetadataPath = resolveCommandMetadataPath(inputPath, metadataPath, {
+    ...(statSyncImpl ? { statSyncImpl } : {}),
+  });
   let rawMetadata;
 
   try {
