@@ -74,7 +74,10 @@ test("release policy documents tag, release action, and branch protection govern
   assert.match(policy, /`vX\.Y\.Z-rc\.N`/);
   assert.match(policy, /`vX\.Y\.Z`/);
   assert.match(policy, /GitHub Releases and npm publishing are separate explicit actions/i);
-  assert.match(policy, /Branch protection is a manual requirement before stable releases/i);
+  assert.match(policy, /Branch protection is enabled on the current public `main` branch/i);
+  assert.match(policy, /disables force pushes/i);
+  assert.match(policy, /disables branch deletion/i);
+  assert.match(policy, /A stable release must not be cut until .*protection rules.*verified/i);
 });
 
 test("package remains private and does not expose an unscoped npm publish posture", () => {

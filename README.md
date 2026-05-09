@@ -77,7 +77,7 @@ Release governance rules:
 - do not publish the current unscoped `snpm` package; the unscoped npm name is occupied by an unrelated package
 - any future npm package must use an owned scoped package name and requires explicit operator approval
 - GitHub Releases, release tags, and npm publishing are separate explicit actions, not side effects of local checks
-- branch protection for `main` is a required manual governance step before stable release promotion
+- `main` branch protection is enabled on the current public repo, requires the release-check matrix strictly, disables force pushes, and disables branch deletion
 - release readiness is gated by `release-audit` for focused identity/package-content checks and `release-check` for the aggregate source-checkout pre-release check; a branch missing the expected audit gate is not release-ready
 
 ## The Safe Mutation Loop
@@ -178,7 +178,7 @@ Public-readiness expectations:
 - installed CLI use must load real workspace config through `SNPM_WORKSPACE_CONFIG_DIR` or another explicit operator-provided path, not bundled private config
 - current distribution is source checkout plus reviewed Git/tarball install only; there is no npm publish yet
 - future npm publication must not use the occupied unscoped `snpm` name and requires approval for an owned scoped package name
-- changing GitHub visibility, creating GitHub Releases, publishing npm packages, or enabling branch protection are separate operator/governance actions after release gates and review
+- changing GitHub visibility, creating GitHub Releases, publishing npm packages, or changing branch-protection policy are separate operator/governance actions after release gates and review
 
 ## Command Discovery
 

@@ -2,6 +2,17 @@
 
 The curated managed-doc surface is now supported on `main` for selected root, template, and workspace-global docs.
 
+## Planning Baseline Reconciliation
+
+Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. The remaining hardening queue starts with path/output validator completion, Notion operation policy, plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
+
+Durable Notion closeout targets for planning-baseline reconciliation:
+- `Projects > SNPM > Planning > Roadmap`
+- `Projects > SNPM > Planning > Current Cycle`
+- `Projects > SNPM > Product Hardening Plan` only when strategic status wording needs correction
+
+Use `page-*` for Roadmap and Current Cycle. Use `doc-*` for Product Hardening Plan. Do not copy local task memory or local reference artifacts into Notion.
+
 ## Curated Workspace-Global Docs
 
 Exact managed pages:
@@ -377,14 +388,14 @@ Closeout targets if later applied by an operator: `Projects > SNPM > Planning > 
 
 ## Sprint 1H Release Identity And Governance Updates
 
-Sprint 1H follows Sprint 1G as a release-governance wedge for release identity, distribution boundaries, and manual promotion requirements. It does not publish SNPM, create GitHub Releases or tags, apply branch protection, add live Notion to CI, or change live mutation behavior.
+Sprint 1H followed Sprint 1G as a release-governance wedge for release identity, distribution boundaries, and manual promotion requirements. It did not publish SNPM, create GitHub Releases or tags, add live Notion to CI, or change live mutation behavior.
 
 Supported behavior:
 - current distribution is source checkout plus reviewed Git or tarball install only
 - SNPM is not published to npm yet
 - the unscoped npm package name `snpm` is occupied by an unrelated package and must not be used for this project
 - future npm publishing requires an approved owned scoped package name
-- branch protection for `main` is a manual governance requirement before stable release promotion
+- branch protection for `main` is a governance requirement before stable release promotion
 - `release-audit` is the focused release identity/package-content gate and `release-check` is the aggregate source-checkout pre-release gate
 - GitHub Releases, release tags, npm publishing, and branch-protection changes remain explicit operator actions
 
@@ -392,13 +403,13 @@ Out of scope:
 - npm publish
 - GitHub Release or tag creation
 - package or repository visibility changes
-- applying branch protection from repo-local scripts
+- applying branch protection from CI or release checks
 - live Notion verification or mutation in CI
 - changing Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior
 
 Concise durable Notion summary text:
 
-> Sprint 1H Release Identity And Governance documents SNPM's current release posture: source checkout plus reviewed Git/tarball install only, with no npm publish yet. The unscoped `snpm` npm name is occupied and must not be used; any future npm package requires an approved owned scoped name. Release readiness is gated by `release-audit` and `release-check`, while GitHub Releases, tags, npm publishing, and `main` branch protection remain explicit manual governance actions. No Notion command-family ownership, supported surface, secret boundary, CI secret boundary, or live mutation behavior changes.
+> Sprint 1H Release Identity And Governance documents SNPM's current release posture: source checkout plus reviewed Git/tarball install only, with no npm publish yet. The unscoped `snpm` npm name is occupied and must not be used; any future npm package requires an approved owned scoped name. Release readiness is gated by `release-audit` and `release-check`, while GitHub Releases, tags, npm publishing, and branch-protection policy changes remain explicit governance actions. No Notion command-family ownership, supported surface, secret boundary, CI secret boundary, or live mutation behavior changes.
 
 Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Projects > SNPM > Runbooks > Release Readiness` and `Runbooks > Notion Workspace Workflow` only if those runbooks need release-governance guidance; use `doc-*` for `Projects > SNPM` only if that page carries public release-readiness status.
 
@@ -406,11 +417,11 @@ Closeout targets if later applied by an operator: `Projects > SNPM > Planning > 
 
 ## Sprint 1I Release Operations Promotion And Protection Updates
 
-Sprint 1I follows Sprint 1H as the release-operations wedge for repeatable release-candidate and stable promotion. It documents the operator checklist and evidence trail without publishing SNPM, creating GitHub Releases or tags, applying branch protection automatically, adding live Notion to CI, or changing live mutation behavior.
+Sprint 1I followed Sprint 1H as the release-operations wedge for repeatable release-candidate and stable promotion. It documents the operator checklist and evidence trail without publishing SNPM, creating GitHub Releases or tags, applying branch protection automatically, adding live Notion to CI, or changing live mutation behavior.
 
 Supported behavior:
 - release-candidate promotion starts from a clean checkout, runs `npm ci`, `release-audit`, `package-contract`, `release-check`, dry-run pack review, green CI confirmation, local live SNPM verification, and evidence capture
-- stable promotion repeats the release-candidate gates, confirms release-candidate findings are closed or explicitly deferred, verifies green CI, then enables or verifies branch protection on the intended stable branch or default branch
+- stable promotion repeats the release-candidate gates, confirms release-candidate findings are closed or explicitly deferred, verifies green CI, then verifies branch protection on the intended stable branch or default branch
 - branch protection is a post-green-CI governance step and is not applied by release scripts, CI, or tester workflows
 - local live SNPM verification remains operator-run with private config and tokens
 - tags, GitHub Releases, and npm publishes require separate explicit approval for each action
@@ -427,7 +438,7 @@ Use `verify-workspace-docs` when curated workspace-global or template docs chang
 
 Concise durable Notion summary text:
 
-> Sprint 1I Release Operations Promotion And Protection documents the RC/stable release promotion checklist and evidence requirements. RC promotion requires a clean checkout, `npm ci`, release/package gates, dry-run pack review, green CI, local live SNPM verification, and evidence capture. Stable promotion repeats those gates and verifies or enables branch protection only after green CI. Tags, GitHub Releases, and npm publishes remain separate explicitly approved actions. No Notion command-family ownership, supported surface, CI secret boundary, package visibility, or live mutation behavior changes.
+> Sprint 1I Release Operations Promotion And Protection documents the RC/stable release promotion checklist and evidence requirements. RC promotion requires a clean checkout, `npm ci`, release/package gates, dry-run pack review, green CI, local live SNPM verification, and evidence capture. Stable promotion repeats those gates and verifies branch protection only after green CI. Tags, GitHub Releases, and npm publishes remain separate explicitly approved actions. No Notion command-family ownership, supported surface, CI secret boundary, package visibility, or live mutation behavior changes.
 
 Closeout command families if later applied by an operator: use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`; use `runbook-*` for `Projects > SNPM > Runbooks > Release Readiness` and `Runbooks > Notion Workspace Workflow` only if those runbooks need release-operation checklist guidance; use `doc-*` for `Projects > SNPM` only if that page carries public release status.
 

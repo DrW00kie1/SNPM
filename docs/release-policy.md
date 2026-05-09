@@ -52,7 +52,7 @@ Stable promotion:
 1. Repeat the release-candidate promotion checklist on the exact stable candidate commit.
 2. Confirm all release-candidate findings are closed or explicitly deferred.
 3. Confirm CI is green after final release documentation changes.
-4. Enable or verify required branch protection only after green CI on the stable candidate branch or default branch.
+4. Verify required branch protection only after green CI on the stable candidate branch or default branch. If policy has drifted, a repository owner must restore it before stable promotion.
 5. Re-run local live SNPM verification after any final documentation or release-operation change.
 6. Capture stable release evidence, including branch-protection status.
 7. Do not create a stable tag, GitHub Release, or npm publish unless each action is explicitly approved.
@@ -86,4 +86,6 @@ SNPM uses SemVer for release identifiers.
 
 ## Repository Governance
 
-Branch protection is a manual requirement before stable releases. A stable release must not be cut until the release branch or default branch has the required protection rules reviewed and enabled by a repository owner.
+Branch protection is enabled on the current public `main` branch. It requires the four release-check matrix contexts strictly, disables force pushes, and disables branch deletion. PR reviews are not required yet; add them only after reviewer and collaborator policy is explicit.
+
+A stable release must not be cut until the release branch or default branch has the required protection rules reviewed and verified by a repository owner.

@@ -5,7 +5,7 @@ Milestones marked implemented are shipped or merge-ready; future phases remain p
 
 The goal is to make SNPM a better utility for coding LLMs that need to create and maintain project documentation in Notion without turning it into a generic workspace CRUD tool.
 
-Current active hardening wedge:
+Current hardening baseline:
 - Sprint 0 retired the browser-driven validation-bundle lane while preserving validation-session API workflows
 - Sprint 1A Child Runner Hardening completed the post-Sprint-0 internal pass on existing child-process execution without changing public operator behavior or adding commands
 - Sprint 1B Notion Transport Hardening completed the existing Notion-backed command surface wedge, with public operator behavior, command names, and command-family ownership unchanged
@@ -15,7 +15,15 @@ Current active hardening wedge:
 - Sprint 1F Limited JSON Contract Schemas completed bounded schema coverage for selected agent-facing JSON contracts without rewriting every success payload or changing mutation semantics
 - Sprint 1G CI And Release Gates completed the Node 22+, secret-free CI, and local package/release contract check wedge
 - Sprint 1H Release Identity And Governance completed the release-governance wedge for distribution identity, npm-name boundaries, manual branch-protection requirements, and release-audit/release-check gates
-- Sprint 1I Release Operations Promotion And Protection is the active release-operations wedge for RC/stable promotion checklists, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
+- Sprint 1I Release Operations Promotion And Protection completed the release-operations wedge for RC/stable promotion checklists, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
+
+Remaining hardening closure queue:
+- R0 Planning Baseline Reconciliation: align repo docs and Notion tracking with the shipped Sprint 1I baseline
+- R1 Path And Output Validator Completion: finish the remaining P0 validator gap for file/output/review/metadata paths before side effects
+- R2 Notion Operation Policy And Safe Retry Design: add explicit operation-kind policy and keep mutation retry behavior conservative
+- R3 Plan Quality Gates: connect `plan-change` to advisory truth and consistency context without making audits blocking gates
+- R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
+- R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
 
 ## Product Direction
 
@@ -363,7 +371,7 @@ Exit criteria:
 - an operator or coding agent can opt into machine-readable CLI failures while existing text stderr behavior, stdout success payloads, and apply safety contracts remain unchanged
 
 Status:
-- Sprint 1E is scoped as a hardening wedge on the active line after Sprint 1D
+- Sprint 1E is complete on the active line after Sprint 1D
 - default failure behavior remains text on stderr
 - `--error-format` takes precedence over `SNPM_ERROR_FORMAT`
 - success schemas and successful stdout behavior are unchanged
@@ -395,7 +403,7 @@ Exit criteria:
 - selected agent-facing contract checks do not change `capabilities.schemaVersion`, stdout/stderr placement, secret safety, manifest semantics, or apply behavior
 
 Status:
-- Sprint 1F is scoped as a hardening wedge on the active line after Sprint 1E
+- Sprint 1F is complete on the active line after Sprint 1E
 - the schemas cover selected machine-consumed contracts only
 - existing successful stdout payloads remain command-specific unless explicitly listed in the limited contract reference
 - structured CLI error JSON remains stderr-only failure reporting
@@ -432,7 +440,7 @@ Exit criteria:
 - no command-family ownership, supported surface, stale-write protection, or live mutation behavior changes
 
 Status:
-- Sprint 1G is scoped as the active release-readiness wedge after Sprint 1F
+- Sprint 1G is complete on the active line after Sprint 1F
 - CI/release checks are package/runtime gates, not live Notion verification
 - public Notion operator behavior and supported command families are unchanged
 
@@ -454,7 +462,7 @@ Deliverables:
 - repo docs that state current distribution is source checkout plus reviewed Git or tarball install only
 - no npm publish yet and no claim that the unscoped npm package name `snpm` belongs to this project
 - future npm publishing requires an owned scoped package name and explicit operator approval
-- branch protection for `main` is documented as a manual governance requirement before stable release promotion
+- branch protection for `main` is documented as a governance requirement before stable release promotion
 - release readiness uses `release-audit` for focused identity/package-content checks and `release-check` for the aggregate source-checkout pre-release gate
 - Notion closeout draft text naming the durable planning/runbook targets and owning command families
 
@@ -464,21 +472,21 @@ Exit criteria:
 - no Notion command-family ownership, supported surface, stale-write protection, secret boundary, CI secret boundary, or live mutation behavior changes
 
 Status:
-- Sprint 1H is scoped as the active release-governance wedge after Sprint 1G
+- Sprint 1H is complete on the active line after Sprint 1G
 - current public distribution remains source checkout plus reviewed Git/tarball install
 - the unscoped npm name `snpm` is occupied by an unrelated package and must not be used for this project
-- npm publishing, GitHub Releases, tag creation, and branch protection remain separate approved operator actions
+- npm publishing, GitHub Releases, tag creation, and branch-protection policy changes remain separate approved operator actions
 
 Out of scope:
 - npm publish
 - creating GitHub Releases or tags
 - changing package visibility or repository visibility
-- applying branch protection from this repo
+- applying branch protection from CI or release checks
 - adding live Notion verification or mutation to CI
 - changing Notion command-family ownership, supported surfaces, or live mutation behavior
 
 Durable Notion closeout draft:
-- Sprint 1H Release Identity And Governance documents SNPM's current distribution as source checkout plus reviewed Git/tarball install only. There is no npm publish yet; the unscoped `snpm` npm name is occupied and must not be used, and any future npm publication requires an approved owned scoped package. Release readiness is gated by release-audit/release-check review, while GitHub Releases, npm publish, tags, and branch protection remain explicit manual governance actions. The sprint does not change Notion command-family ownership, supported surfaces, secret boundaries, CI secret boundaries, or live mutation behavior.
+- Sprint 1H Release Identity And Governance documents SNPM's current distribution as source checkout plus reviewed Git/tarball install only. There is no npm publish yet; the unscoped `snpm` npm name is occupied and must not be used, and any future npm publication requires an approved owned scoped package. Release readiness is gated by release-audit/release-check review, while GitHub Releases, npm publish, tags, and branch-protection policy changes remain explicit governance actions. The sprint does not change Notion command-family ownership, supported surfaces, secret boundaries, CI secret boundaries, or live mutation behavior.
 
 ### Sprint 1I: Release Operations Promotion And Protection
 
@@ -500,7 +508,9 @@ Exit criteria:
 - no Notion command-family ownership, supported surface, stale-write protection, secret boundary, CI secret boundary, package visibility, or live mutation behavior changes
 
 Status:
-- Sprint 1I is scoped as the active release-operations wedge after Sprint 1H
+- Sprint 1I shipped on `main` through `c347c10 Fix installed CLI symlink execution`
+- GitHub `main` is protected after green CI, with strict required release-check matrix contexts, force pushes disabled, branch deletion disabled, and no PR-review requirement yet
+- `release-governance` verifies public repo state, default branch, branch protection, required checks, GitHub Releases posture, and npm private/no-publish posture
 - release gates remain local and secret-free unless explicitly described as operator-run live verification
 - local live SNPM verification remains separate from CI and requires private operator config and tokens
 - release evidence and Notion closeout targets are documentation requirements, not automated mutation behavior
@@ -509,12 +519,31 @@ Out of scope:
 - npm publish
 - GitHub Release or tag creation
 - package or repository visibility changes
-- applying branch protection from repo-local scripts, CI, or release checks
+- applying branch protection from CI or release checks
 - live Notion verification or mutation in CI
 - changing Notion command-family ownership, supported surfaces, stale-write protection, secret boundaries, or live mutation behavior
 
-Durable Notion closeout draft:
-- Sprint 1I Release Operations Promotion And Protection documents the RC/stable promotion checklist and evidence trail. RC promotion requires a clean checkout, `npm ci`, `release-audit`, `package-contract`, `release-check`, dry-run pack review, green CI, local live `verify-project`/`doctor`, and evidence capture. Stable promotion repeats those gates, verifies or enables branch protection only after green CI, and records branch-protection status. Tags, GitHub Releases, and npm publishes remain separate explicitly approved actions. No Notion command-family ownership, supported surface, CI secret boundary, package visibility, or live mutation behavior changes.
+Durable Notion closeout:
+- Sprint 1I Release Operations Promotion And Protection promoted the release identity/governance work to `main`, added safe public package metadata, added the read-only `release-governance` check, verified green CI on the Ubuntu/Windows Node 22/24 matrix, and applied `main` branch protection after green CI. Tags, GitHub Releases, npm publishes, package visibility changes, and live Notion in CI remain separate explicit non-goals.
+
+### Sprint R0: Planning Baseline Reconciliation
+
+Goal:
+- align repo docs and durable Notion planning pages after Sprint 1I so the remaining work starts from the real protected-main baseline
+
+Deliverables:
+- update repo docs that still describe Sprint 1I as active
+- clarify that Product Hardening Plan v1.3 is the strategic source for the completed hardening sequence, not the current sprint tracker
+- keep local reference artifacts out of commits/packages
+- record the remaining hardening queue: path/output validators, Notion operation policy, plan quality gates, deferred architecture migration, and TypeScript/final closeout decision
+
+Exit criteria:
+- README, development plan, operator roadmap, release policy, and live-doc pointers describe the same shipped Sprint 1I baseline
+- Notion Roadmap and Current Cycle no longer imply Sprint 1I is pending or active
+- no command behavior, package visibility, GitHub Release/tag state, npm publish posture, or Notion mutation surface changes
+
+Out of scope:
+- implementing validators, retries, plan gates, architecture migration, TypeScript, package publishing, tags, GitHub Releases, or visibility changes
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 
@@ -602,9 +631,9 @@ Status:
 - Sprint 1F Limited JSON Contract Schemas completed the narrow hardening wedge for selected agent-facing JSON contracts without changing public operator behavior
 - Sprint 1G CI And Release Gates completed the narrow release-readiness wedge for Node 22+, secret-free CI, and local package/release contract checks
 - Sprint 1H Release Identity And Governance completed the narrow release-governance wedge, focused on distribution identity, npm-name boundaries, manual branch protection, and release-audit/release-check gates
-- Sprint 1I Release Operations Promotion And Protection is the next narrow release-operations wedge, focused on RC/stable promotion steps, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
+- Sprint 1I Release Operations Promotion And Protection completed the narrow release-operations wedge, focused on RC/stable promotion steps, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
 - public generated-secret behavior remains the write-only Access ingestion lane described above
-- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remain unchanged during Sprint 1I
+- public operator behavior, command names, command-specific success payloads, mutation semantics, and command-family ownership remained unchanged during Sprint 1I
 
 Durable Notion closeout draft:
 - SNPM adds a write-only generated secret/token ingestion lane for Access records. `secret-record-generate` and `access-token-generate` run a child generator only under `--apply`, store the generated stdout value directly in Notion, and keep raw values out of chat, local files, sidecars, diffs, review artifacts, terminal output, and journals. Runtime use remains consume-only through `secret-record-exec` and `access-token-exec`; raw local export and secret-bearing local edit/diff/push remain unsupported.
