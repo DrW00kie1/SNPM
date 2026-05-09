@@ -36,6 +36,8 @@ Schema coverage must preserve existing operator behavior:
 
 Structured CLI error v1 remains an opt-in failure envelope emitted to stderr through `--error-format json` or `SNPM_ERROR_FORMAT=json`. It is reporting metadata only and does not imply retries, rollback, transactions, or changed apply behavior.
 
+Structured CLI errors may include safe Notion operation policy fields for API, transport, and parse failures: `operationKind`, `operationClass`, `idempotency`, `safeToAutoRetry`, `manualRetryOnly`, and `retryPolicyReason`. These fields are retry-design metadata only. `retryable` describes protocol-level retryability; it does not authorize SNPM to retry mutation-like writes. Current transport behavior still performs one attempt.
+
 Discover v1 and capabilities v1 are discovery contracts for agents. `discover` stays the compact first-contact payload; `capabilities` stays the full registry-derived command map with schema version 1.
 
 Plan-change v1 remains read-only planning output. Manifest draft behavior is preview-only and does not write manifests, local files, sidecars, review artifacts, journals, or Notion content.

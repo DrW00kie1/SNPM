@@ -30,6 +30,7 @@ Supported on the current active line:
 - Node 22+ CI/release gate contract with local `package-contract`, `release-audit`, and `release-check` gates
 - release identity and governance guardrails for source checkout, reviewed Git install, and reviewed tarball install distribution
 - release operations promotion and protection checklist for RC/stable promotion, evidence capture, local live verification, and branch protection after green CI
+- Notion operation policy metadata that classifies failures by operation kind and distinguishes protocol retryability from SNPM-safe retry eligibility
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -155,8 +156,9 @@ Active hardening sequence:
 - Sprint 1I Release Operations Promotion And Protection completed the operator RC/stable promotion checklist, release evidence expectations, branch-protection-after-green-CI timing, actual protected-main enforcement, and Notion closeout targets without creating tags, GitHub Releases, npm publishes, or changing package/repo visibility
 - installed/public use is gated on package executable metadata, an explicit packed-file allowlist, `release-audit`, `package-contract`, `release-check`, `npm pack --dry-run` review, and `SNPM_WORKSPACE_CONFIG_DIR` for private workspace config
 - R0 Planning Baseline Reconciliation completed the protected-main planning baseline after Sprint 1I.
-- R1 Path And Output Validator Completion adds shared local path validators for command IO, review artifacts, manifests, selector files, and scaffold outputs without changing supported command behavior.
-- Remaining hardening closure continues with Notion operation policy, plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
+- R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifests, selector files, and scaffold outputs without changing supported command behavior.
+- R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
+- Remaining hardening closure continues with plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 
@@ -271,6 +273,8 @@ Keep these boundaries:
 - command metadata must stay registry-derived so CLI help and `capabilities` do not drift
 - structured CLI errors are stderr-only failure formatting; they must not change successful command output, success schemas, retry behavior, or Notion mutation semantics
 - limited JSON contract schemas cover selected agent-facing contracts only; they must not become a broad success-payload rewrite, add raw secret exposure, change `capabilities.schemaVersion`, or alter stdout/stderr, retry, mutation, manifest, or command-family semantics
+- Notion `retryable` is protocol metadata only; writes, appends, replacements, creates, deletes, and destructive operations remain manual-retry-only unless a later approved retry sprint adds a separate mutation-safe policy
+- read/query requests may be classified as safe automatic retry candidates in error metadata, but current SNPM transport still performs one attempt and does not retry automatically
 - CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
 - current distribution is source checkout plus reviewed Git/tarball install only; do not publish to npm as part of release checks
 - the unscoped `snpm` npm name is not available for this project; future npm publication requires an approved owned scoped package name

@@ -19,8 +19,8 @@ Current hardening baseline:
 
 Remaining hardening closure queue:
 - R0 Planning Baseline Reconciliation: align repo docs and Notion tracking with the shipped Sprint 1I baseline
-- R1 Path And Output Validator Completion: implemented on `codex/path-output-validator-completion` with shared local path validators wired into command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
-- R2 Notion Operation Policy And Safe Retry Design: add explicit operation-kind policy and keep mutation retry behavior conservative
+- R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
+- R2 Notion Operation Policy And Safe Retry Design completed explicit Notion operation policy metadata while keeping automatic retries disabled and mutation recovery manual
 - R3 Plan Quality Gates: connect `plan-change` to advisory truth and consistency context without making audits blocking gates
 - R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
 - R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
@@ -566,6 +566,33 @@ Out of scope:
 - changing generic file path resolution semantics
 - forcing all outputs under a repo-local directory
 - adding automatic retries, rollback, broad batch apply, package publishing, tags, GitHub Releases, or TypeScript migration
+
+### Sprint R2: Notion Operation Policy And Safe Retry Design
+
+Goal:
+- make Notion operation safety explicit before any future retry design, without adding automatic retries or changing current mutation behavior
+
+Deliverables:
+- shared Notion operation classifier for read, query, create, update, replace, append, delete, and unknown requests
+- normalized retry policy metadata on Notion API, transport, parse, and `requestMaybe` failures
+- explicit distinction between protocol retryability and SNPM-safe automatic retry eligibility
+- mutation-like operations marked manual-retry-only when a protocol failure is retryable
+- read/query operations marked safe-to-auto-retry candidates in metadata only, while still using one fetch attempt
+- safe structured-error serialization for operation policy fields without tokens, request bodies, response bodies, secrets, or generated values
+- regression coverage proving mutation paths are not retried and existing output/diagnostic behavior is preserved
+
+Exit criteria:
+- Notion failures expose `operationKind`, `operationClass`, `idempotency`, `safeToAutoRetry`, `manualRetryOnly`, and `retryPolicyReason` where relevant
+- `retryable` remains protocol metadata, not permission for SNPM to retry writes
+- all Notion-backed commands still perform one request attempt unless a later approved retry sprint changes that policy
+- stale-write protection, mutation journals, Access secret safety, manifest diagnostics, CLI success payloads, and command-family ownership remain unchanged
+
+Out of scope:
+- automatic retry loops
+- retrying Notion mutations
+- rollback, transaction semantics, conflict merge, broad batch apply, or manifest behavior changes
+- structured success schema rewrites
+- new Notion command surfaces
 
 ### Sprint 4.2: Bootstrap Doc Scaffolding
 

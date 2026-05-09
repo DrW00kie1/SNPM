@@ -3,11 +3,17 @@ import {
   NotionTransportError,
   parseNotionError,
 } from "./errors.mjs";
+import { buildNotionOperationPolicy } from "./operation-policy.mjs";
 
 export const DEFAULT_NOTION_REQUEST_TIMEOUT_MS = 60_000;
 
 async function readJsonResponse(method, apiPath, response) {
   if (response.status === 204) return null;
+  const operationPolicy = buildNotionOperationPolicy({
+    method,
+    apiPath,
+    retryable: false,
+  });
 
   let text;
   try {
@@ -19,6 +25,7 @@ async function readJsonResponse(method, apiPath, response) {
       status: response.status,
       code: "response_body_read_failed",
       contentType: response.headers?.get?.("content-type"),
+      operationPolicy,
       cause: error,
     });
   }
@@ -34,6 +41,7 @@ async function readJsonResponse(method, apiPath, response) {
       status: response.status,
       contentType: response.headers?.get?.("content-type"),
       responseTextLength: text.length,
+      operationPolicy,
       cause: error,
     });
   }
@@ -54,10 +62,16 @@ function isAbortError(error) {
 function toTransportError(method, apiPath, error, didTimeout) {
   const code = didTimeout ? "request_timeout" : isAbortError(error) ? "request_aborted" : "network_error";
   const reason = didTimeout ? "timed out" : isAbortError(error) ? "was aborted" : "failed before response";
+  const operationPolicy = buildNotionOperationPolicy({
+    method,
+    apiPath,
+    retryable: true,
+  });
   return new NotionTransportError(`${method} ${apiPath} ${reason}.`, {
     method,
     apiPath,
     code,
+    operationPolicy,
     cause: error,
   });
 }
@@ -143,6 +157,12 @@ export function makeNotionClient(token, notionVersion, {
       retryAfterMs: error.retryAfterMs,
       retryable: error.retryable,
       attempts: error.attempts,
+      operationKind: error.operationKind,
+      operationClass: error.operationClass,
+      idempotency: error.idempotency,
+      safeToAutoRetry: error.safeToAutoRetry,
+      manualRetryOnly: error.manualRetryOnly,
+      retryPolicyReason: error.retryPolicyReason,
     };
   }
 

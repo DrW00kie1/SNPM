@@ -20,6 +20,14 @@ test("serializeSafeNotionError returns safe Notion API error fields only", () =>
     retryAfterMs: 2000,
     retryable: true,
     attempts: 3,
+    operationPolicy: {
+      operationKind: "create",
+      operationClass: "write",
+      idempotency: "non-idempotent",
+      safeToAutoRetry: false,
+      manualRetryOnly: true,
+      retryPolicyReason: "Mutation-like request is manual-retry-only.",
+    },
   });
   error.requestBody = { secret: "request-body-secret" };
   error.stack = "stack with SNPM_NOTION_TOKEN";
@@ -38,6 +46,12 @@ test("serializeSafeNotionError returns safe Notion API error fields only", () =>
     retryAfterMs: 2000,
     retryable: true,
     attempts: 3,
+    operationKind: "create",
+    operationClass: "write",
+    idempotency: "non-idempotent",
+    safeToAutoRetry: false,
+    manualRetryOnly: true,
+    retryPolicyReason: "Mutation-like request is manual-retry-only.",
   });
 
   const serialized = JSON.stringify(serializeSafeNotionError(error));
