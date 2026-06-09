@@ -230,6 +230,7 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(fileSet.has("src/cli.mjs"), true);
   assert.equal(fileSet.has("docs/workspace-overview.md"), true);
   assert.equal(fileSet.has("docs/agent-quickstart.md"), true);
+  assert.equal(fileSet.has("docs/notion-cli-interop.md"), true);
   assert.equal(fileSet.has("docs/validation-sessions.md"), true);
   assert.equal(fileSet.has("assets/readme/snpm-control-plane.png"), true);
   assert.equal(fileSet.has("config/workspaces/infrastructure-hq.example.json"), true);

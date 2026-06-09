@@ -21,6 +21,7 @@ Remaining hardening closure queue:
 - R0 Planning Baseline Reconciliation: align repo docs and Notion tracking with the shipped Sprint 1I baseline
 - R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
 - R2 Notion Operation Policy And Safe Retry Design completed explicit Notion operation policy metadata while keeping automatic retries disabled and mutation recovery manual
+- N0/N1 Notion CLI Interop Baseline: document the official `ntn` boundary and add an optional read-only `doctor --notion-cli` local probe before any transport or page-markdown adoption work
 - R3 Plan Quality Gates: connect `plan-change` to advisory truth and consistency context without making audits blocking gates
 - R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
 - R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
@@ -49,6 +50,7 @@ The ten planned capability goals are:
 
 Development should follow these rules:
 - start with discovery and planning before broader mutation
+- treat the official Notion CLI as optional low-level tooling under SNPM policy, not as a replacement for approved-surface routing
 - add stale-write protection before multi-page apply
 - expand manifests before building batch workflows on top of them
 - keep policy packs explicit and reviewed before using them for bootstrap behavior

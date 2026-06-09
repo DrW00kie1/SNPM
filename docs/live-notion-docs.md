@@ -4,11 +4,13 @@ The curated managed-doc surface is now supported on `main` for selected root, te
 
 ## Planning Baseline Reconciliation
 
-Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. After R1/R2 closeout, the remaining hardening queue starts with plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
+Sprint 1I is shipped on protected `main`; future planning updates should treat it as completed release-operations work, not as the active sprint. After R1/R2 closeout, the remaining hardening queue inserts a Notion CLI interop baseline before plan quality gates, deferred architecture migration, and the TypeScript/final-closeout decision.
 
 Sprint R1 Path And Output Validator Completion updates durable planning only; it does not change Notion command ownership or add mutation surfaces. Closeout should record that malformed local path strings and invalid output/review/metadata destinations now fail before downstream writes or live Notion work.
 
 Sprint R2 Notion Operation Policy And Safe Retry Design updates durable planning and decision tracking. It does not add automatic retries or new Notion command surfaces. Closeout should record that Notion failure metadata now classifies operation kind/class/idempotency and distinguishes protocol retryability from SNPM-safe automatic retry eligibility. Writes and mutation-like calls remain manual-retry-only; read/query calls are metadata-only retry candidates and still execute once.
+
+N0/N1 Notion CLI Installation, Boundary Reconciliation, And Read-Only Probe updates durable planning and decision tracking. Closeout should record that the official Notion CLI (`ntn`) is optional low-level tooling under SNPM policy, not a replacement for SNPM approved-surface routing. `doctor --notion-cli` is a local read-only probe that runs only `ntn --version`; it does not run `ntn login`, `ntn api`, `ntn pages update/trash`, write local files, write sidecars, mutate Notion, or append mutation journal entries. The next candidate wedge is optional `ntn api` transport evaluation, read-only first.
 
 Durable Notion closeout targets for planning-baseline reconciliation:
 - `Projects > SNPM > Planning > Roadmap`

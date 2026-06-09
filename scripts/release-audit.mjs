@@ -13,11 +13,12 @@ export const PACKED_PUBLIC_ALLOWLIST = [
   /^package\.json$/,
   /^assets\/readme\/(?:safe-mutation-loop|secret-boundary|snpm-control-plane)\.png$/,
   /^config\/workspaces\/[a-z0-9-]+\.example\.json$/,
-  /^docs\/(?:agent-quickstart|fresh-project-usage|github-testing-loop|json-contract-schemas|migration-guidance|project-access|project-bootstrap|project-token-setup|release-policy|validation-session-sync|validation-session-ui-bundle|validation-sessions|workspace-config|workspace-overview)\.md$/,
+  /^docs\/(?:agent-quickstart|fresh-project-usage|github-testing-loop|json-contract-schemas|migration-guidance|notion-cli-interop|project-access|project-bootstrap|project-token-setup|release-policy|validation-session-sync|validation-session-ui-bundle|validation-sessions|workspace-config|workspace-overview)\.md$/,
   /^src\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/commands\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/contracts\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/notion\/[a-z0-9][a-z0-9-]*\.mjs$/,
+  /^src\/notion-cli\/[a-z0-9][a-z0-9-]*\.mjs$/,
 ];
 
 export const PACKED_PRIVATE_PATH_DENYLIST = [

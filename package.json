@@ -23,6 +23,7 @@
     "docs/github-testing-loop.md",
     "docs/json-contract-schemas.md",
     "docs/migration-guidance.md",
+    "docs/notion-cli-interop.md",
     "docs/project-access.md",
     "docs/project-bootstrap.md",
     "docs/project-token-setup.md",

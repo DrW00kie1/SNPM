@@ -31,6 +31,7 @@ Supported on the current active line:
 - release identity and governance guardrails for source checkout, reviewed Git install, and reviewed tarball install distribution
 - release operations promotion and protection checklist for RC/stable promotion, evidence capture, local live verification, and branch protection after green CI
 - Notion operation policy metadata that classifies failures by operation kind and distinguishes protocol retryability from SNPM-safe retry eligibility
+- Notion CLI interop boundary that treats official `ntn` as an optional low-level provider while keeping SNPM as the approved-surface control plane
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -175,6 +176,8 @@ SNPM encodes:
 - a local mutation journal that records operational metadata without storing page bodies or secrets
 
 A generic connector gives raw page reach. SNPM gives a narrower tool that is safer to use repeatedly on a live workspace.
+
+The official Notion CLI (`ntn`) is useful low-level tooling, but it does not replace SNPM's policy boundary. Direct `ntn pages update` or `ntn pages trash`, raw page-id mutation, `ntn --unsafe-verbose`, and keychain workspace auth used to bypass project-token-scoped SNPM commands are outside the normal SNPM operator path. See [Notion CLI interop boundary](./notion-cli-interop.md).
 
 ## Managed-Doc Boundary
 

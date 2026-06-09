@@ -99,7 +99,7 @@ import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
@@ -840,14 +840,20 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
 
   if (command === "doctor") {
     const consistencyAudit = options["consistency-audit"] === true;
+    const notionCli = options["notion-cli"] === true;
     const truthAudit = options["truth-audit"] === true;
     const staleAfterDays = truthAudit || consistencyAudit || options["stale-after-days"] !== undefined
       ? parseStaleAfterDaysOption(options["stale-after-days"])
       : undefined;
+    const projectName = options.project || null;
+    if (!projectName && (truthAudit || consistencyAudit)) {
+      requireOption(options, "project", 'Provide --project "Project Name".');
+    }
     const result = await runDoctor({
-      projectName: requireOption(options, "project", 'Provide --project "Project Name".'),
+      projectName,
       projectTokenEnv: options["project-token-env"],
       ...(consistencyAudit ? { consistencyAudit, staleAfterDays } : {}),
+      ...(notionCli ? { notionCli } : {}),
       ...(truthAudit ? { truthAudit, staleAfterDays } : {}),
       workspaceName,
     });

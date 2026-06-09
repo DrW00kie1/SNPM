@@ -179,6 +179,7 @@ Public-readiness expectations:
 - current distribution is source checkout plus reviewed Git/tarball install only; there is no npm publish yet
 - future npm publication must not use the occupied unscoped `snpm` name and requires approval for an owned scoped package name
 - changing GitHub visibility, creating GitHub Releases, publishing npm packages, or changing branch-protection policy are separate operator/governance actions after release gates and review
+- the official Notion CLI (`ntn`) is treated as an optional low-level tool; SNPM remains the approved-surface control plane and direct `ntn` page mutation should not bypass SNPM guardrails
 
 ## Command Discovery
 
@@ -263,6 +264,7 @@ npm run verify-workspace-docs
 - [Fresh project usage](docs/fresh-project-usage.md)
 - [New thread handoff](docs/new-thread-handoff.md)
 - [Workspace config](docs/workspace-config.md)
+- [Notion CLI interop boundary](docs/notion-cli-interop.md)
 - [Project bootstrap](docs/project-bootstrap.md)
 - [Project Access and secrets](docs/project-access.md)
 - [Validation sessions](docs/validation-sessions.md)

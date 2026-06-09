@@ -524,6 +524,43 @@ test("doctor help, audit capability metadata, and npm scripts are registered", (
   assert.equal(packageJson.scripts["truth-audit"], "node src/cli.mjs doctor --truth-audit");
 });
 
+test("doctor help and capabilities document the optional Notion CLI probe", () => {
+  const spec = findCommandHelp("doctor");
+  const capabilities = buildCapabilityMap();
+  const command = capabilities.commands.find((candidate) => candidate.canonical === "doctor");
+  const text = commandText(spec);
+
+  assert.match(text, /--notion-cli/);
+  assert.match(text, /Notion CLI/i);
+  assert.match(text, /ntn --version/);
+  assert.match(text, /does not run ntn api/i);
+  assert.match(text, /does not run ntn login/i);
+  assert.ok(command);
+  assert.equal(command.notionCli, "optional-local-read-only-probe");
+  assert.equal(command.notionCliResultField, "notionCli");
+  assert.equal(command.notionCliProbeCommand, "ntn --version");
+  assert.deepEqual(command.notionCliProbeFields, [
+    "checked",
+    "installed",
+    "version",
+    "command",
+    "warnings",
+    "safeNextCommands",
+  ]);
+  assert.deepEqual(command.notionCliNonGoals, [
+    "ntn-login",
+    "ntn-api",
+    "notion-mutation",
+    "local-file-output",
+    "sidecar-writes",
+    "mutation-journal",
+    "raw-page-id-workflows",
+  ]);
+  assert.equal(command.notionMutation, "none");
+  assert.equal(command.localFileWrites, "none");
+  assert.equal(command.journalWrites, "none");
+});
+
 test("scaffold-docs help, capability entry, and npm script are registered", () => {
   const spec = findCommandHelp("scaffold-docs");
   const capabilities = buildCapabilityMap();
@@ -1199,6 +1236,17 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(consistencyAuditParsed.options["consistency-audit"], true);
   assert.equal(consistencyAuditParsed.options["stale-after-days"], "45");
   assert.equal(consistencyAuditParsed.options.project, "SNPM");
+
+  const notionCliProbeParsed = parseArgs([
+    "doctor",
+    "--notion-cli",
+    "--project",
+    "SNPM",
+  ]);
+
+  assert.equal(notionCliProbeParsed.command, "doctor");
+  assert.equal(notionCliProbeParsed.options["notion-cli"], true);
+  assert.equal(notionCliProbeParsed.options.project, "SNPM");
 });
 
 test("parseArgs supports doc subcommands", () => {
@@ -1868,6 +1916,36 @@ test("cli doctor help documents read-only advisory audits", () => {
   assert.match(result.stdout, /does not mutate Notion/i);
   assert.match(result.stdout, /raw secret\/token body inspection/i);
   assert.equal(result.stderr, "");
+});
+
+test("cli doctor help documents the optional local Notion CLI probe boundary", () => {
+  const result = runCli(["doctor", "--help"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /--notion-cli/);
+  assert.match(result.stdout, /Notion CLI/i);
+  assert.match(result.stdout, /ntn --version/);
+  assert.match(result.stdout, /does not run ntn api/i);
+  assert.match(result.stdout, /does not run ntn login/i);
+  assert.match(result.stdout, /does not mutate Notion/i);
+  assert.equal(result.stderr, "");
+});
+
+test("cli doctor --notion-cli runs as a standalone local probe", () => {
+  const result = runCli(["doctor", "--notion-cli"]);
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.command, "doctor");
+  assert.equal(parsed.authMode, "none");
+  assert.equal(parsed.projectName, null);
+  assert.equal(parsed.notionCli.checked, true);
+  assert.equal(typeof parsed.notionCli.installed, "boolean");
+  assert.equal(parsed.notionCli.command, "ntn --version");
+  assert.ok(Array.isArray(parsed.notionCli.warnings));
+  assert.ok(Array.isArray(parsed.notionCli.safeNextCommands));
 });
 
 test("cli secret-bearing help documents consume-only exec guidance", () => {
