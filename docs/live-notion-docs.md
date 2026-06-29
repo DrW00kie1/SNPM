@@ -532,6 +532,20 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
+## R4C Domain-Service Grouping Closeout
+
+Durable Notion summary:
+- Decision Log: Record that R4C completed the domain-service grouping slice by moving Notion internals into `src/notion/{core,project,docs,manifest,planning,validation}` while preserving root-level compatibility exports.
+- Roadmap: Mark R4C complete after merge and move the active architecture wedge to infrastructure utilities extraction.
+- Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, or Notion mutation semantics changed.
+- Product Hardening Plan: Record that domain-service grouping is implemented and that remaining R4/R5 migration slices are infrastructure utilities extraction, tests-by-layer alignment, and the R6 TypeScript/final-closeout decision.
+- Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4C is an internal architecture grouping.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
+
 ## Verification
 
 Project-scoped verification:

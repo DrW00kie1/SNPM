@@ -821,10 +821,29 @@ Status:
 - no Notion domain modules, command handlers, validators, contracts, Notion CLI adapter modules, or tests-by-layer were moved
 - no new command family, TypeScript migration, N3 page-markdown parity work, retry behavior, package publishing, or Notion mutation surface is included
 
+### Sprint R4C: Domain-Service Grouping
+
+Goal:
+- group Notion domain services by surface and primitive without changing command behavior
+
+Deliverables:
+- domain internals are grouped under `src/notion/core`, `src/notion/project`, `src/notion/docs`, `src/notion/manifest`, `src/notion/planning`, and `src/notion/validation`
+- root-level `src/notion/*.mjs` compatibility exports preserve existing imports from command handlers and tests
+- `npm run architecture-inventory` classifies grouped domain modules as `notion-domain`
+- release/package gates allow nested domain runtime files while preserving private-file, task-memory, DOCX, and retired-browser-lane exclusions
+
+Exit criteria:
+- command names, aliases, help, capabilities, output placement, exit codes, package behavior, stale-write checks, mutation journal behavior, and Notion mutation semantics remain unchanged
+- SNPM dogfoods the grouped domain layout by updating its own Notion tracking pages through the standard pull/diff/push apply loop
+
+Status:
+- implemented on `codex/domain-service-grouping`
+- no command adapters, validators, contracts, Notion CLI adapter modules, infrastructure utilities, or tests-by-layer were moved
+- no new command family, TypeScript migration, N3 page-markdown parity work, retry behavior, package publishing, or Notion mutation surface is included
+
 ### R4/R5 Planned Migration Slices
 
 Planned order:
-- domain-service grouping for Notion surface modules
 - infrastructure utilities extraction for shared child runner, IO, output, and journal helpers
 - tests-by-layer alignment
 - R6 TypeScript pilot decision or final hardening closeout

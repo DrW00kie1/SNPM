@@ -1,6 +1,6 @@
 # SNPM Architecture Inventory And Migration Map
 
-Status: R4B command-shell split. This document describes the current source layout, the boundary checks enforced by `npm run architecture-inventory`, and the staged R4/R5 migration path. R4B moves only CLI-shell internals under `src/cli/`; public command behavior remains unchanged.
+Status: R4C domain-service grouping. This document describes the current source layout, the boundary checks enforced by `npm run architecture-inventory`, and the staged R4/R5 migration path. R4C groups Notion domain internals under surface-oriented directories while preserving root compatibility exports.
 
 ## Current Layers
 
@@ -9,7 +9,7 @@ Status: R4B command-shell split. This document describes the current source layo
 | CLI and registry | `src/cli.mjs`, `src/cli/*.mjs`, `src/cli-help.mjs`, `src/command-registry.mjs` | executable entrypoint, argument parsing, top-level error/output shell, help, capabilities, command metadata |
 | Command adapters | `src/commands/*.mjs` | public command-family orchestration, option validation, output shaping, mutation journal wrapping |
 | JSON contracts | `src/contracts/*.mjs` | limited agent-facing JSON contract validation |
-| Notion domain services | `src/notion/*.mjs` | approved Notion surface resolution, markdown round-trips, manifest engines, audits, client transport |
+| Notion domain services | `src/notion/*.mjs`, `src/notion/{core,project,docs,manifest,planning,validation}/*.mjs` | approved Notion surface resolution, markdown round-trips, manifest engines, audits, client transport |
 | Notion CLI adapter | `src/notion-cli/*.mjs` | optional `ntn` probe/read-only adapter under SNPM policy |
 | Validators | `src/validators.mjs` | shared fail-before-side-effect validation helpers |
 | Tests | `test/*.mjs` | behavior, contract, release, and safety regression coverage |
@@ -32,14 +32,14 @@ The inventory is intentionally repo-local. It reads source files and `package.js
 ## R4/R5 Migration Slices
 
 1. Command-shell split: keep `src/cli.mjs` as the package `bin`, but extract argument parsing, top-level error formatting, and command-result orchestration into smaller behavior-preserving modules. Status: implemented in R4B.
-2. Domain-service grouping: group `src/notion` by surface and primitive through explicit module boundaries or barrel exports without changing public command behavior.
+2. Domain-service grouping: group `src/notion` by surface and primitive through explicit module boundaries or barrel exports without changing public command behavior. Status: implemented in R4C.
 3. Infrastructure utilities: move reusable runtime utilities such as child runner, file IO helpers, operational output, and journal plumbing out of command-specific paths when they are shared by domain or adapter layers.
 4. Tests by layer: align tests with the migrated layers so command-contract, domain-service, transport, package, and release checks remain clear.
 5. R6 decision: after staged migration evidence, decide whether a TypeScript pilot adds enough safety to justify the migration cost, or close hardening without TypeScript.
 
 ## Non-Goals
 
-- No source moves outside the approved R4B CLI-shell split.
+- No source moves outside the approved R4B CLI-shell split and R4C domain-service grouping.
 - No command renames, new commands, output-shape changes, or exit-code changes.
 - No new Notion mutation surface, transport replacement, retries, rollback, generic batch apply, or manifest scope expansion.
 - No package publish, GitHub Release, tag creation, or repository visibility change.

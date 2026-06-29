@@ -19,6 +19,7 @@ export const PACKED_PUBLIC_ALLOWLIST = [
   /^src\/commands\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/contracts\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/notion\/[a-z0-9][a-z0-9-]*\.mjs$/,
+  /^src\/notion\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\.mjs$/,
   /^src\/notion-cli\/[a-z0-9][a-z0-9-]*\.mjs$/,
 ];
 

@@ -171,8 +171,9 @@ Active hardening sequence:
 - N2 Notion CLI Read-Only API Adapter Evaluation is complete: `ntn api` is evaluated behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
 - R3 Plan Quality Gates is complete on `main`: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
 - R4A Architecture Migration Readiness is complete: repo-local architecture inventory, boundary checks, release-gate wiring, and a migration map are in place before broader source moves.
-- R4B Command Shell Split is the current migration wedge: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers move into `src/cli/*.mjs` without changing command behavior.
-- Remaining hardening closure continues with domain-service grouping, infrastructure utilities extraction, tests-by-layer alignment, and the TypeScript/final-closeout decision.
+- R4B Command Shell Split is complete: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers live in `src/cli/*.mjs` without changing command behavior.
+- R4C Domain-Service Grouping is the current migration wedge: Notion internals are grouped under `src/notion/{core,project,docs,manifest,planning,validation}` with root compatibility exports.
+- Remaining hardening closure continues with infrastructure utilities extraction, tests-by-layer alignment, and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 
