@@ -31,7 +31,7 @@ Supported on the current active line:
 - release identity and governance guardrails for source checkout, reviewed Git install, and reviewed tarball install distribution
 - release operations promotion and protection checklist for RC/stable promotion, evidence capture, local live verification, and branch protection after green CI
 - Notion operation policy metadata that classifies failures by operation kind and distinguishes protocol retryability from SNPM-safe retry eligibility
-- Notion CLI interop boundary that treats official `ntn` as an optional low-level provider while keeping SNPM as the approved-surface control plane
+- Notion CLI interop boundary that treats official `ntn` as an optional low-level provider while keeping SNPM as the approved-surface control plane; N2 evaluates `ntn api` read-only only
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -159,6 +159,8 @@ Active hardening sequence:
 - R0 Planning Baseline Reconciliation completed the protected-main planning baseline after Sprint 1I.
 - R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifests, selector files, and scaffold outputs without changing supported command behavior.
 - R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
+- N0/N1 Notion CLI Interop Baseline completed the local `ntn --version` probe and SNPM-vs-`ntn` boundary.
+- N2 Notion CLI Read-Only API Adapter Evaluation is the current interop wedge: evaluate `ntn api` behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
 - Remaining hardening closure continues with plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
@@ -178,6 +180,8 @@ SNPM encodes:
 A generic connector gives raw page reach. SNPM gives a narrower tool that is safer to use repeatedly on a live workspace.
 
 The official Notion CLI (`ntn`) is useful low-level tooling, but it does not replace SNPM's policy boundary. Direct `ntn pages update` or `ntn pages trash`, raw page-id mutation, `ntn --unsafe-verbose`, and keychain workspace auth used to bypass project-token-scoped SNPM commands are outside the normal SNPM operator path. See [Notion CLI interop boundary](./notion-cli-interop.md).
+
+The only approved N2 implementation direction is an internal read-only `ntn api` evaluation. Operators should not treat `ntn api` as a new SNPM command family, a page-id shortcut, or a replacement for SNPM stale-write checks and mutation journals.
 
 ## Managed-Doc Boundary
 
@@ -278,6 +282,7 @@ Keep these boundaries:
 - limited JSON contract schemas cover selected agent-facing contracts only; they must not become a broad success-payload rewrite, add raw secret exposure, change `capabilities.schemaVersion`, or alter stdout/stderr, retry, mutation, manifest, or command-family semantics
 - Notion `retryable` is protocol metadata only; writes, appends, replacements, creates, deletes, and destructive operations remain manual-retry-only unless a later approved retry sprint adds a separate mutation-safe policy
 - read/query requests may be classified as safe automatic retry candidates in error metadata, but current SNPM transport still performs one attempt and does not retry automatically
+- `ntn api` interop may be evaluated only for read/query operations behind SNPM policy; it must not run `ntn login`, rely on broad keychain workspace auth for project-scoped probes, expose raw page IDs as operator targets, or use verbose/unsafe verbose output
 - CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
 - current distribution is source checkout plus reviewed Git/tarball install only; do not publish to npm as part of release checks
 - the unscoped `snpm` npm name is not available for this project; future npm publication requires an approved owned scoped package name

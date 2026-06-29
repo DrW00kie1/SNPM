@@ -531,11 +531,14 @@ test("doctor help and capabilities document the optional Notion CLI probe", () =
   const text = commandText(spec);
 
   assert.match(text, /--notion-cli/);
+  assert.match(text, /--notion-cli-api/);
   assert.match(text, /Notion CLI/i);
   assert.match(text, /ntn --version/);
+  assert.match(text, /ntn api --method GET pages\/<project-page>/);
   assert.match(text, /does not run ntn api/i);
   assert.match(text, /does not run ntn login/i);
   assert.ok(command);
+  assert.deepEqual(command.advisoryProbeFlags, ["notion-cli", "notion-cli-api"]);
   assert.equal(command.notionCli, "optional-local-read-only-probe");
   assert.equal(command.notionCliResultField, "notionCli");
   assert.equal(command.notionCliProbeCommand, "ntn --version");
@@ -555,6 +558,29 @@ test("doctor help and capabilities document the optional Notion CLI probe", () =
     "sidecar-writes",
     "mutation-journal",
     "raw-page-id-workflows",
+  ]);
+  assert.equal(command.notionCliApi, "optional-project-scoped-read-only-api-probe");
+  assert.equal(command.notionCliApiResultField, "notionCliApi");
+  assert.equal(command.notionCliApiProbeCommand, "ntn api --method GET pages/<project-page>");
+  assert.deepEqual(command.notionCliApiRequires, ["project", "project-token-env", "workspace-config"]);
+  assert.deepEqual(command.notionCliApiProbeFields, [
+    "checked",
+    "available",
+    "ok",
+    "command",
+    "target",
+    "object",
+    "warnings",
+    "safeNextCommands",
+  ]);
+  assert.deepEqual(command.notionCliApiNonGoals, [
+    "ntn-login",
+    "keychain-auth-bypass",
+    "raw-page-id-workflows",
+    "notion-mutation",
+    "local-file-output",
+    "sidecar-writes",
+    "mutation-journal",
   ]);
   assert.equal(command.notionMutation, "none");
   assert.equal(command.localFileWrites, "none");
@@ -1247,6 +1273,20 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(notionCliProbeParsed.command, "doctor");
   assert.equal(notionCliProbeParsed.options["notion-cli"], true);
   assert.equal(notionCliProbeParsed.options.project, "SNPM");
+
+  const notionCliApiProbeParsed = parseArgs([
+    "doctor",
+    "--notion-cli-api",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+  ]);
+
+  assert.equal(notionCliApiProbeParsed.command, "doctor");
+  assert.equal(notionCliApiProbeParsed.options["notion-cli-api"], true);
+  assert.equal(notionCliApiProbeParsed.options.project, "SNPM");
+  assert.equal(notionCliApiProbeParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
 });
 
 test("parseArgs supports doc subcommands", () => {
@@ -1923,8 +1963,10 @@ test("cli doctor help documents the optional local Notion CLI probe boundary", (
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /--notion-cli/);
+  assert.match(result.stdout, /--notion-cli-api/);
   assert.match(result.stdout, /Notion CLI/i);
   assert.match(result.stdout, /ntn --version/);
+  assert.match(result.stdout, /--notion-cli-api/);
   assert.match(result.stdout, /does not run ntn api/i);
   assert.match(result.stdout, /does not run ntn login/i);
   assert.match(result.stdout, /does not mutate Notion/i);
@@ -1946,6 +1988,18 @@ test("cli doctor --notion-cli runs as a standalone local probe", () => {
   assert.equal(parsed.notionCli.command, "ntn --version");
   assert.ok(Array.isArray(parsed.notionCli.warnings));
   assert.ok(Array.isArray(parsed.notionCli.safeNextCommands));
+});
+
+test("cli doctor --notion-cli-api requires project and token before live execution", () => {
+  const missingProject = runCli(["doctor", "--notion-cli-api"]);
+  assert.notEqual(missingProject.status, 0);
+  assert.equal(missingProject.stdout, "");
+  assert.match(missingProject.stderr, /Provide --project "Project Name"/);
+
+  const missingToken = runCli(["doctor", "--notion-cli-api", "--project", "SNPM"]);
+  assert.notEqual(missingToken.status, 0);
+  assert.equal(missingToken.stdout, "");
+  assert.match(missingToken.stderr, /Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-api/);
 });
 
 test("cli secret-bearing help documents consume-only exec guidance", () => {

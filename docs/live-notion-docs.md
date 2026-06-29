@@ -10,7 +10,9 @@ Sprint R1 Path And Output Validator Completion updates durable planning only; it
 
 Sprint R2 Notion Operation Policy And Safe Retry Design updates durable planning and decision tracking. It does not add automatic retries or new Notion command surfaces. Closeout should record that Notion failure metadata now classifies operation kind/class/idempotency and distinguishes protocol retryability from SNPM-safe automatic retry eligibility. Writes and mutation-like calls remain manual-retry-only; read/query calls are metadata-only retry candidates and still execute once.
 
-N0/N1 Notion CLI Installation, Boundary Reconciliation, And Read-Only Probe updates durable planning and decision tracking. Closeout should record that the official Notion CLI (`ntn`) is optional low-level tooling under SNPM policy, not a replacement for SNPM approved-surface routing. `doctor --notion-cli` is a local read-only probe that runs only `ntn --version`; it does not run `ntn login`, `ntn api`, `ntn pages update/trash`, write local files, write sidecars, mutate Notion, or append mutation journal entries. The next candidate wedge is optional `ntn api` transport evaluation, read-only first.
+N0/N1 Notion CLI Installation, Boundary Reconciliation, And Read-Only Probe updates durable planning and decision tracking. Closeout should record that the official Notion CLI (`ntn`) is optional low-level tooling under SNPM policy, not a replacement for SNPM approved-surface routing. `doctor --notion-cli` is a local read-only probe that runs only `ntn --version`; it does not run `ntn login`, `ntn api`, `ntn pages update/trash`, write local files, write sidecars, mutate Notion, or append mutation journal entries. The next candidate wedge is optional `ntn api` adapter evaluation, read-only first.
+
+N2 Notion CLI Read-Only API Adapter Evaluation updates durable planning and decision tracking only if implementation lands. Closeout should record that SNPM evaluated `ntn api` as an internal read-only provider under SNPM policy, not as a default transport replacement or operator page-id workflow. The N2 boundary is: use explicit SNPM project-token env for the probe, reject write/destructive `ntn` operations before child spawn, do not run `ntn login`, do not rely on keychain workspace auth to bypass project-token boundaries, do not use verbose or unsafe verbose output, do not write files/sidecars/journal entries, and do not mutate Notion.
 
 Durable Notion closeout targets for planning-baseline reconciliation:
 - `Projects > SNPM > Planning > Roadmap`
@@ -472,6 +474,19 @@ npm run truth-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN
 npm run verify-workspace-docs
 ```
+
+## Sprint N2: Notion CLI Read-Only API Adapter Closeout
+
+Durable Notion summary:
+- Decision Log: Record that `ntn api` interop remains an internal read-only evaluation lane under SNPM policy. It is not a transport replacement, not a page-id operator workflow, and not a mutation lane.
+- Roadmap: Mark N2 complete after merge only if the adapter and `doctor --notion-cli-api` probe land; move the active wedge back to R3 Plan Quality Gates unless a separate N3 page-markdown parity sprint is approved.
+- Current Cycle: Record that any `ntn api` probe used explicit SNPM project-token env, rejected mutation/destructive operations before spawn, and returned operational metadata only.
+- Product Hardening Plan: Record that Notion CLI adoption remains conditional on parity and safety gates; deleting SNPM transport or page-markdown internals requires a later approved sprint.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan` only when strategic sequence wording needs correction
+- do not update operator runbooks unless public operator steps change
 
 ## Verification
 

@@ -62,6 +62,26 @@ export function resolveNotionCliVersionChildArgs({
     : DISPLAY_VERSION_COMMAND;
 }
 
+export function resolveNotionCliChildArgs({
+  args,
+  env = process.env,
+  nodeExecPath = process.execPath,
+  platform = process.platform,
+} = {}) {
+  if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string" || arg.length === 0)) {
+    throw new Error("Notion CLI child arguments must be a non-empty string array.");
+  }
+
+  if (platform !== "win32") {
+    return ["ntn", ...args];
+  }
+
+  const versionArgs = resolveWindowsNtnChildArgs({ env, nodeExecPath });
+  return versionArgs[0] === nodeExecPath
+    ? [nodeExecPath, versionArgs[1], ...args]
+    : ["ntn", ...args];
+}
+
 export function probeNotionCli({
   runChildCommandImpl = runChildCommand,
   env = process.env,

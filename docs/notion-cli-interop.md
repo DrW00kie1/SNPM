@@ -69,7 +69,7 @@ If SNPM later invokes `ntn` internally, the integration must:
 
 ## Current Interop Status
 
-Current interop scope is N0/N1 only:
+Current shipped interop scope is N0/N1:
 
 - document the SNPM-vs-`ntn` boundary
 - install and detect the local `ntn` binary
@@ -83,12 +83,35 @@ Out of scope for N0/N1:
 - adding direct page-id workflows
 - using `ntn` authentication to replace project-token-scoped SNPM commands
 
+## N2 Read-Only API Adapter Evaluation
+
+N2 evaluates `ntn api` as an internal read-only provider only. It is not a transport replacement and it is not a new operator mutation path.
+
+The intended N2 shape is:
+
+- keep SNPM's existing fetch transport as the default production transport
+- add an internal `ntn api` adapter behind SNPM policy for read-only experiments
+- add a project-scoped advisory probe, such as `doctor --notion-cli-api`, that can validate one SNPM-resolved target through `ntn api`
+- pass an explicit SNPM project token to the child process, rather than relying on broad keychain workspace auth
+- return only operational probe metadata, never raw API bodies or page content
+
+N2 must not:
+
+- run `ntn login`
+- use `ntn` keychain auth to bypass `--project-token-env`
+- run `ntn pages update`, `ntn pages trash`, or any mutation command
+- expose raw page IDs as operator targets
+- use `ntn --verbose` or `ntn --unsafe-verbose` in product commands, tests, logs, or docs
+- weaken stale-write protection, mutation journals, Access secret safety, structured-error redaction, or command-family ownership
+
+Any `ntn api` adapter should reject write/destructive methods before child spawn. Read failures may carry operation-policy metadata, but they should not create retry loops or change existing mutation semantics.
+
 ## Future Evaluation Path
 
 Evaluate deeper `ntn` adoption in this order:
 
 1. Add an optional read-only probe that reports the installed CLI version and warnings.
-2. Prototype an explicit `ntn api` transport adapter behind SNPM's existing client interface.
+2. Prototype an explicit read-only `ntn api` adapter behind SNPM's existing client interface.
 3. Compare `ntn pages get/update` Markdown round trips against SNPM-managed page requirements.
 4. Adopt only the pieces that preserve approved-surface routing, stale-write protection, Access secret safety, redacted output, and mutation journaling.
 5. Delete SNPM internals only after parity and rollback plans are proven.

@@ -128,3 +128,56 @@ test("runDoctor still requires project unless the notion-cli probe is requested"
     /Provide --project "Project Name"/,
   );
 });
+
+test("runDoctor requires project and project-token-env for the notion-cli-api probe", async () => {
+  await assert.rejects(
+    () => runDoctor({ notionCli: true, notionCliApi: true }),
+    /Provide --project "Project Name"/,
+  );
+  await assert.rejects(
+    () => runDoctor({ projectName: "SNPM", notionCliApi: true }),
+    /Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-api/,
+  );
+});
+
+test("runDoctor wires notion-cli-api through an injectable project-scoped probe", async () => {
+  const result = await runDoctor({
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    notionCliApi: true,
+    diagnoseProjectImpl({ config, projectName, projectTokenEnv }) {
+      assert.ok(config.workspace);
+      assert.equal(projectName, "SNPM");
+      assert.equal(projectTokenEnv, "SNPM_NOTION_TOKEN");
+      return {
+        authMode: "project-token",
+        projectName,
+        projectTokenChecked: true,
+        issues: [],
+        recommendations: [],
+      };
+    },
+    notionCliApiProbeImpl({ config, projectName, projectTokenEnv, workspaceName, doctorResult }) {
+      assert.ok(config.workspace);
+      assert.equal(projectName, "SNPM");
+      assert.equal(projectTokenEnv, "SNPM_NOTION_TOKEN");
+      assert.equal(workspaceName, "infrastructure-hq");
+      assert.equal(doctorResult.authMode, "project-token");
+      return {
+        checked: true,
+        available: true,
+        ok: true,
+        command: "ntn api --method GET pages/<project-page>",
+        target: "project-page",
+        object: "page",
+        warnings: [],
+        safeNextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.projectName, "SNPM");
+  assert.equal(result.notionCliApi.checked, true);
+  assert.equal(result.notionCliApi.available, true);
+  assert.equal(result.notionCliApi.command, "ntn api --method GET pages/<project-page>");
+});

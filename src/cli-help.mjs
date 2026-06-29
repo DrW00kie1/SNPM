@@ -23,6 +23,7 @@ const OPT_REFRESH_SIDECARS = "--refresh-sidecars";
 const OPT_TRUTH_AUDIT = "--truth-audit";
 const OPT_CONSISTENCY_AUDIT = "--consistency-audit";
 const OPT_NOTION_CLI = "--notion-cli";
+const OPT_NOTION_CLI_API = "--notion-cli-api";
 const OPT_STALE_AFTER_DAYS = "--stale-after-days <positive integer>";
 const OPT_MANIFEST_DRAFT = "--manifest-draft";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
@@ -194,6 +195,7 @@ const SINGLE_COMMAND_SPECS = [
       "node src/cli.mjs doctor --notion-cli",
       'node src/cli.mjs doctor --project "Project Name" [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs doctor --project "Project Name" --notion-cli [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs doctor --project "Project Name" --notion-cli-api --project-token-env PROJECT_NAME_NOTION_TOKEN [--workspace infrastructure-hq]',
       'node src/cli.mjs doctor --project "Project Name" --truth-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs doctor --project "Project Name" --consistency-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
       'node src/cli.mjs doctor --project "Project Name" --truth-audit --consistency-audit [--stale-after-days 30] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
@@ -205,6 +207,7 @@ const SINGLE_COMMAND_SPECS = [
       OPT_TRUTH_AUDIT,
       OPT_CONSISTENCY_AUDIT,
       OPT_NOTION_CLI,
+      OPT_NOTION_CLI_API,
       OPT_STALE_AFTER_DAYS,
       OPT_PROJECT_TOKEN,
       OPT_WORKSPACE,
@@ -212,6 +215,7 @@ const SINGLE_COMMAND_SPECS = [
     examples: [
       "node src/cli.mjs doctor --notion-cli",
       'node src/cli.mjs doctor --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
+      'node src/cli.mjs doctor --project "SNPM" --notion-cli-api --project-token-env SNPM_NOTION_TOKEN',
       'npm run doctor -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run truth-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run consistency-audit -- --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
@@ -219,10 +223,12 @@ const SINGLE_COMMAND_SPECS = [
     notes: [
       "Doctoring is read-only and project-scoped; it summarizes managed surfaces, adoptable content, truth boundaries, and next-step recommendations.",
       "Use --notion-cli to add an advisory local probe for the official Notion CLI. The standalone probe does not require a project, token, config file, or live Notion request.",
+      "Use --notion-cli-api to add the project-scoped advisory N2 read-only API probe (`ntn api --method GET pages/<project-page>`). It requires --project and --project-token-env, loads the SNPM workspace config, and is wired through an injectable adapter seam.",
       "Use --truth-audit to add the read-only truth-quality audit for stale Last Updated metadata and placeholder or empty managed content.",
       "Use --consistency-audit to add the advisory read-only cross-document consistency audit for active planning markers and explicit Runbooks or Access references.",
       "--truth-audit and --consistency-audit can be combined; --stale-after-days defaults to 30 when either audit flag is enabled and must be a positive integer.",
       "The Notion CLI probe only runs ntn --version. It does not run ntn login, does not run ntn api, does not run ntn pages update/trash, write files, write sidecars, mutate Notion, or append mutation journal entries.",
+      "The Notion CLI API probe is read-only and project-token scoped. It must not run ntn login, use keychain workspace auth, expose raw page IDs, write files, write sidecars, mutate Notion, or append mutation journal entries.",
       "Truth audit checks approved managed planning pages, project docs, managed runbooks, and curated workspace/template docs where applicable.",
       "Truth audit excludes raw secret/token body inspection and preserves consume-only Access behavior.",
       "Consistency audit checks Roadmap vs Current Cycle active markers, explicit runbook references, and structural Access references without inspecting raw secret/token bodies.",
@@ -231,7 +237,7 @@ const SINGLE_COMMAND_SPECS = [
     ],
     capabilityMetadata: {
       auditFlags: ["truth-audit", "consistency-audit"],
-      advisoryProbeFlags: ["notion-cli"],
+      advisoryProbeFlags: ["notion-cli", "notion-cli-api"],
       npmScripts: ["doctor", "truth-audit", "consistency-audit"],
       notionMutation: "none",
       localFileWrites: "none",
@@ -241,6 +247,12 @@ const SINGLE_COMMAND_SPECS = [
       notionCliProbeCommand: "ntn --version",
       notionCliProbeFields: ["checked", "installed", "version", "command", "warnings", "safeNextCommands"],
       notionCliNonGoals: ["ntn-login", "ntn-api", "notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal", "raw-page-id-workflows"],
+      notionCliApi: "optional-project-scoped-read-only-api-probe",
+      notionCliApiResultField: "notionCliApi",
+      notionCliApiProbeCommand: "ntn api --method GET pages/<project-page>",
+      notionCliApiRequires: ["project", "project-token-env", "workspace-config"],
+      notionCliApiProbeFields: ["checked", "available", "ok", "command", "target", "object", "warnings", "safeNextCommands"],
+      notionCliApiNonGoals: ["ntn-login", "keychain-auth-bypass", "raw-page-id-workflows", "notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal"],
       truthAudit: "optional-read-only",
       consistencyAudit: "optional-advisory-read-only",
       staleAfterDaysDefault: 30,
