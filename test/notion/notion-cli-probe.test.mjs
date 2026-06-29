@@ -144,6 +144,7 @@ test("runDoctor wires notion-cli-api through an injectable project-scoped probe"
   const result = await runDoctor({
     projectName: "SNPM",
     projectTokenEnv: "SNPM_NOTION_TOKEN",
+    workspaceName: "infrastructure-hq.example",
     notionCliApi: true,
     diagnoseProjectImpl({ config, projectName, projectTokenEnv }) {
       assert.ok(config.workspace);
@@ -161,7 +162,7 @@ test("runDoctor wires notion-cli-api through an injectable project-scoped probe"
       assert.ok(config.workspace);
       assert.equal(projectName, "SNPM");
       assert.equal(projectTokenEnv, "SNPM_NOTION_TOKEN");
-      assert.equal(workspaceName, "infrastructure-hq");
+      assert.equal(workspaceName, "infrastructure-hq.example");
       assert.equal(doctorResult.authMode, "project-token");
       return {
         checked: true,
