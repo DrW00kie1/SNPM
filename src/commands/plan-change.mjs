@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { validateSyncManifest } from "../notion/sync-manifest.mjs";
 
 const SUPPORTED_TARGET_TYPES = new Set([
@@ -185,6 +187,106 @@ function compactRecommendation(recommendation, target) {
   };
 }
 
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function buildPlanReference(normalized) {
+  const hash = createHash("sha256")
+    .update(stableStringify({
+      goal: normalized.goal,
+      projectName: normalized.projectName || null,
+      workspaceName: normalized.workspaceName || "infrastructure-hq",
+      targets: normalized.targets,
+    }))
+    .digest("hex");
+
+  return {
+    id: `plan_${hash.slice(0, 16)}`,
+  };
+}
+
+function compactAuditFinding(finding) {
+  return {
+    code: finding.code,
+    severity: finding.severity,
+    surface: finding.surface,
+    targetPath: finding.targetPath,
+    message: finding.message,
+    safeNextCommand: finding.safeNextCommand,
+    recoveryAction: finding.recoveryAction,
+  };
+}
+
+function findingsFromAudit(audit) {
+  return Array.isArray(audit?.findings) ? audit.findings.map(compactAuditFinding) : [];
+}
+
+function matchFindingToRecommendation(finding, recommendation) {
+  if (!finding || !recommendation) {
+    return false;
+  }
+
+  if (finding.targetPath && recommendation.targetPath) {
+    return finding.targetPath === recommendation.targetPath
+      || finding.targetPath.endsWith(` > ${recommendation.targetPath}`)
+      || recommendation.targetPath.endsWith(` > ${finding.targetPath}`);
+  }
+
+  return Boolean(finding.surface && recommendation.surface && finding.surface === recommendation.surface);
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === "string" && value.trim() !== ""))];
+}
+
+export function buildPlanQualityGates({ auditResult, recommendations }) {
+  const truthFindings = findingsFromAudit(auditResult?.truthAudit);
+  const consistencyFindings = findingsFromAudit(auditResult?.consistencyAudit);
+  const allFindings = [...truthFindings, ...consistencyFindings];
+  const targetFindings = recommendations.map((recommendation) => ({
+    index: recommendation.index,
+    type: recommendation.type,
+    surface: recommendation.surface,
+    targetPath: recommendation.targetPath,
+    findings: allFindings.filter((finding) => matchFindingToRecommendation(finding, recommendation)),
+  }));
+
+  return {
+    advisory: true,
+    checked: true,
+    status: allFindings.length > 0 ? "advisory-findings" : "pass",
+    findingsCount: allFindings.length,
+    truthAudit: {
+      checkedCount: auditResult?.truthAudit?.checkedCount || 0,
+      findingCount: truthFindings.length,
+      staleCount: auditResult?.truthAudit?.staleCount || 0,
+      placeholderCount: auditResult?.truthAudit?.placeholderCount || 0,
+      missingHeaderCount: auditResult?.truthAudit?.missingHeaderCount || 0,
+    },
+    consistencyAudit: {
+      checkedCount: auditResult?.consistencyAudit?.checkedCount || 0,
+      findingCount: auditResult?.consistencyAudit?.findingCount || consistencyFindings.length,
+      severityCounts: auditResult?.consistencyAudit?.severityCounts || { error: 0, warning: 0, info: 0 },
+    },
+    targetFindings,
+    safeNextCommands: uniqueStrings([
+      ...(Array.isArray(auditResult?.truthAudit?.safeNextCommands) ? auditResult.truthAudit.safeNextCommands : []),
+      ...(Array.isArray(auditResult?.consistencyAudit?.safeNextCommands) ? auditResult.consistencyAudit.safeNextCommands : []),
+      ...allFindings.map((finding) => finding.safeNextCommand),
+    ]),
+    recoveryActions: uniqueStrings(allFindings.map((finding) => finding.recoveryAction)),
+  };
+}
+
 function manifestUnsupportedReason(type) {
   if (type === "secret" || type === "token" || type === "generated-secret" || type === "generated-token") {
     return "Access secret and token records are excluded from manifest v2 drafts; use the Access command family.";
@@ -361,15 +463,33 @@ export function normalizePlanChangeInput(input) {
   };
 }
 
-export async function planChange(input, { recommendImpl, manifestDraft = false } = {}) {
+export async function planChange(input, {
+  qualityGates = false,
+  qualityGateImpl,
+  recommendImpl,
+  manifestDraft = false,
+  staleAfterDays,
+} = {}) {
   if (typeof recommendImpl !== "function") {
     throw new Error("planChange requires a recommendImpl function.");
   }
   if (typeof manifestDraft !== "boolean") {
     throw new Error("planChange manifestDraft option must be a boolean when provided.");
   }
+  if (typeof qualityGates !== "boolean") {
+    throw new Error("planChange qualityGates option must be a boolean when provided.");
+  }
+  if (qualityGates && typeof qualityGateImpl !== "function") {
+    throw new Error("planChange qualityGates requires a qualityGateImpl function.");
+  }
 
   const normalized = normalizePlanChangeInput(input);
+  if (qualityGates && !normalized.projectName) {
+    throw new Error('plan-change --quality-gates requires --project "Project Name" or top-level projectName.');
+  }
+  if (qualityGates && !normalized.projectTokenEnv) {
+    throw new Error("plan-change --quality-gates requires --project-token-env PROJECT_NAME_NOTION_TOKEN or top-level projectTokenEnv.");
+  }
   const recommendations = [];
 
   for (const target of normalized.targets) {
@@ -393,6 +513,17 @@ export async function planChange(input, { recommendImpl, manifestDraft = false }
 
   if (manifestDraft) {
     Object.assign(result, buildPlanChangeManifestDraft(normalized));
+  }
+
+  if (qualityGates) {
+    const auditResult = await qualityGateImpl({
+      projectName: normalized.projectName,
+      projectTokenEnv: normalized.projectTokenEnv,
+      staleAfterDays,
+      workspaceName: normalized.workspaceName || "infrastructure-hq",
+    });
+    result.planReference = buildPlanReference(normalized);
+    result.qualityGates = buildPlanQualityGates({ auditResult, recommendations });
   }
 
   return result;

@@ -112,6 +112,7 @@ function assertNoV1OnlyUnsupportedOptions(manifest, {
   entries,
   entriesFile,
   maxMutations,
+  planId,
   reviewOutput,
 }) {
   if (manifest.version !== SYNC_MANIFEST_V1_VERSION) {
@@ -128,6 +129,10 @@ function assertNoV1OnlyUnsupportedOptions(manifest, {
 
   if (maxMutations !== undefined) {
     throw new Error("Manifest v1 validation-session sync does not support --max-mutations; mutation budgets are only supported for manifest v2 sync push apply.");
+  }
+
+  if (planId !== undefined) {
+    throw new Error("Manifest v1 validation-session sync does not support --plan-id; plan journal linkage is only supported for manifest v2 sync push.");
   }
 }
 
@@ -185,15 +190,34 @@ function surfaceForManifestV2SyncEntry(entry) {
   return entry.kind || "sync-entry";
 }
 
-function buildManifestV2SyncPushJournalResult(entry, result) {
+function normalizePlanId(planId) {
+  if (planId === undefined || planId === null) {
+    return undefined;
+  }
+
+  const normalized = String(planId).trim();
+  if (!normalized) {
+    throw new Error("sync push --plan-id must be a non-empty string.");
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/u.test(normalized)) {
+    throw new Error("sync push --plan-id may contain only letters, numbers, dot, underscore, colon, and hyphen, and must be 128 characters or fewer.");
+  }
+
+  return normalized;
+}
+
+function buildManifestV2SyncPushJournalResult(entry, result, { planId } = {}) {
   return {
     ...entry,
     authMode: entry.authMode || result.authMode,
+    ...(planId ? { planId } : {}),
   };
 }
 
 export function withManifestV2SyncPushJournal(result, {
   apply = false,
+  planId,
   tryRecordMutationJournalEntryImpl = tryRecordMutationJournalEntry,
 } = {}) {
   if (!apply || !result || !Array.isArray(result.entries)) {
@@ -211,7 +235,7 @@ export function withManifestV2SyncPushJournal(result, {
     const recorded = tryRecordMutationJournalEntryImpl({
       command: "sync-push",
       surface: surfaceForManifestV2SyncEntry(entry),
-      result: buildManifestV2SyncPushJournalResult(entry, result),
+      result: buildManifestV2SyncPushJournalResult(entry, result, { planId }),
     });
 
     if (recorded.ok) {
@@ -337,6 +361,7 @@ export async function runSyncPush({
   loadWorkspaceConfigImpl = loadWorkspaceConfig,
   manifestPath,
   maxMutations,
+  planId,
   projectTokenEnv,
   pushManifestV2SyncManifestImpl = pushManifestV2SyncManifest,
   pushValidationSessionSyncManifestImpl = pushValidationSessionSyncManifest,
@@ -350,9 +375,10 @@ export async function runSyncPush({
     loadSyncManifestImpl,
     loadWorkspaceConfigImpl,
   });
-  assertNoV1OnlyUnsupportedOptions(manifest, { entries, entriesFile, maxMutations, reviewOutput });
+  assertNoV1OnlyUnsupportedOptions(manifest, { entries, entriesFile, maxMutations, planId, reviewOutput });
   assertReviewOutputAllowed({ apply, commandName: "sync push", reviewOutput });
   const selectionOptions = buildSelectionOptions({ entries, entriesFile, readFileSyncImpl });
+  const normalizedPlanId = normalizePlanId(planId);
 
   if (refreshSidecars && manifest.version === SYNC_MANIFEST_V1_VERSION) {
     throw new Error("sync push --refresh-sidecars is only supported for manifest v2; manifest v1 validation-session sync does not refresh sidecars.");
@@ -377,8 +403,11 @@ export async function runSyncPush({
       selectionOptions,
     });
 
-    return withManifestV2SyncPushJournal(result, {
+    const resultWithPlanId = normalizedPlanId ? { ...result, planId: normalizedPlanId } : result;
+
+    return withManifestV2SyncPushJournal(resultWithPlanId, {
       apply,
+      planId: normalizedPlanId,
       tryRecordMutationJournalEntryImpl,
     });
   }

@@ -1003,6 +1003,7 @@ test("runSyncPush records redacted journal entries for applied manifest v2 entri
     const result = await runSyncPush({
       apply: true,
       manifestPath: "C:\\repo\\snpm.sync.json",
+      planId: "plan_0123456789abcdef",
       projectTokenEnv: "PROJECT_NOTION_TOKEN",
       loadSyncManifestImpl: () => manifest(2),
       loadWorkspaceConfigImpl: () => config(),
@@ -1085,6 +1086,7 @@ test("runSyncPush records redacted journal entries for applied manifest v2 entri
       entryCount: 2,
     });
     assert.equal(result.appliedCount, 2);
+    assert.equal(result.planId, "plan_0123456789abcdef");
     assert.equal(result.warnings, undefined);
 
     const journalEntries = readFileSync(journalPath, "utf8")
@@ -1093,6 +1095,10 @@ test("runSyncPush records redacted journal entries for applied manifest v2 entri
       .map((line) => JSON.parse(line));
 
     assert.equal(journalEntries.length, 2);
+    assert.deepEqual(journalEntries.map((entry) => entry.planId), [
+      "plan_0123456789abcdef",
+      "plan_0123456789abcdef",
+    ]);
     assert.deepEqual(
       journalEntries.map((entry) => [entry.command, entry.surface, entry.pageId]),
       [
@@ -1119,6 +1125,62 @@ test("runSyncPush records redacted journal entries for applied manifest v2 entri
       process.env.SNPM_JOURNAL_PATH = previousJournalPath;
     }
   }
+});
+
+test("runSyncPush accepts planId for manifest v2 preview without writing journal", async () => {
+  const result = await runSyncPush({
+    apply: false,
+    manifestPath: "C:\\repo\\snpm.sync.json",
+    planId: "plan_preview",
+    loadSyncManifestImpl: () => manifest(2),
+    loadWorkspaceConfigImpl: () => config(),
+    pushManifestV2SyncManifestImpl: async () => ({
+      command: "sync-push",
+      manifestPath: "C:\\repo\\snpm.sync.json",
+      projectName: "SNPM",
+      workspaceName: "infrastructure-hq",
+      authMode: "workspace-token",
+      hasDiff: true,
+      driftCount: 1,
+      appliedCount: 0,
+      failures: [],
+      entries: [
+        {
+          kind: "planning-page",
+          target: "Planning > Roadmap",
+          file: "notion/roadmap.md",
+          targetPath: "Projects > SNPM > Planning > Roadmap",
+          status: "push-preview",
+          hasDiff: true,
+          diff: "+preview",
+          applied: false,
+          pageId: "page-1",
+        },
+      ],
+    }),
+    tryRecordMutationJournalEntryImpl: () => {
+      throw new Error("preview must not write mutation journal");
+    },
+  });
+
+  assert.equal(result.planId, "plan_preview");
+  assert.equal(result.journal, undefined);
+});
+
+test("runSyncPush rejects planId for manifest v1", async () => {
+  await assert.rejects(
+    runSyncPush({
+      apply: true,
+      manifestPath: "C:\\repo\\validation-sync.json",
+      planId: "plan_v1",
+      loadSyncManifestImpl: () => manifest(1),
+      loadWorkspaceConfigImpl: () => config(),
+      pushManifestV2SyncManifestImpl: async () => {
+        throw new Error("v2 sync push should not run for manifest v1 plan-id");
+      },
+    }),
+    /manifest v1.*--plan-id/i,
+  );
 });
 
 test("runSyncPush returns journal warnings without undoing successful v2 apply result", async () => {

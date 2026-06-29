@@ -23,7 +23,7 @@ Remaining hardening closure queue:
 - R2 Notion Operation Policy And Safe Retry Design completed explicit Notion operation policy metadata while keeping automatic retries disabled and mutation recovery manual
 - N0/N1 Notion CLI Interop Baseline completed the official `ntn` boundary and optional read-only `doctor --notion-cli` local probe
 - N2 Notion CLI Read-Only API Adapter Evaluation: test `ntn api` as an internal read-only provider under SNPM policy before any transport replacement or page-markdown adoption work
-- R3 Plan Quality Gates: connect `plan-change` to advisory truth and consistency context without making audits blocking gates
+- R3 Plan Quality Gates: implemented advisory `plan-change --quality-gates` context and manifest v2 `sync push --plan-id` journal linkage without making audits blocking gates
 - R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
 - R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
 
@@ -754,12 +754,20 @@ Goal:
 - make plans self-checking before mutation
 
 Deliverables:
-- planner warnings from drift audit and consistency rules
-- journal linkage from applied batch back to the originating plan
-- stable JSON output suitable for Codex or another coding agent
+- `plan-change --quality-gates [--stale-after-days 30]` adds advisory truth and consistency context when a project and project token env are explicit
+- deterministic `planReference.id` is emitted with quality-gate output for later operator/journal correlation
+- manifest v2 `sync push --plan-id <id>` links applied journal entries back to the reviewed plan id
+- stable JSON output remains covered by the limited plan-change and mutation-journal contracts
 
 Exit criteria:
 - a planned multi-surface update carries enough context to review, apply, audit, and diagnose later
+
+Status:
+- implemented on `codex/plan-quality-gates`
+- audit findings remain advisory; they do not change top-level `ok`, mutation budgets, stale-write checks, sidecar refresh behavior, or apply semantics
+- `plan-change` remains JSON-only and read-only; it does not write files, sidecars, journals, review artifacts, or Notion content
+- `sync push --plan-id` is manifest v2 only and records operational `planId` metadata only for applied entries
+- N3 page-markdown parity remains deferred until separately approved
 
 Feature goals covered:
 - `plan-change`

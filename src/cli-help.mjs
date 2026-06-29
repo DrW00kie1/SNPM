@@ -26,9 +26,11 @@ const OPT_NOTION_CLI = "--notion-cli";
 const OPT_NOTION_CLI_API = "--notion-cli-api";
 const OPT_STALE_AFTER_DAYS = "--stale-after-days <positive integer>";
 const OPT_MANIFEST_DRAFT = "--manifest-draft";
+const OPT_QUALITY_GATES = "--quality-gates";
 const OPT_SYNC_ENTRY = "--entry <kind:target>";
 const OPT_SYNC_ENTRIES_FILE = "--entries-file <path|->";
 const OPT_MAX_MUTATIONS = "--max-mutations <n|all>";
+const OPT_PLAN_ID = "--plan-id <id>";
 const HELP_TOKENS = new Set(["--help", "-h"]);
 const SYNC_MANIFEST_VERSIONS = [1, 2];
 const SOURCE_CHECKOUT_PREFIX = "node src/cli.mjs ";
@@ -80,6 +82,7 @@ const SYNC_CAPABILITY_METADATA = {
     manifestV2Selection: "entry-or-entries-file",
     reviewOutput: "manifest-v2-preview-only",
     maxMutations: "manifest-v2-apply-default-1",
+    planId: "manifest-v2-optional-journal-linkage",
     structuredDiagnostics: "manifest-v2-result-and-review-metadata",
     diagnosticFields: ["code", "severity", "entry", "target", "safeNextCommand", "recoveryAction"],
     diagnosticScope: "manifest-v2-only",
@@ -435,13 +438,15 @@ const SINGLE_COMMAND_SPECS = [
     canonical: "plan-change",
     summary: "Return JSON routing recommendations for a proposed multi-surface plan change.",
     usageLines: [
-      'node src/cli.mjs plan-change --targets-file <path|-> [--manifest-draft] [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
+      'node src/cli.mjs plan-change --targets-file <path|-> [--manifest-draft] [--quality-gates] [--stale-after-days 30] [--project "Project Name"] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--workspace infrastructure-hq]',
     ],
     requiredFlags: [
       "--targets-file <path|->",
     ],
     optionalFlags: [
       OPT_MANIFEST_DRAFT,
+      OPT_QUALITY_GATES,
+      OPT_STALE_AFTER_DAYS,
       OPT_PROJECT,
       OPT_PROJECT_TOKEN,
       OPT_WORKSPACE,
@@ -449,23 +454,30 @@ const SINGLE_COMMAND_SPECS = [
     examples: [
       "node src/cli.mjs plan-change --targets-file plan-targets.json",
       "node src/cli.mjs plan-change --targets-file plan-targets.json --manifest-draft",
+      'node src/cli.mjs plan-change --targets-file plan-targets.json --quality-gates --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
       'npm run plan-change -- --targets-file - --project "SNPM" --project-token-env SNPM_NOTION_TOKEN',
     ],
     notes: [
       "Input must be a JSON object with goal and targets fields; the command prints JSON only.",
       "--manifest-draft opts into the manifest-draft planner mode for callers that want manifest-ready plan metadata.",
+      "--quality-gates opts into advisory truth and consistency audit context. It requires an effective project name and --project-token-env.",
+      "--stale-after-days applies only with --quality-gates and defaults to 30.",
       "This is a read-only routing surface built on recommend; it does not apply Notion mutations.",
-      "Manifest-draft mode does not write local files, sidecars, mutation journals, or Notion mutations.",
+      "Manifest-draft and quality-gates modes do not write local files, sidecars, mutation journals, or Notion mutations.",
     ],
     capabilityMetadata: {
       jsonContracts: ["snpm.plan-change.v1"],
       manifestDraftJsonContracts: ["snpm.plan-change.v1"],
+      qualityGateJsonContracts: ["snpm.plan-change.v1"],
       notionMutation: "none",
       localFileWrites: "none",
       journalWrites: "none",
       sidecarWrites: "none",
-      plannerModes: ["routing", "manifest-draft"],
+      plannerModes: ["routing", "manifest-draft", "quality-gates"],
       manifestDraft: "optional-read-only-planner-mode",
+      qualityGates: "optional-advisory-truth-and-consistency-context",
+      qualityGateStatusValues: ["pass", "advisory-findings"],
+      qualityGateNonGoals: ["blocking-audit-gates", "notion-mutation", "local-file-output", "sidecar-writes", "mutation-journal"],
       manifestDraftEntryKinds: [
         "planning-page",
         "project-doc",
@@ -1818,7 +1830,7 @@ const COMPOUND_COMMAND_SPECS = [
         name: "push",
         summary: "Push manifest-backed files from the repo to Notion.",
         usageLines: [
-          'node src/cli.mjs sync push --manifest <path> [--entry <kind:target> ...] [--entries-file <path|->] [--review-output <dir>] [--max-mutations <n|all>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--refresh-sidecars] [--workspace infrastructure-hq]',
+          'node src/cli.mjs sync push --manifest <path> [--entry <kind:target> ...] [--entries-file <path|->] [--review-output <dir>] [--max-mutations <n|all>] [--plan-id <id>] [--project-token-env PROJECT_NAME_NOTION_TOKEN] [--apply] [--refresh-sidecars] [--workspace infrastructure-hq]',
         ],
         requiredFlags: [
           "--manifest <path>",
@@ -1828,6 +1840,7 @@ const COMPOUND_COMMAND_SPECS = [
           OPT_SYNC_ENTRIES_FILE,
           OPT_REVIEW_OUTPUT,
           OPT_MAX_MUTATIONS,
+          OPT_PLAN_ID,
           OPT_PROJECT_TOKEN,
           OPT_APPLY,
           OPT_REFRESH_SIDECARS,
@@ -1835,6 +1848,7 @@ const COMPOUND_COMMAND_SPECS = [
         ],
         examples: [
           'node src/cli.mjs sync push --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN',
+          'node src/cli.mjs sync push --manifest C:\\repo\\snpm.sync.json --plan-id plan_0123456789abcdef --project-token-env PROJECT_NAME_NOTION_TOKEN',
           'npm run sync-push -- --manifest C:\\repo\\snpm.sync.json --project-token-env PROJECT_NAME_NOTION_TOKEN --apply --refresh-sidecars',
         ],
         notes: [
@@ -1844,6 +1858,7 @@ const COMPOUND_COMMAND_SPECS = [
           "--entry and JSON --entries-file select manifest v2 entries only; manifest v1 remains full-manifest validation-session sync.",
           "--review-output writes per-entry review artifacts for manifest v2 sync push preview only; apply mode exits with a clear error when review output is requested.",
           "--max-mutations caps manifest v2 apply mutations; sync push --apply defaults to 1 unless a value or all is provided, while preview is not budget-blocked.",
+          "--plan-id links applied manifest v2 journal entries back to a reviewed plan-change result; it is manifest v2 only and does not change mutation behavior.",
           "--refresh-sidecars is manifest v2 only, requires --apply, and opts into local .snpm-meta.json sidecar refresh writes after successful push mutations.",
           "Without --refresh-sidecars, applied manifest v2 sync push appends redacted local mutation journal entries and leaves local sidecar metadata unchanged; run sync pull --apply after a successful push when you do not opt in.",
           "Manifest v2 diagnostics are structured result/review metadata with stable codes, severity, entry/target context, a safe next command, and a recovery action for operator recovery.",

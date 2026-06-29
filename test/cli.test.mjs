@@ -177,6 +177,7 @@ function assertSyncCapabilityMetadata(command, expected) {
   assert.equal(command.manifestV2Selection, "entry-or-entries-file");
   assert.equal(command.reviewOutput, expected.reviewOutput);
   assert.equal(command.maxMutations, expected.maxMutations);
+  assert.equal(command.planId, expected.planId);
   assert.equal(command.structuredDiagnostics, expected.structuredDiagnostics);
   assert.equal(command.diagnosticScope, "manifest-v2-only");
   assert.equal(command.diagnosticPurpose, "operator-recovery-metadata");
@@ -914,7 +915,9 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
   assert.match(pushResult.stdout, /--entries-file <path\|->/);
   assert.match(pushResult.stdout, /--review-output <dir>/);
   assert.match(pushResult.stdout, /--max-mutations <n\|all>/);
+  assert.match(pushResult.stdout, /--plan-id <id>/);
   assert.match(pushResult.stdout, /defaults to 1/i);
+  assert.match(pushResult.stdout, /links applied manifest v2 journal entries back to a reviewed plan-change result/i);
   assert.match(pushResult.stdout, /structured result\/review metadata/i);
   assert.match(pushResult.stdout, /do not add rollback, automatic retries, semantic consistency checks, transaction semantics, or generic batch apply/i);
 
@@ -964,6 +967,7 @@ test("sync check, pull, and push help document manifest v2 boundaries", () => {
     sidecarRefresh: "opt-in-apply-gated",
     reviewOutput: "manifest-v2-preview-only",
     maxMutations: "manifest-v2-apply-default-1",
+    planId: "manifest-v2-optional-journal-linkage",
     structuredDiagnostics: "manifest-v2-result-and-review-metadata",
   });
   assert.deepEqual(processSyncCheckCapability, syncCheckCapability);
@@ -1038,7 +1042,11 @@ test("plan-change and journal list command help and npm scripts are registered",
   assert.match(planChange?.notes.join("\n") || "", /prints JSON only/);
   assert.match(planChange?.notes.join("\n") || "", /read-only routing surface/i);
   assert.equal(planChange?.manifestDraft, "optional-read-only-planner-mode");
-  assert.deepEqual(planChange?.plannerModes, ["routing", "manifest-draft"]);
+  assert.ok(planChange?.optionalFlags.includes("--quality-gates"));
+  assert.ok(planChange?.optionalFlags.includes("--stale-after-days <positive integer>"));
+  assert.match(planChange?.notes.join("\n") || "", /advisory truth and consistency audit context/i);
+  assert.equal(planChange?.qualityGates, "optional-advisory-truth-and-consistency-context");
+  assert.deepEqual(planChange?.plannerModes, ["routing", "manifest-draft", "quality-gates"]);
 
   assert.equal(journalList?.canonical, "journal list");
   assert.deepEqual(journalList?.aliases, ["journal-list"]);
@@ -1601,6 +1609,8 @@ test("parseArgs supports sync subcommands", () => {
     "review",
     "--max-mutations",
     "all",
+    "--plan-id",
+    "plan_0123456789abcdef",
     "--project-token-env",
     "TALLMAN_NOTION_TOKEN",
     "--apply",
@@ -1616,6 +1626,7 @@ test("parseArgs supports sync subcommands", () => {
   assert.equal(parsed.options["entries-file"], "-");
   assert.equal(parsed.options["review-output"], "review");
   assert.equal(parsed.options["max-mutations"], "all");
+  assert.equal(parsed.options["plan-id"], "plan_0123456789abcdef");
   assert.equal(parsed.options["project-token-env"], "TALLMAN_NOTION_TOKEN");
   assert.equal(parsed.options.apply, true);
   assert.equal(parsed.options["refresh-sidecars"], true);
@@ -1650,6 +1661,9 @@ test("parseArgs supports plan-change and journal list discovery commands", () =>
     "--project",
     "SNPM",
     "--manifest-draft",
+    "--quality-gates",
+    "--stale-after-days",
+    "14",
   ]);
   const journalListParsed = parseArgs([
     "journal",
@@ -1674,6 +1688,8 @@ test("parseArgs supports plan-change and journal list discovery commands", () =>
   assert.equal(planChangeParsed.options["targets-file"], "-");
   assert.equal(planChangeParsed.options.project, "SNPM");
   assert.equal(planChangeParsed.options["manifest-draft"], true);
+  assert.equal(planChangeParsed.options["quality-gates"], true);
+  assert.equal(planChangeParsed.options["stale-after-days"], "14");
   assert.equal(journalListParsed.command, "journal list");
   assert.equal(journalListParsed.options.limit, "5");
   assert.equal(scaffoldParsed.command, "scaffold-docs");
@@ -1802,6 +1818,33 @@ test("cli plan-change --manifest-draft reads stdin targets-file before live rout
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /plan-change targets file is not valid JSON/);
   assert.doesNotMatch(result.stderr, /Missing value for --manifest-draft/);
+});
+
+test("cli plan-change quality-gates preflight is explicit", () => {
+  const staleWithoutGates = runCli([
+    "plan-change",
+    "--targets-file",
+    "-",
+    "--stale-after-days",
+    "7",
+  ], {
+    input: JSON.stringify({ goal: "Plan", projectName: "SNPM", targets: [{ type: "planning", pagePath: "Planning > Roadmap" }] }),
+  });
+  assert.equal(staleWithoutGates.status, 1);
+  assert.match(staleWithoutGates.stderr, /--stale-after-days is only supported with --quality-gates/);
+
+  const missingToken = runCli([
+    "plan-change",
+    "--targets-file",
+    "-",
+    "--quality-gates",
+    "--project",
+    "SNPM",
+  ], {
+    input: JSON.stringify({ goal: "Plan", targets: [{ type: "planning", pagePath: "Planning > Roadmap" }] }),
+  });
+  assert.equal(missingToken.status, 1);
+  assert.match(missingToken.stderr, /--project-token-env/);
 });
 
 test("cli plan-change --manifest-draft prints contract-validated JSON only", async () => {
@@ -2297,8 +2340,10 @@ test("cli capabilities prints JSON only", async () => {
   assert.deepEqual(parsed.commands.find((command) => command.canonical === "discover")?.jsonContracts, ["snpm.discover.v1"]);
   assert.deepEqual(planChangeCapability?.jsonContracts, ["snpm.plan-change.v1"]);
   assert.deepEqual(planChangeCapability?.manifestDraftJsonContracts, ["snpm.plan-change.v1"]);
+  assert.deepEqual(planChangeCapability?.qualityGateJsonContracts, ["snpm.plan-change.v1"]);
   assert.equal(planChangeCapability?.manifestDraft, "optional-read-only-planner-mode");
-  assert.deepEqual(planChangeCapability?.plannerModes, ["routing", "manifest-draft"]);
+  assert.equal(planChangeCapability?.qualityGates, "optional-advisory-truth-and-consistency-context");
+  assert.deepEqual(planChangeCapability?.plannerModes, ["routing", "manifest-draft", "quality-gates"]);
   assert.deepEqual(planChangeCapability?.manifestDraftEntryKinds, [
     "planning-page",
     "project-doc",

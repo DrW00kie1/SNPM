@@ -551,6 +551,171 @@ test("planChange omits manifest draft fields unless explicitly requested", async
   assert.equal(result.manifestNextCommands, undefined);
 });
 
+test("planChange quality gates are advisory and target scoped", async () => {
+  const auditCalls = [];
+  const result = await planChange({
+    goal: "Refresh planning docs",
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    targets: [
+      {
+        type: "planning",
+        pagePath: "Planning > Roadmap",
+      },
+      {
+        type: "runbook",
+        title: "Release Readiness",
+      },
+    ],
+  }, {
+    qualityGates: true,
+    staleAfterDays: 45,
+    async qualityGateImpl(args) {
+      auditCalls.push(args);
+      return {
+        truthAudit: {
+          checkedCount: 3,
+          staleCount: 1,
+          placeholderCount: 0,
+          missingHeaderCount: 0,
+          findings: [
+            {
+              code: "truth-audit.stale-page",
+              severity: "warning",
+              surface: "planning",
+              targetPath: "Projects > SNPM > Planning > Roadmap",
+              message: "Roadmap is stale.",
+              safeNextCommand: "npm run page-pull -- --project \"SNPM\" --page \"Planning > Roadmap\"",
+              recoveryAction: "Review Roadmap.",
+              bodyMarkdown: "# must not leak",
+              token: "ntn_secret_value",
+            },
+          ],
+          safeNextCommands: ["npm run page-pull -- --project \"SNPM\" --page \"Planning > Roadmap\""],
+        },
+        consistencyAudit: {
+          checkedCount: 3,
+          findingCount: 1,
+          severityCounts: { error: 0, warning: 1, info: 0 },
+          findings: [
+            {
+              code: "consistency-audit.missing-runbook-reference",
+              severity: "warning",
+              surface: "runbooks",
+              targetPath: "Projects > SNPM > Runbooks > Release Readiness",
+              message: "Runbook reference needs review.",
+              safeNextCommand: "npm run runbook-pull -- --project \"SNPM\" --title \"Release Readiness\"",
+              recoveryAction: "Review Release Readiness.",
+              stdout: "child secret",
+            },
+          ],
+          safeNextCommands: ["npm run runbook-pull -- --project \"SNPM\" --title \"Release Readiness\""],
+        },
+      };
+    },
+    async recommendImpl(args) {
+      return {
+        ok: true,
+        recommendedHome: "notion",
+        surface: args.intent === "planning" ? "planning" : "runbooks",
+        targetPath: args.pagePath || `Projects > SNPM > Runbooks > ${args.title}`,
+        warnings: [],
+        nextCommands: [],
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(auditCalls, [{
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    staleAfterDays: 45,
+    workspaceName: "infrastructure-hq",
+  }]);
+  assert.match(result.planReference.id, /^plan_[a-f0-9]{16}$/);
+  assert.equal(result.qualityGates.advisory, true);
+  assert.equal(result.qualityGates.checked, true);
+  assert.equal(result.qualityGates.status, "advisory-findings");
+  assert.equal(result.qualityGates.findingsCount, 2);
+  assert.equal(result.qualityGates.truthAudit.staleCount, 1);
+  assert.equal(result.qualityGates.consistencyAudit.findingCount, 1);
+  assert.equal(result.qualityGates.targetFindings[0].findings.length, 1);
+  assert.equal(result.qualityGates.targetFindings[1].findings.length, 1);
+  assert.deepEqual(result.qualityGates.recoveryActions, ["Review Roadmap.", "Review Release Readiness."]);
+  const serialized = JSON.stringify(result);
+  assert.equal(serialized.includes("bodyMarkdown"), false);
+  assert.equal(serialized.includes("ntn_secret_value"), false);
+  assert.equal(serialized.includes("child secret"), false);
+});
+
+test("planChange quality gates require project and project token env", async () => {
+  await assert.rejects(
+    () => planChange({
+      goal: "Missing project",
+      targets: [{ type: "workspace-doc", docPath: "Runbooks > Notion Workspace Workflow" }],
+    }, {
+      qualityGates: true,
+      qualityGateImpl: async () => {
+        throw new Error("quality gate should not run");
+      },
+      recommendImpl: async () => ({
+        ok: true,
+        warnings: [],
+        nextCommands: [],
+      }),
+    }),
+    /--project/,
+  );
+
+  await assert.rejects(
+    () => planChange({
+      goal: "Missing token",
+      projectName: "SNPM",
+      targets: [{ type: "planning", pagePath: "Planning > Roadmap" }],
+    }, {
+      qualityGates: true,
+      qualityGateImpl: async () => {
+        throw new Error("quality gate should not run");
+      },
+      recommendImpl: async () => ({
+        ok: true,
+        warnings: [],
+        nextCommands: [],
+      }),
+    }),
+    /--project-token-env/,
+  );
+});
+
+test("planChange quality gate planReference is deterministic", async () => {
+  const input = {
+    goal: "Deterministic reference",
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    targets: [{ type: "planning", pagePath: "Planning > Roadmap" }],
+  };
+  const options = {
+    qualityGates: true,
+    qualityGateImpl: async () => ({
+      truthAudit: { checkedCount: 1, staleCount: 0, placeholderCount: 0, missingHeaderCount: 0, findings: [] },
+      consistencyAudit: { checkedCount: 1, findingCount: 0, severityCounts: { error: 0, warning: 0, info: 0 }, findings: [] },
+    }),
+    recommendImpl: async (args) => ({
+      ok: true,
+      surface: "planning",
+      targetPath: args.pagePath,
+      warnings: [],
+      nextCommands: [],
+    }),
+  };
+
+  const first = await planChange(input, options);
+  const second = await planChange(input, options);
+
+  assert.equal(first.planReference.id, second.planReference.id);
+  assert.equal(first.qualityGates.status, "pass");
+});
+
 test("planChange manifest draft is read-only and does not call write or mutation hooks", async () => {
   const forbiddenHook = () => {
     throw new Error("manifest-draft must not write files, sidecars, journals, or mutate Notion");

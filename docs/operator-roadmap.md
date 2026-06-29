@@ -24,7 +24,7 @@ Supported on the current active line:
 - `recommend --intent project-doc|template-doc|workspace-doc`
 - repo-first implementation routing via `recommend --intent implementation-note|design-spec|task-breakdown|investigation`
 - JSON-only `capabilities` for registry-derived LLM-readable command discovery
-- read-only `plan-change` for deterministic target-file planning before mutation
+- read-only `plan-change` for deterministic target-file planning before mutation, with opt-in advisory `--quality-gates`
 - opt-in structured CLI failure reporting through `--error-format json|text` or `SNPM_ERROR_FORMAT`
 - limited JSON contract schemas for selected agent-facing payloads
 - Node 22+ CI/release gate contract with local `package-contract`, `release-audit`, and `release-check` gates
@@ -35,6 +35,7 @@ Supported on the current active line:
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
+- optional manifest v2 `sync push --plan-id <id>` journal linkage back to a reviewed `plan-change` result
 - consume-only `secret-record-exec` and `access-token-exec` for runtime secret use, with redacted-only pulls and no supported raw local export
 - write-only `secret-record-generate` and `access-token-generate` for agent-generated secret/token creation or rotation
 - EOF-stable managed-page round-trips
@@ -92,6 +93,13 @@ Plan-change manifest draft behavior:
 - unsupported draft targets are Access records, build records, create/adopt targets, arbitrary page IDs, generic CRUD targets, and any surface outside approved manifest v2 entries
 - safe follow-up starts with operator review, then `sync check` or `sync pull`; `sync push` remains a separate preview/apply workflow against a reviewed manifest file
 - the planner does not write files, sidecars, review artifacts, journals, or Notion content, and it does not add audit gates or batch apply behavior
+
+Plan quality gate behavior:
+- `plan-change --quality-gates` adds advisory truth-audit and consistency-audit context to planning output
+- quality gates require an effective project name and explicit `--project-token-env`
+- advisory findings do not block, mutate, refresh sidecars, write review artifacts, append journals, or change top-level `ok` by themselves
+- quality-gate output includes a deterministic `planReference.id` for operator correlation
+- manifest v2 `sync push --plan-id <id>` can link applied redacted journal entries to that reviewed plan id without changing mutation behavior
 
 Command metadata and package-readiness behavior:
 - CLI help and `capabilities` share one command metadata registry rather than separate hand-maintained surfaces
@@ -160,8 +168,9 @@ Active hardening sequence:
 - R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifests, selector files, and scaffold outputs without changing supported command behavior.
 - R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
 - N0/N1 Notion CLI Interop Baseline completed the local `ntn --version` probe and SNPM-vs-`ntn` boundary.
-- N2 Notion CLI Read-Only API Adapter Evaluation is the current interop wedge: evaluate `ntn api` behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
-- Remaining hardening closure continues with plan quality gates, staged architecture migration, and the TypeScript/final-closeout decision.
+- N2 Notion CLI Read-Only API Adapter Evaluation is complete: `ntn api` is evaluated behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
+- R3 Plan Quality Gates is the current hardening wedge: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
+- Remaining hardening closure continues with staged architecture migration and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 

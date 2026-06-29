@@ -106,6 +106,7 @@ export function buildMutationJournalEntry({
     pageId: pickStringField(result, "pageId") || pickStringField(revisionMetadata, "pageId"),
     authMode: pickStringField(result, "authMode") || pickStringField(revisionMetadata, "authMode"),
     timestamp: pickStringField(result, "timestamp") || timestamp,
+    ...(pickStringField(result, "planId") ? { planId: pickStringField(result, "planId") } : {}),
     revision: revisionMetadata,
     diff: summarizeDiff(result?.diff),
   };

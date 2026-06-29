@@ -146,6 +146,44 @@ const validPayloads = {
         file: "notion/planning/roadmap.md",
       }],
     },
+    planReference: {
+      id: "plan_0123456789abcdef",
+    },
+    qualityGates: {
+      advisory: true,
+      checked: true,
+      status: "advisory-findings",
+      findingsCount: 1,
+      truthAudit: {
+        checkedCount: 1,
+        findingCount: 1,
+        staleCount: 1,
+        placeholderCount: 0,
+        missingHeaderCount: 0,
+      },
+      consistencyAudit: {
+        checkedCount: 1,
+        findingCount: 0,
+        severityCounts: { error: 0, warning: 0, info: 0 },
+      },
+      targetFindings: [{
+        index: 0,
+        type: "planning",
+        surface: "planning",
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        findings: [{
+          code: "truth-audit.stale-page",
+          severity: "warning",
+          surface: "planning",
+          targetPath: "Projects > SNPM > Planning > Roadmap",
+          message: "Roadmap is stale.",
+          safeNextCommand: "npm run page-pull -- --project \"SNPM\" --page \"Planning > Roadmap\"",
+          recoveryAction: "Review Roadmap.",
+        }],
+      }],
+      safeNextCommands: ["npm run page-pull -- --project \"SNPM\" --page \"Planning > Roadmap\""],
+      recoveryActions: ["Review Roadmap."],
+    },
   },
   "snpm.manifest-v2.diagnostic.v1": {
     code: "manifest-v2-check-remote-failed",
@@ -209,6 +247,7 @@ const validPayloads = {
     pageId: "page-1",
     authMode: "project-token",
     timestamp: "04-23-2026 12:00:00",
+    planId: "plan_0123456789abcdef",
     revision: pullMetadata,
     diff: {
       hash: "a".repeat(64),

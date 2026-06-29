@@ -114,9 +114,11 @@ const MUTATION_JOURNAL_KEYS = new Set([
   "pageId",
   "authMode",
   "timestamp",
+  "planId",
   "revision",
   "diff",
 ]);
+const PLAN_QUALITY_GATE_STATUSES = new Set(["pass", "advisory-findings"]);
 const FORBIDDEN_LEAK_KEYS = new Set([
   "bodyMarkdown",
   "currentBodyMarkdown",
@@ -399,6 +401,57 @@ function validatePlanChange(payload, errors) {
   if (payload.manifestDraft !== undefined) {
     validateManifestDraft(payload.manifestDraft, "manifestDraft", errors);
   }
+  if (payload.planReference !== undefined) {
+    validatePlanReference(payload.planReference, "planReference", errors);
+  }
+  if (payload.qualityGates !== undefined) {
+    validatePlanQualityGates(payload.qualityGates, "qualityGates", errors);
+  }
+}
+
+function validatePlanReference(reference, path, errors) {
+  if (!requireObject(reference, path, errors)) {
+    return;
+  }
+  requireString(reference, "id", errors, { path: pathFor(path, "id") });
+}
+
+function validatePlanQualityGates(gates, path, errors) {
+  if (!requireObject(gates, path, errors)) {
+    return;
+  }
+
+  requireBoolean(gates, "advisory", errors, { path: pathFor(path, "advisory") });
+  requireBoolean(gates, "checked", errors, { path: pathFor(path, "checked") });
+  requireEnum(gates, "status", PLAN_QUALITY_GATE_STATUSES, errors, { path: pathFor(path, "status") });
+  optionalNumber(gates, "findingsCount", errors, { min: 0, path: pathFor(path, "findingsCount") });
+  if (gates.truthAudit !== undefined) {
+    requireObject(gates.truthAudit, pathFor(path, "truthAudit"), errors);
+  }
+  if (gates.consistencyAudit !== undefined) {
+    requireObject(gates.consistencyAudit, pathFor(path, "consistencyAudit"), errors);
+  }
+  validateObjectArray(gates.targetFindings || [], pathFor(path, "targetFindings"), errors, validatePlanQualityTargetFinding);
+  validateStringArray(gates.safeNextCommands || [], pathFor(path, "safeNextCommands"), errors);
+  validateStringArray(gates.recoveryActions || [], pathFor(path, "recoveryActions"), errors);
+}
+
+function validatePlanQualityTargetFinding(target, path, errors) {
+  requireNumber(target, "index", errors, { min: 0, path: pathFor(path, "index") });
+  requireEnum(target, "type", PLAN_TARGET_TYPES, errors, { path: pathFor(path, "type") });
+  optionalString(target, "surface", errors, { path: pathFor(path, "surface") });
+  optionalString(target, "targetPath", errors, { path: pathFor(path, "targetPath") });
+  validateObjectArray(target.findings || [], pathFor(path, "findings"), errors, validatePlanQualityFinding);
+}
+
+function validatePlanQualityFinding(finding, path, errors) {
+  requireString(finding, "code", errors, { path: pathFor(path, "code") });
+  requireEnum(finding, "severity", DIAGNOSTIC_SEVERITIES, errors, { path: pathFor(path, "severity") });
+  requireString(finding, "message", errors, { path: pathFor(path, "message") });
+  optionalString(finding, "surface", errors, { path: pathFor(path, "surface") });
+  optionalString(finding, "targetPath", errors, { path: pathFor(path, "targetPath") });
+  optionalString(finding, "safeNextCommand", errors, { path: pathFor(path, "safeNextCommand") });
+  optionalString(finding, "recoveryAction", errors, { path: pathFor(path, "recoveryAction") });
 }
 
 function validatePlanTarget(target, path, errors) {
@@ -536,6 +589,7 @@ function validateMutationJournal(payload, errors) {
   requireString(payload, "pageId", errors);
   optionalEnum(payload, "authMode", AUTH_MODES, errors);
   requireString(payload, "timestamp", errors);
+  optionalString(payload, "planId", errors);
   if (payload.revision !== null) {
     validatePullMetadata(payload.revision, errorsForNested(errors, "revision"));
   }

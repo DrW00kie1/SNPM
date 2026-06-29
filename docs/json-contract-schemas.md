@@ -40,11 +40,11 @@ Structured CLI errors may include safe Notion operation policy fields for API, t
 
 Discover v1 and capabilities v1 are discovery contracts for agents. `discover` stays the compact first-contact payload; `capabilities` stays the full registry-derived command map with schema version 1.
 
-Plan-change v1 remains read-only planning output. Manifest draft behavior is preview-only and does not write manifests, local files, sidecars, review artifacts, journals, or Notion content.
+Plan-change v1 remains read-only planning output. Manifest draft behavior is preview-only and does not write manifests, local files, sidecars, review artifacts, journals, or Notion content. Quality-gate behavior is also read-only: `plan-change --quality-gates` may add `planReference` and advisory `qualityGates` metadata, but findings do not become hidden mutation blockers.
 
 Manifest v2 diagnostics and review metadata remain recovery context. They do not add rollback, auto-merge, automatic retries, transaction semantics, semantic consistency gates, or generic batch apply.
 
-Pull metadata v1 and mutation journal entry v1 remain safety metadata. They support stale-write checks and redacted audit trails; they are not page-body schemas and must not contain raw secrets.
+Pull metadata v1 and mutation journal entry v1 remain safety metadata. They support stale-write checks and redacted audit trails; they are not page-body schemas and must not contain raw secrets. Mutation journal v1 may include an optional `planId` string when an applied manifest v2 push is explicitly linked to a reviewed plan.
 
 ## Verification
 

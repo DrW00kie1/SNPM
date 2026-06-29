@@ -53,6 +53,7 @@ test("buildMutationJournalEntry records operational metadata only", () => {
       authMode: "project-token",
       diff: "diff --git a b\n@@\n-secret\n+redacted\n",
       pageId: "page-1",
+      planId: "plan_0123456789abcdef",
       projectId: "project-1",
       targetPath: "Projects > SNPM > Planning > Roadmap",
       metadata: {
@@ -80,6 +81,7 @@ test("buildMutationJournalEntry records operational metadata only", () => {
     "command",
     "diff",
     "pageId",
+    "planId",
     "revision",
     "schema",
     "surface",
@@ -87,6 +89,7 @@ test("buildMutationJournalEntry records operational metadata only", () => {
     "timestamp",
   ].sort());
   assert.deepEqual(entry.revision, validatePullPageMetadata(pullMetadata));
+  assert.equal(entry.planId, "plan_0123456789abcdef");
   assert.equal(entry.diff.additions, 1);
   assert.equal(entry.diff.deletions, 1);
   assert.deepEqual(Object.keys(entry.diff).sort(), ["additions", "deletions", "hash"]);

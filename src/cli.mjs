@@ -99,7 +99,7 @@ import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "notion-cli-api", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "notion-cli-api", "quality-gates", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
@@ -781,6 +781,10 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
   }
 
   if (command === "plan-change") {
+    const qualityGates = options["quality-gates"] === true;
+    if (!qualityGates && options["stale-after-days"] !== undefined) {
+      throw new Error("plan-change --stale-after-days is only supported with --quality-gates.");
+    }
     const rawInput = await readCommandInput(requireOption(options, "targets-file", "Provide --targets-file <path|->."));
     let parsedInput;
     try {
@@ -797,6 +801,16 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
     }, {
       recommendImpl: runRecommend,
       manifestDraft: options["manifest-draft"] === true,
+      qualityGates,
+      staleAfterDays: qualityGates ? parsePositiveInteger(options["stale-after-days"], 30) : undefined,
+      qualityGateImpl: ({ projectName, projectTokenEnv, staleAfterDays, workspaceName }) => runDoctor({
+        projectName,
+        projectTokenEnv,
+        staleAfterDays,
+        workspaceName,
+        truthAudit: true,
+        consistencyAudit: true,
+      }),
     });
     console.log(JSON.stringify(result, null, 2));
     if (!result.ok) {
@@ -1828,6 +1842,7 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
       entriesFile: options["entries-file"],
       manifestPath: requireOption(options, "manifest", "Provide --manifest <path>."),
       maxMutations: parseMaxMutationsOption(options["max-mutations"]),
+      planId: options["plan-id"],
       projectTokenEnv: options["project-token-env"],
       refreshSidecars: options["refresh-sidecars"] === true,
       reviewOutput: options["review-output"],

@@ -97,6 +97,8 @@ npm run verify-project -- --name "Project Name" --project-token-env PROJECT_NAME
 
 Pull commands write strict sidecar metadata such as `roadmap.md.snpm-meta.json`. Apply commands refuse to write when that metadata is missing, mismatched, stale, archived, or in trash. Applied mutations append redacted operational entries to the local mutation journal.
 
+For reviewed multi-surface plans, `plan-change --quality-gates` adds advisory truth/consistency context and a deterministic `planReference.id`. Pass that id to manifest v2 `sync push --plan-id <id>` when applying reviewed changes so journal entries can be traced back to the plan without changing mutation budgets or stale-write checks.
+
 ## What SNPM Manages
 
 | Surface | Command family | Purpose |
@@ -125,14 +127,15 @@ Manifest v2 is for coordinated, approved documentation work across multiple surf
 - preview review artifacts with `--review-output`
 - conservative mutation budgets with `--max-mutations`
 - opt-in post-push sidecar refresh with `--refresh-sidecars`
+- optional plan-to-journal linkage with `--plan-id`
 
 Draft a manifest from a plan without writing files:
 
 ```powershell
-npm run plan-change -- --targets-file plan-targets.json --manifest-draft --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
+npm run plan-change -- --targets-file plan-targets.json --manifest-draft --quality-gates --project "Project Name" --project-token-env PROJECT_NAME_NOTION_TOKEN
 ```
 
-Then review, save the manifest yourself, and run the explicit sync command you want.
+Then review, save the manifest yourself, and run the explicit sync command you want. If applying the manifest, pass the returned `planReference.id` with `sync push --plan-id <id>` for journal linkage.
 
 ## Secret Boundary
 

@@ -488,6 +488,20 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan` only when strategic sequence wording needs correction
 - do not update operator runbooks unless public operator steps change
 
+## R3 Plan Quality Gates Closeout
+
+Durable Notion summary:
+- Decision Log: Record that `plan-change --quality-gates` is an opt-in advisory planner context, not a hidden mutation blocker. Record that `sync push --plan-id <id>` links applied manifest v2 journal entries back to a reviewed plan id without changing mutation budgets, stale-write checks, sidecar behavior, or apply semantics.
+- Roadmap: Mark R3 complete after merge and move the active hardening wedge to R4/R5 deferred architecture migration or R6 TypeScript/final closeout, depending on the next approved direction.
+- Current Cycle: Record verification results, the advisory-only gate boundary, and any known truth-audit stale warnings.
+- Product Hardening Plan: Update the hardening sequence so R3 is implemented and N3 page-markdown parity remains deferred unless separately approved.
+- Runbooks > Notion Workspace Workflow: Update only if operator command sequencing needs to mention the optional `plan-change --quality-gates` -> reviewed manifest -> `sync push --plan-id` loop.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- use `doc-*` for `Runbooks > Notion Workspace Workflow` only if the public operator sequence is changed
+
 ## Verification
 
 Project-scoped verification:
