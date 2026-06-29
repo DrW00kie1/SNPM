@@ -518,6 +518,20 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
+## R4B Command Shell Split Closeout
+
+Durable Notion summary:
+- Decision Log: Record that R4B completed the first physical architecture migration slice by splitting CLI-shell internals into `src/cli/*.mjs` while keeping `src/cli.mjs` as the package bin and compatibility export surface.
+- Roadmap: Mark R4B complete after merge and move the active architecture wedge to domain-service grouping or infrastructure utilities extraction.
+- Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, or Notion mutation semantics changed.
+- Product Hardening Plan: Record that the command-shell split is implemented and that remaining R4/R5 migration slices are domain-service grouping, infrastructure utilities extraction, tests-by-layer alignment, and the R6 TypeScript/final-closeout decision.
+- Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4B is an internal architecture split.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
+
 ## Verification
 
 Project-scoped verification:

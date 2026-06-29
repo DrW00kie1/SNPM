@@ -3,7 +3,6 @@ import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
-  validateChildCommandArgs,
   validateCwd,
   validateProjectTokenEnvName,
   validateWorkspaceName,
@@ -61,9 +60,8 @@ import { runScaffoldDocs } from "./commands/scaffold-docs.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
-import { buildOperationalExplanation, buildOperationalPayload, inferDocSurface, writeReviewArtifacts } from "./commands/operational-output.mjs";
-import { RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE, redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
-import { SECRET_EXEC_LEAK_WARNING } from "./commands/secret-exec.mjs";
+import { inferDocSurface } from "./commands/operational-output.mjs";
+import { redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
 import {
   runRunbookAdopt,
   runRunbookCreate,
@@ -87,64 +85,37 @@ import {
   readMutationJournalEntries,
   tryRecordMutationJournalEntry,
 } from "./commands/mutation-journal.mjs";
-import { writeManifestV2PreviewReviewArtifacts } from "./commands/sync-review-output.mjs";
-import { buildManifestV2ReviewOutputFailureDiagnostic } from "./notion/manifest-sync-diagnostics.mjs";
-import {
-  NotionApiError,
-  NotionParseError,
-  NotionTransportError,
-  serializeSafeNotionError,
-} from "./notion/errors.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";
+import {
+  DEFAULT_ERROR_FORMAT,
+  failIfDeprecatedRawSecretFlags,
+  parseArgs,
+  parseMaxMutationsOption,
+  parsePositiveInteger,
+  parseStaleAfterDaysOption,
+  prepareCliInvocation,
+  rejectUnsupportedSecretGenerateOptions,
+  requireOption,
+  requirePassthroughArgs,
+} from "./cli/arguments.mjs";
+import { writeTopLevelError } from "./cli/errors.mjs";
+import {
+  buildOperationalResponse,
+  buildSecretGeneratePayload,
+  buildSimpleMutationPayload,
+  buildSyncPayload,
+  printDiff,
+  printSyncEntryResults,
+  writeExecResult,
+  writeStructuredOutput,
+} from "./cli/output.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "notion-cli-api", "quality-gates", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
-const REPEATABLE_FLAGS = new Set(["entry"]);
-const SECRET_EXEC_COMMANDS = new Set([
-  "access-token exec",
-  "access-token-exec",
-  "secret-record exec",
-  "secret-record-exec",
-]);
-const SECRET_GENERATE_COMMANDS = new Set([
-  "access-token generate",
-  "access-token-generate",
-  "secret-record generate",
-  "secret-record-generate",
-]);
-const SECRET_CHILD_COMMANDS = new Set([
-  ...SECRET_EXEC_COMMANDS,
-  ...SECRET_GENERATE_COMMANDS,
-]);
-const DEPRECATED_RAW_SECRET_FLAGS = [
-  "raw-secret-output",
-  "allow-repo-secret-output",
-];
-const SECRET_ACCESS_FAMILIES = new Set(["access-token", "secret-record"]);
-const SECRET_ACCESS_SUBCOMMANDS = new Set([
-  "adopt",
-  "create",
-  "diff",
-  "edit",
-  "exec",
-  "generate",
-  "pull",
-  "push",
-]);
-const SECRET_GENERATE_ALLOWED_OPTIONS = new Set([
-  "apply",
-  "cwd",
-  "domain",
-  "mode",
-  "passthroughArgs",
-  "project",
-  "project-token-env",
-  "title",
-  "workspace",
-]);
-const ERROR_FORMATS = new Set(["json", "text"]);
-const DEFAULT_ERROR_FORMAT = "text";
+export {
+  parseArgs,
+  prepareCliInvocation,
+} from "./cli/arguments.mjs";
 export {
   commandUsage,
   findCommandHelp,
@@ -155,199 +126,6 @@ export {
 
 function printUsage(command = null) {
   console.log(command ? commandUsage(command) : usage());
-}
-
-function writeStructuredOutput(payload, { stderr = false } = {}) {
-  const stream = stderr ? process.stderr : process.stdout;
-  stream.write(`${JSON.stringify(payload, null, 2)}\n`);
-}
-
-function isSensitiveErrorText(message) {
-  return /(?:bearer\s+[a-z0-9._-]+|ntn_[a-z0-9_]+|postgres(?:ql)?:\/\/\S+|(?:secret|token|password|api[_-]?key)\s*=\s*\S+|stdout:|stderr:|stack:)/i.test(String(message || ""));
-}
-
-function safeErrorMessage(error) {
-  const message = error instanceof Error ? error.message : String(error || "");
-  if (!message) {
-    return "Unexpected error.";
-  }
-  return isSensitiveErrorText(message) ? "Unexpected error." : message;
-}
-
-function errorCodeFromMessage(message) {
-  if (/^Unknown command:/i.test(message)) {
-    return "unknown_command";
-  }
-  if (/^Missing value for --/i.test(message)) {
-    return "missing_option_value";
-  }
-  if (/^Provide --/i.test(message) || /^Provide a /i.test(message)) {
-    return "missing_required_option";
-  }
-  if (/--error-format/i.test(message)) {
-    return "invalid_error_format";
-  }
-  if (/workspace/i.test(message)) {
-    return "invalid_workspace";
-  }
-  if (/project-token-env/i.test(message)) {
-    return "invalid_project_token_env";
-  }
-  if (/\bcwd\b|working directory/i.test(message)) {
-    return "invalid_cwd";
-  }
-  if (/metadata/i.test(message)) {
-    return "metadata_error";
-  }
-  if (/manifest/i.test(message)) {
-    return "manifest_error";
-  }
-  if (/literal -- child-command delimiter|child command|passthrough/i.test(message)) {
-    return "invalid_child_command";
-  }
-  return "cli_error";
-}
-
-function errorCategoryFromCode(code) {
-  if (code === "unknown_command" || code.startsWith("missing_") || code.startsWith("invalid_")) {
-    return "usage";
-  }
-  if (code === "metadata_error" || code === "manifest_error") {
-    return "preflight";
-  }
-  return "runtime";
-}
-
-function cliErrorPayload(error, { command = null } = {}) {
-  if (
-    error instanceof NotionApiError
-    || error instanceof NotionTransportError
-    || error instanceof NotionParseError
-    || ["NotionApiError", "NotionTransportError", "NotionParseError"].includes(error?.name)
-  ) {
-    const safeError = serializeSafeNotionError(error);
-    const categoryByKind = {
-      api: "notion-api",
-      parse: "notion-parse",
-      transport: "notion-transport",
-    };
-
-    return {
-      ok: false,
-      schemaVersion: 1,
-      command,
-      error: {
-        code: safeError.code || safeError.kind || "notion_error",
-        category: categoryByKind[safeError.kind] || "notion",
-        message: safeError.message,
-        ...(safeError.retryable !== undefined ? { retryable: safeError.retryable } : {}),
-        details: Object.fromEntries(
-          Object.entries(safeError).filter(([key]) => !["message", "name"].includes(key)),
-        ),
-      },
-    };
-  }
-
-  const message = safeErrorMessage(error);
-  const code = errorCodeFromMessage(message);
-  return {
-    ok: false,
-    schemaVersion: 1,
-    command,
-    error: {
-      code,
-      category: errorCategoryFromCode(code),
-      message,
-    },
-  };
-}
-
-function normalizeErrorFormat(value, { source }) {
-  if (ERROR_FORMATS.has(value)) {
-    return value;
-  }
-
-  throw new Error(`${source} must be json or text.`);
-}
-
-export function prepareCliInvocation(argv, env = process.env) {
-  const passthroughIndex = argv.indexOf("--");
-  const scannedArgv = passthroughIndex === -1 ? argv : argv.slice(0, passthroughIndex);
-  const passthroughArgv = passthroughIndex === -1 ? [] : argv.slice(passthroughIndex);
-  const forwardedArgv = [];
-  let errorFormat = DEFAULT_ERROR_FORMAT;
-  let explicitErrorFormat = false;
-
-  for (let i = 0; i < scannedArgv.length; i += 1) {
-    const token = scannedArgv[i];
-
-    if (token.startsWith("--error-format=")) {
-      errorFormat = normalizeErrorFormat(token.slice("--error-format=".length), { source: "--error-format" });
-      explicitErrorFormat = true;
-      continue;
-    }
-
-    if (token !== "--error-format") {
-      forwardedArgv.push(token);
-      continue;
-    }
-
-    const value = scannedArgv[i + 1];
-    if (!value || value.startsWith("--")) {
-      throw new Error("--error-format must be json or text.");
-    }
-
-    errorFormat = normalizeErrorFormat(value, { source: "--error-format" });
-    explicitErrorFormat = true;
-    i += 1;
-  }
-
-  if (!explicitErrorFormat && env.SNPM_ERROR_FORMAT !== undefined && env.SNPM_ERROR_FORMAT !== "") {
-    errorFormat = normalizeErrorFormat(env.SNPM_ERROR_FORMAT, { source: "SNPM_ERROR_FORMAT" });
-  }
-
-  return {
-    argv: [...forwardedArgv, ...passthroughArgv],
-    command: inferCommandForError([...forwardedArgv, ...passthroughArgv]),
-    errorFormat,
-  };
-}
-
-function inferCommandForError(argv) {
-  if (!Array.isArray(argv) || argv.length === 0) {
-    return null;
-  }
-
-  const tokens = [];
-  for (const token of argv) {
-    if (token === "--" || token.startsWith("--")) {
-      break;
-    }
-    if (token === "help") {
-      continue;
-    }
-
-    tokens.push(token);
-    const candidate = normalizeCommandName(tokens.join(" "));
-    const commandSpec = findCommandHelp(candidate);
-    if (commandSpec) {
-      return commandSpec.canonical;
-    }
-    if (tokens.length >= 2) {
-      break;
-    }
-  }
-
-  return tokens.length > 0 ? normalizeCommandName(tokens.join(" ")) : null;
-}
-
-function writeTopLevelError(error, { command = null, errorFormat = DEFAULT_ERROR_FORMAT } = {}) {
-  if (errorFormat === "json") {
-    writeStructuredOutput(cliErrorPayload(error, { command }), { stderr: true });
-    return;
-  }
-
-  console.error(error instanceof Error ? error.message : String(error));
 }
 
 function withMutationJournal(result, { command, surface }) {
@@ -374,354 +152,10 @@ function withMutationJournal(result, { command, surface }) {
   };
 }
 
-function buildSyncPayload(result, {
-  command,
-  failOnDrift = false,
-  reviewOutputDir = null,
-} = {}) {
-  const basePayload = {
-    ok: result.failures.length === 0 && (!failOnDrift || (result.driftCount || 0) === 0),
-    ...result,
-  };
-
-  if (!reviewOutputDir) {
-    return basePayload;
-  }
-
-  try {
-    return {
-      ...basePayload,
-      reviewOutput: writeManifestV2PreviewReviewArtifacts({
-        result,
-        reviewOutputDir,
-      }),
-    };
-  } catch (error) {
-    const diagnostic = buildManifestV2ReviewOutputFailureDiagnostic({
-      command,
-      error,
-      state: {
-        reviewOutputDir,
-      },
-    });
-    return {
-      ...basePayload,
-      ok: false,
-      failures: [
-        ...(Array.isArray(result.failures) ? result.failures : []),
-        `Review output failed: ${error instanceof Error ? error.message : String(error)}`,
-      ],
-      diagnostics: [
-        ...(Array.isArray(result.diagnostics) ? result.diagnostics : []),
-        diagnostic,
-      ],
-      reviewOutput: {
-        written: false,
-        failure: diagnostic.message,
-      },
-    };
-  }
-}
-
 export { withMutationJournal };
 
 function finalizeMutationResult(result, { command, surface }) {
   return withMutationJournal(result, { command, surface });
-}
-
-function buildSimpleMutationPayload({ command, result, extra = {} }) {
-  return {
-    ok: true,
-    command,
-    applied: result.applied,
-    hasDiff: result.hasDiff,
-    targetPath: result.targetPath,
-    authMode: result.authMode,
-    ...("pageId" in result ? { pageId: result.pageId } : {}),
-    ...("databaseId" in result ? { databaseId: result.databaseId } : {}),
-    ...("dataSourceId" in result ? { dataSourceId: result.dataSourceId } : {}),
-    ...("timestamp" in result ? { timestamp: result.timestamp } : {}),
-    ...extra,
-    ...(result.journal ? { journal: result.journal } : {}),
-    ...(Array.isArray(result.warnings) && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
-  };
-}
-
-function buildSecretGeneratePayload({ command, result }) {
-  return {
-    ok: true,
-    command,
-    applied: result.applied,
-    ...(result.mode ? { mode: result.mode } : {}),
-    ...(typeof result.generatorWillRun === "boolean" ? { generatorWillRun: result.generatorWillRun } : {}),
-    ...(result.targetPath ? { targetPath: result.targetPath } : {}),
-    ...(result.authMode ? { authMode: result.authMode } : {}),
-    ...("pageId" in result ? { pageId: result.pageId } : {}),
-    ...("projectId" in result ? { projectId: result.projectId } : {}),
-    ...(result.generatedSecretStored === true ? { generatedSecretStored: true } : {}),
-    ...(result.redacted === true ? { redacted: true } : {}),
-    ...(result.journal ? { journal: result.journal } : {}),
-    ...(Array.isArray(result.warnings) && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
-  };
-}
-
-function parsePositiveInteger(value, defaultValue) {
-  if (value === undefined) {
-    return defaultValue;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error("--limit must be a positive integer.");
-  }
-  return parsed;
-}
-
-function isSecretChildCommand(command) {
-  return SECRET_CHILD_COMMANDS.has(command);
-}
-
-function formatFlagList(flags) {
-  return flags.map((flag) => `--${flag}`).join(" and ");
-}
-
-function failIfDeprecatedRawSecretFlags(options) {
-  const usedFlags = DEPRECATED_RAW_SECRET_FLAGS.filter((flag) => options[flag] === true);
-  if (usedFlags.length === 0) {
-    return;
-  }
-
-  throw new Error(`${formatFlagList(usedFlags)} ${usedFlags.length === 1 ? "is" : "are"} unsupported: ${RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE}`);
-}
-
-function requirePassthroughArgs(options, command) {
-  return validateChildCommandArgs(options.passthroughArgs, {
-    emptyMessage: `Provide a child command after -- for ${command}.`,
-    nonStringMessage: `${command} child command arguments must be strings.`,
-  });
-}
-
-function rejectUnsupportedSecretGenerateOptions(options, command) {
-  const usedFlags = Object.keys(options).filter((flag) => !SECRET_GENERATE_ALLOWED_OPTIONS.has(flag));
-  if (usedFlags.length === 0) {
-    return;
-  }
-
-  throw new Error(`${command} does not support ${usedFlags.map((flag) => `--${flag}`).join(", ")}. Generated secret ingestion accepts only a child generator after -- and never reads raw values from local files, stdin, env vars, or output paths.`);
-}
-
-function writeExecResult(result) {
-  if (!result || typeof result !== "object") {
-    return;
-  }
-
-  if (typeof result.stdout === "string" && result.stdout.length > 0) {
-    process.stdout.write(result.stdout);
-  }
-
-  if (typeof result.stderr === "string" && result.stderr.length > 0) {
-    process.stderr.write(result.stderr);
-  }
-
-  if (result.spawnError) {
-    process.stderr.write(`SNPM child process failed: ${result.spawnError}\n`);
-  }
-
-  if (result.leakDetected) {
-    process.stderr.write(`${SECRET_EXEC_LEAK_WARNING}\n`);
-  }
-
-  const exitCode = Number.isInteger(result.exitCode)
-    ? result.exitCode
-    : Number.isInteger(result.status)
-      ? result.status
-      : result.ok === false
-        ? 1
-        : undefined;
-
-  if (exitCode !== undefined) {
-    process.exitCode = exitCode;
-  }
-}
-
-export function parseArgs(argv) {
-  const commandParts = [];
-  let index = 0;
-
-  while (index < argv.length && !argv[index].startsWith("--") && commandParts.length < 2) {
-    commandParts.push(argv[index]);
-    index += 1;
-    if (isSecretChildCommand(commandParts.join(" "))) {
-      break;
-    }
-  }
-
-  const command = commandParts.join(" ");
-  if (SECRET_ACCESS_FAMILIES.has(commandParts[0]) && commandParts.length > 1 && !SECRET_ACCESS_SUBCOMMANDS.has(commandParts[1])) {
-    throw new Error(`Unexpected ${commandParts[0]} subcommand. Use ${commandParts[0]} --help for supported commands.`);
-  }
-
-  const rest = argv.slice(index);
-  const options = {};
-  const passthroughIndex = rest.indexOf("--");
-  const optionTokens = passthroughIndex === -1 ? rest : rest.slice(0, passthroughIndex);
-
-  if (passthroughIndex !== -1) {
-    if (!isSecretChildCommand(command)) {
-      throw new Error("The literal -- child-command delimiter is only supported for secret-record exec/generate and access-token exec/generate.");
-    }
-
-    options.passthroughArgs = validateChildCommandArgs(rest.slice(passthroughIndex + 1), {
-      emptyMessage: `Provide a child command after -- for ${command}.`,
-      nonStringMessage: `${command} child command arguments must be strings.`,
-    });
-  }
-
-  for (let i = 0; i < optionTokens.length; i += 1) {
-    const token = optionTokens[i];
-    if (!token.startsWith("--")) {
-      if (isSecretChildCommand(command)) {
-        throw new Error(`Unexpected argument before -- for ${command}. Raw secret values cannot be provided as positional arguments.`);
-      }
-      throw new Error(`Unexpected argument: ${token}`);
-    }
-
-    const key = token.slice(2);
-    const value = optionTokens[i + 1];
-
-    if ((!value || value.startsWith("--")) && BOOLEAN_FLAGS.has(key)) {
-      options[key] = true;
-      continue;
-    }
-
-    if (!value || value.startsWith("--")) {
-      throw new Error(`Missing value for --${key}`);
-    }
-
-    if (REPEATABLE_FLAGS.has(key)) {
-      options[key] = [...(Array.isArray(options[key]) ? options[key] : []), value];
-    } else {
-      options[key] = value;
-    }
-    i += 1;
-  }
-
-  return { command, options };
-}
-
-function parseMaxMutationsOption(value) {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (value === "all") {
-    return "all";
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value) {
-    throw new Error("--max-mutations must be a positive integer or \"all\".");
-  }
-
-  return parsed;
-}
-
-function parseStaleAfterDaysOption(value) {
-  if (value === undefined) {
-    return 30;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value) {
-    throw new Error("--stale-after-days must be a positive integer.");
-  }
-
-  return parsed;
-}
-
-function requireOption(options, name, message) {
-  const value = options[name];
-  if (!value || typeof value !== "string") {
-    throw new Error(message);
-  }
-  return value;
-}
-
-function printDiff(diff) {
-  if (diff) {
-    console.log(diff.trimEnd());
-    return;
-  }
-
-  console.log("No body changes.");
-}
-
-function buildOperationalResponse({
-  command,
-  surface,
-  result,
-  explain = false,
-  reviewOutput = null,
-}) {
-  const outputResult = redactSecretResultForOutput(result, { surface });
-  const explanation = buildOperationalExplanation({
-    surface,
-    targetPath: outputResult.targetPath,
-    authMode: outputResult.authMode,
-    authScope: outputResult.authScope,
-    managedState: outputResult.managedState,
-    preserveChildren: outputResult.preserveChildren,
-    normalizationsApplied: outputResult.normalizationsApplied || [],
-    warnings: outputResult.warnings || [],
-    includeDetails: explain,
-  });
-
-  const reviewArtifacts = reviewOutput
-    ? writeReviewArtifacts({
-      reviewOutput,
-      command,
-      surface,
-      result: outputResult,
-      explanation,
-    })
-    : null;
-
-  return buildOperationalPayload({
-    command,
-    surface,
-    result: outputResult,
-    explain,
-    reviewArtifacts,
-    explanation,
-  });
-}
-
-function printSyncEntryResults(entries) {
-  let printedAny = false;
-
-  for (const entry of entries) {
-    const target = entry.title || entry.target || entry.pagePath || entry.docPath || "(unknown target)";
-
-    if (entry.failure) {
-      console.log(`[${entry.kind}] ${target} (${entry.file})`);
-      console.log(`Error: ${entry.failure}`);
-      console.log("");
-      printedAny = true;
-      continue;
-    }
-
-    if (!entry.diff) {
-      continue;
-    }
-
-    console.log(`[${entry.kind}] ${target} (${entry.file})`);
-    console.log(entry.diff.trimEnd());
-    console.log("");
-    printedAny = true;
-  }
-
-  if (!printedAny) {
-    console.log("No sync changes.");
-  }
 }
 
 async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_FORMAT } = {}) {

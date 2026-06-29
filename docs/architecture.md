@@ -1,12 +1,12 @@
 # SNPM Architecture Inventory And Migration Map
 
-Status: R4A readiness baseline. This document describes the current source layout, the boundary checks now enforced by `npm run architecture-inventory`, and the staged R4/R5 migration path. R4A does not move source files or change runtime behavior.
+Status: R4B command-shell split. This document describes the current source layout, the boundary checks enforced by `npm run architecture-inventory`, and the staged R4/R5 migration path. R4B moves only CLI-shell internals under `src/cli/`; public command behavior remains unchanged.
 
 ## Current Layers
 
 | Layer | Current location | Responsibility |
 | --- | --- | --- |
-| CLI and registry | `src/cli.mjs`, `src/cli-help.mjs`, `src/command-registry.mjs` | executable entrypoint, argument dispatch, help, capabilities, command metadata |
+| CLI and registry | `src/cli.mjs`, `src/cli/*.mjs`, `src/cli-help.mjs`, `src/command-registry.mjs` | executable entrypoint, argument parsing, top-level error/output shell, help, capabilities, command metadata |
 | Command adapters | `src/commands/*.mjs` | public command-family orchestration, option validation, output shaping, mutation journal wrapping |
 | JSON contracts | `src/contracts/*.mjs` | limited agent-facing JSON contract validation |
 | Notion domain services | `src/notion/*.mjs` | approved Notion surface resolution, markdown round-trips, manifest engines, audits, client transport |
@@ -31,7 +31,7 @@ The inventory is intentionally repo-local. It reads source files and `package.js
 
 ## R4/R5 Migration Slices
 
-1. Command-shell split: keep `src/cli.mjs` as the package `bin`, but extract argument parsing, top-level error formatting, and command-result orchestration into smaller behavior-preserving modules.
+1. Command-shell split: keep `src/cli.mjs` as the package `bin`, but extract argument parsing, top-level error formatting, and command-result orchestration into smaller behavior-preserving modules. Status: implemented in R4B.
 2. Domain-service grouping: group `src/notion` by surface and primitive through explicit module boundaries or barrel exports without changing public command behavior.
 3. Infrastructure utilities: move reusable runtime utilities such as child runner, file IO helpers, operational output, and journal plumbing out of command-specific paths when they are shared by domain or adapter layers.
 4. Tests by layer: align tests with the migrated layers so command-contract, domain-service, transport, package, and release checks remain clear.
@@ -39,7 +39,7 @@ The inventory is intentionally repo-local. It reads source files and `package.js
 
 ## Non-Goals
 
-- No source moves in R4A.
+- No source moves outside the approved R4B CLI-shell split.
 - No command renames, new commands, output-shape changes, or exit-code changes.
 - No new Notion mutation surface, transport replacement, retries, rollback, generic batch apply, or manifest scope expansion.
 - No package publish, GitHub Release, tag creation, or repository visibility change.

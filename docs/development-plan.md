@@ -801,10 +801,29 @@ Status:
 - no source files were moved
 - no new SNPM command family, Notion mutation surface, package publishing, TypeScript migration, retry behavior, or N3 page-markdown parity work is included
 
+### Sprint R4B: Command Shell Split
+
+Goal:
+- reduce the coupling in the executable CLI shell without changing command behavior
+
+Deliverables:
+- `src/cli.mjs` remains the package `bin` entrypoint and compatibility export surface
+- argument parsing, global error-format handling, top-level error serialization, structured output, diff output, sync payload shaping, and operational-output bridging live in focused `src/cli/*.mjs` modules
+- `npm run architecture-inventory` classifies the new `src/cli/` modules in the CLI/registry layer
+- release/package gates allow the new runtime modules while preserving private-file, task-memory, DOCX, and retired-browser-lane exclusions
+
+Exit criteria:
+- command names, aliases, help, capabilities, output placement, exit codes, package behavior, stale-write checks, mutation journal behavior, and Notion mutation semantics remain unchanged
+- SNPM dogfoods the refactored CLI by updating its own Notion tracking pages through the standard pull/diff/push apply loop
+
+Status:
+- implemented on `codex/command-shell-split`
+- no Notion domain modules, command handlers, validators, contracts, Notion CLI adapter modules, or tests-by-layer were moved
+- no new command family, TypeScript migration, N3 page-markdown parity work, retry behavior, package publishing, or Notion mutation surface is included
+
 ### R4/R5 Planned Migration Slices
 
 Planned order:
-- command-shell split while keeping `src/cli.mjs` as the package `bin`
 - domain-service grouping for Notion surface modules
 - infrastructure utilities extraction for shared child runner, IO, output, and journal helpers
 - tests-by-layer alignment

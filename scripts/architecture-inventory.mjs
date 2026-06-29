@@ -58,7 +58,7 @@ function readArchitectureFilesFromDisk({ repoRoot = REPO_ROOT } = {}) {
 export function classifyArchitectureLayer(filePath) {
   const normalized = toPosix(filePath);
 
-  if (normalized === "src/cli.mjs" || normalized === "src/cli-help.mjs" || normalized === "src/command-registry.mjs") {
+  if (normalized === "src/cli.mjs" || normalized.startsWith("src/cli/") || normalized === "src/cli-help.mjs" || normalized === "src/command-registry.mjs") {
     return "cli-registry";
   }
   if (normalized === "src/validators.mjs") {

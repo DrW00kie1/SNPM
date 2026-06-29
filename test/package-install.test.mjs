@@ -228,6 +228,9 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(fileSet.has("README.md"), true);
   assert.equal(fileSet.has("LICENSE"), true);
   assert.equal(fileSet.has("src/cli.mjs"), true);
+  assert.equal(fileSet.has("src/cli/arguments.mjs"), true);
+  assert.equal(fileSet.has("src/cli/errors.mjs"), true);
+  assert.equal(fileSet.has("src/cli/output.mjs"), true);
   assert.equal(fileSet.has("docs/workspace-overview.md"), true);
   assert.equal(fileSet.has("docs/agent-quickstart.md"), true);
   assert.equal(fileSet.has("docs/notion-cli-interop.md"), true);
