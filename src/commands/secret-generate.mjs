@@ -1,6 +1,6 @@
 import { inspect } from "node:util";
 
-import { runChildCommand } from "./child-runner.mjs";
+import { runChildCommand } from "../infrastructure/child-runner.mjs";
 import { validateChildCommandArgs, validateCwd } from "../validators.mjs";
 import {
   SECRET_REDACTION_MARKER,

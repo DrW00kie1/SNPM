@@ -67,6 +67,9 @@ export function classifyArchitectureLayer(filePath) {
   if (normalized.startsWith("src/commands/")) {
     return "commands";
   }
+  if (normalized.startsWith("src/infrastructure/")) {
+    return "infrastructure";
+  }
   if (normalized.startsWith("src/contracts/")) {
     return "contracts";
   }
@@ -159,6 +162,28 @@ function auditBoundaryEdges(modules) {
           file: module.path,
           target: target.path,
           message: "JSON contract helpers must stay independent of runtime command/domain implementations.",
+        });
+      }
+
+      const allowedInfrastructureCommandImports = new Set([
+        "src/commands/secret-output-safety.mjs",
+      ]);
+
+      if (module.layer === "infrastructure" && (target.layer === "cli-registry" || (target.layer === "commands" && !allowedInfrastructureCommandImports.has(target.path)))) {
+        violations.push({
+          code: "architecture.infrastructure-imports-command-layer",
+          file: module.path,
+          target: target.path,
+          message: "Infrastructure utilities must not import CLI registry or command-handler modules.",
+        });
+      }
+
+      if (module.layer === "infrastructure" && target.layer === "notion-domain" && !/^src\/notion\/(?:core\/)?env\.mjs$/.test(target.path)) {
+        violations.push({
+          code: "architecture.infrastructure-imports-notion-surface",
+          file: module.path,
+          target: target.path,
+          message: "Infrastructure utilities must not import Notion surface implementations; only pure shared Notion helpers are allowed.",
         });
       }
     }

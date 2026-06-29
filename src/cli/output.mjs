@@ -1,10 +1,10 @@
-import { writeManifestV2PreviewReviewArtifacts } from "../commands/sync-review-output.mjs";
+import { writeManifestV2PreviewReviewArtifacts } from "../infrastructure/sync-review-output.mjs";
 import { buildManifestV2ReviewOutputFailureDiagnostic } from "../notion/manifest-sync-diagnostics.mjs";
 import {
   buildOperationalExplanation,
   buildOperationalPayload,
   writeReviewArtifacts,
-} from "../commands/operational-output.mjs";
+} from "../infrastructure/operational-output.mjs";
 import { redactSecretResultForOutput } from "../commands/secret-output-safety.mjs";
 import { SECRET_EXEC_LEAK_WARNING } from "../commands/secret-exec.mjs";
 

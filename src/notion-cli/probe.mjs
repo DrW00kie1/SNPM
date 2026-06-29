@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { runChildCommand } from "../commands/child-runner.mjs";
+import { runChildCommand } from "../infrastructure/child-runner.mjs";
 
 const DISPLAY_VERSION_COMMAND = ["ntn", "--version"];
 const VERSION_PATTERN = /\b(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\b/;

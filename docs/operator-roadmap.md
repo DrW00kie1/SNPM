@@ -172,8 +172,9 @@ Active hardening sequence:
 - R3 Plan Quality Gates is complete on `main`: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
 - R4A Architecture Migration Readiness is complete: repo-local architecture inventory, boundary checks, release-gate wiring, and a migration map are in place before broader source moves.
 - R4B Command Shell Split is complete: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers live in `src/cli/*.mjs` without changing command behavior.
-- R4C Domain-Service Grouping is the current migration wedge: Notion internals are grouped under `src/notion/{core,project,docs,manifest,planning,validation}` with root compatibility exports.
-- Remaining hardening closure continues with infrastructure utilities extraction, tests-by-layer alignment, and the TypeScript/final-closeout decision.
+- R4C Domain-Service Grouping is complete: Notion internals are grouped under `src/notion/{core,project,docs,manifest,planning,validation}` with root compatibility exports.
+- R4D Infrastructure Utilities Extraction is complete: shared child runner, command IO, mutation journal, operational output, and manifest review-output helpers live under `src/infrastructure/` with command-layer compatibility shims.
+- Remaining hardening closure continues with R5A tests-by-layer alignment and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 

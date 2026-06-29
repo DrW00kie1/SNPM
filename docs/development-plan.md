@@ -841,10 +841,26 @@ Status:
 - no command adapters, validators, contracts, Notion CLI adapter modules, infrastructure utilities, or tests-by-layer were moved
 - no new command family, TypeScript migration, N3 page-markdown parity work, retry behavior, package publishing, or Notion mutation surface is included
 
+### Sprint R4D: Infrastructure Utilities Extraction
+
+Goal:
+- move shared runtime utilities out of command-specific paths without changing command behavior
+
+Deliverables:
+- `src/infrastructure/child-runner.mjs` for safe non-shell child execution, used by Access exec/generate and the Notion CLI adapter
+- `src/infrastructure/command-io.mjs` for command input/output and metadata sidecar helpers
+- `src/infrastructure/mutation-journal.mjs` for body-free mutation journal plumbing
+- `src/infrastructure/operational-output.mjs` and `src/infrastructure/sync-review-output.mjs` for shared operational/review output helpers
+- command-layer compatibility shims for moved helpers
+- architecture/package gates that classify infrastructure utilities and reject imports from CLI registry, command handlers, or Notion surface implementations outside explicit pure-helper exceptions
+
+Status:
+- implemented on `codex/infrastructure-utilities`
+- no command names, output shapes, exit codes, Notion mutation semantics, Access safety boundaries, retries, package publishing, TypeScript migration, or tests-by-layer moves are included
+
 ### R4/R5 Planned Migration Slices
 
 Planned order:
-- infrastructure utilities extraction for shared child runner, IO, output, and journal helpers
 - tests-by-layer alignment
 - R6 TypeScript pilot decision or final hardening closeout
 

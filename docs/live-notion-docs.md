@@ -546,6 +546,20 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
+## R4D Infrastructure Utilities Closeout
+
+Durable Notion summary:
+- Decision Log: Record that R4D moved shared runtime utilities into `src/infrastructure/` while preserving command-layer compatibility shims.
+- Roadmap: Mark R4D complete after merge and move the active architecture wedge to R5A tests-by-layer alignment.
+- Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, Access secret behavior, or Notion mutation semantics changed.
+- Product Hardening Plan: Record that infrastructure utilities extraction is implemented and that the remaining R4/R5 migration slice is tests-by-layer alignment before the R6 TypeScript/final-closeout decision.
+- Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4D is an internal architecture extraction.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
+
 ## Verification
 
 Project-scoped verification:

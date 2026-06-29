@@ -5,7 +5,7 @@ import {
   parseRetryMetadata,
 } from "../notion/errors.mjs";
 import { buildNotionOperationPolicy } from "../notion/operation-policy.mjs";
-import { runChildCommand } from "../commands/child-runner.mjs";
+import { runChildCommand } from "../infrastructure/child-runner.mjs";
 import { resolveNotionCliChildArgs } from "./probe.mjs";
 
 const READ_QUERY_PATTERN = /^data_sources\/[^/]+\/query(?:\?.*)?$/;

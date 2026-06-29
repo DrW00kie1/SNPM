@@ -231,6 +231,9 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(fileSet.has("src/cli/arguments.mjs"), true);
   assert.equal(fileSet.has("src/cli/errors.mjs"), true);
   assert.equal(fileSet.has("src/cli/output.mjs"), true);
+  assert.equal(fileSet.has("src/infrastructure/child-runner.mjs"), true);
+  assert.equal(fileSet.has("src/infrastructure/command-io.mjs"), true);
+  assert.equal(fileSet.has("src/infrastructure/mutation-journal.mjs"), true);
   assert.equal(fileSet.has("src/notion/core/client.mjs"), true);
   assert.equal(fileSet.has("src/notion/project/project-pages.mjs"), true);
   assert.equal(fileSet.has("src/notion/manifest/manifest-sync-push.mjs"), true);

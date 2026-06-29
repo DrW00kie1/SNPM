@@ -1,4 +1,4 @@
-import { runChildCommand } from "./child-runner.mjs";
+import { runChildCommand } from "../infrastructure/child-runner.mjs";
 import { validateChildCommandArgs, validateCwd, validateEnvName } from "../validators.mjs";
 import { SECRET_REDACTION_MARKER } from "./secret-output-safety.mjs";
 

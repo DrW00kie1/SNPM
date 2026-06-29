@@ -60,7 +60,7 @@ import { runScaffoldDocs } from "./commands/scaffold-docs.mjs";
 import { runPageDiff } from "./commands/page-diff.mjs";
 import { runPagePull } from "./commands/page-pull.mjs";
 import { runPageEdit, runPagePush } from "./commands/page-push.mjs";
-import { inferDocSurface } from "./commands/operational-output.mjs";
+import { inferDocSurface } from "./infrastructure/operational-output.mjs";
 import { redactSecretResultForOutput } from "./commands/secret-output-safety.mjs";
 import {
   runRunbookAdopt,
@@ -80,11 +80,11 @@ import {
   runValidationSessionsVerify,
 } from "./commands/validation-session.mjs";
 import { planChange } from "./commands/plan-change.mjs";
-import { readCommandInput } from "./commands/io.mjs";
+import { readCommandInput } from "./infrastructure/command-io.mjs";
 import {
   readMutationJournalEntries,
   tryRecordMutationJournalEntry,
-} from "./commands/mutation-journal.mjs";
+} from "./infrastructure/mutation-journal.mjs";
 import { runVerifyProject } from "./commands/verify-project.mjs";
 import { runVerifyWorkspaceDocs } from "./commands/verify-workspace-docs.mjs";
 import { runSyncCheck, runSyncPull, runSyncPush } from "./commands/sync.mjs";

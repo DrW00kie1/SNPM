@@ -28,6 +28,7 @@ test("architecture inventory passes for the current repository and is determinis
   assert.equal(first.schemaVersion, "snpm.architecture-inventory.v1");
   assert.ok(first.layers.some((layer) => layer.layer === "cli-registry"));
   assert.ok(first.layers.some((layer) => layer.layer === "commands"));
+  assert.ok(first.layers.some((layer) => layer.layer === "infrastructure"));
   assert.ok(first.layers.some((layer) => layer.layer === "notion-domain"));
   assert.ok(first.layers.some((layer) => layer.layer === "notion-cli-adapter"));
   assert.ok(first.layers.some((layer) => layer.layer === "contracts"));
@@ -47,6 +48,7 @@ test("architecture layer classification covers the migration buckets", () => {
   assert.equal(classifyArchitectureLayer("src/cli-help.mjs"), "cli-registry");
   assert.equal(classifyArchitectureLayer("src/command-registry.mjs"), "cli-registry");
   assert.equal(classifyArchitectureLayer("src/commands/sync.mjs"), "commands");
+  assert.equal(classifyArchitectureLayer("src/infrastructure/child-runner.mjs"), "infrastructure");
   assert.equal(classifyArchitectureLayer("src/contracts/json-contracts.mjs"), "contracts");
   assert.equal(classifyArchitectureLayer("src/notion/page-markdown.mjs"), "notion-domain");
   assert.equal(classifyArchitectureLayer("src/notion/manifest/manifest-sync-push.mjs"), "notion-domain");
@@ -101,6 +103,38 @@ test("architecture inventory rejects JSON contracts importing runtime command or
 
   assert.equal(result.ok, false);
   assert.ok(violationCodes(result).includes("architecture.contracts-import-runtime-layer"));
+});
+
+test("architecture inventory rejects infrastructure imports from command handlers", () => {
+  const result = buildFixtureInventory([
+    {
+      path: "src/infrastructure/runtime-output.mjs",
+      source: 'import { runPagePush } from "../commands/page-push.mjs";',
+    },
+    {
+      path: "src/commands/page-push.mjs",
+      source: "export function runPagePush() {}",
+    },
+  ]);
+
+  assert.equal(result.ok, false);
+  assert.ok(violationCodes(result).includes("architecture.infrastructure-imports-command-layer"));
+});
+
+test("architecture inventory rejects infrastructure imports from Notion surface implementations", () => {
+  const result = buildFixtureInventory([
+    {
+      path: "src/infrastructure/runtime-output.mjs",
+      source: 'import { readPage } from "../notion/project/page-markdown.mjs";',
+    },
+    {
+      path: "src/notion/project/page-markdown.mjs",
+      source: "export function readPage() {}",
+    },
+  ]);
+
+  assert.equal(result.ok, false);
+  assert.ok(violationCodes(result).includes("architecture.infrastructure-imports-notion-surface"));
 });
 
 test("architecture inventory rejects test dependencies on local-only task artifacts", () => {
