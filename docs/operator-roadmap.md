@@ -169,8 +169,9 @@ Active hardening sequence:
 - R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
 - N0/N1 Notion CLI Interop Baseline completed the local `ntn --version` probe and SNPM-vs-`ntn` boundary.
 - N2 Notion CLI Read-Only API Adapter Evaluation is complete: `ntn api` is evaluated behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
-- R3 Plan Quality Gates is the current hardening wedge: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
-- Remaining hardening closure continues with staged architecture migration and the TypeScript/final-closeout decision.
+- R3 Plan Quality Gates is complete on `main`: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
+- R4A Architecture Migration Readiness is the current hardening wedge: repo-local architecture inventory, boundary checks, release-gate wiring, and a migration map before any source moves.
+- Remaining hardening closure continues with staged R4/R5 source-layout migration and the TypeScript/final-closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 

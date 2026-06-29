@@ -656,6 +656,7 @@ test("package scripts align with command registry metadata", () => {
   const packageScriptEntries = Object.entries(packageJson.scripts);
   const releaseGateScripts = new Set([
     "test",
+    "architecture-inventory",
     "package-contract",
     "test:package-contract",
     "release-audit",

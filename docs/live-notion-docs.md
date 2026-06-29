@@ -14,6 +14,8 @@ N0/N1 Notion CLI Installation, Boundary Reconciliation, And Read-Only Probe upda
 
 N2 Notion CLI Read-Only API Adapter Evaluation updates durable planning and decision tracking only if implementation lands. Closeout should record that SNPM evaluated `ntn api` as an internal read-only provider under SNPM policy, not as a default transport replacement or operator page-id workflow. The N2 boundary is: use explicit SNPM project-token env for the probe, reject write/destructive `ntn` operations before child spawn, do not run `ntn login`, do not rely on keychain workspace auth to bypass project-token boundaries, do not use verbose or unsafe verbose output, do not write files/sidecars/journal entries, and do not mutate Notion.
 
+R4A Architecture Migration Readiness updates durable planning and decision tracking after R3 lands. Closeout should record that R4A adds a repo-local architecture inventory/readiness gate and migration map before physical source moves. It does not move source files, add SNPM commands, mutate Notion, change package publishing posture, add TypeScript, or change runtime command behavior.
+
 Durable Notion closeout targets for planning-baseline reconciliation:
 - `Projects > SNPM > Planning > Roadmap`
 - `Projects > SNPM > Planning > Current Cycle`
@@ -501,6 +503,20 @@ Closeout command families:
 - use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
 - use `doc-*` for `Root > Product Hardening Plan`
 - use `doc-*` for `Runbooks > Notion Workspace Workflow` only if the public operator sequence is changed
+
+## R4A Architecture Migration Readiness Closeout
+
+Durable Notion summary:
+- Decision Log: Record that R4A makes source-layout migration readiness explicit before moving files. The new `architecture-inventory` gate audits module layers and fails on boundary regressions such as Notion domain imports from command handlers, contracts importing runtime code, tests depending on task memory or closeout artifacts, validation-bundle/browser resurrection, and package allowlist drift.
+- Roadmap: Mark R4A complete after merge and move the active wedge to the first behavior-preserving R4/R5 source migration slice, or to R6 TypeScript/final closeout if migration is skipped.
+- Current Cycle: Record verification results, the no-source-move boundary, and any residual follow-up findings kept outside R4A scope.
+- Product Hardening Plan: Record that R4A is the readiness prerequisite for physical source-layout migration and that R4/R5 source movement remains deferred until the boundary inventory is green.
+- Runbooks > Notion Workspace Workflow: Do not update unless operator workflow guidance changes; `architecture-inventory` is a repo-local release/readiness gate, not a Notion workspace operation.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
 
 ## Verification
 

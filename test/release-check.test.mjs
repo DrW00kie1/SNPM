@@ -30,9 +30,10 @@ test("package metadata exposes Node 22 release-check scripts", () => {
 
   assert.equal(packageJson.engines.node, ">=22.0.0");
   assert.equal(packageJson.scripts["package-contract"], "npm run test:package-contract");
+  assert.equal(packageJson.scripts["architecture-inventory"], "node scripts/architecture-inventory.mjs");
   assert.equal(
     packageJson.scripts["test:package-contract"],
-    "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs test/release-governance.test.mjs",
+    "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs test/release-governance.test.mjs test/architecture-inventory.test.mjs",
   );
   assert.equal(packageJson.scripts["release-audit"], "node scripts/release-audit.mjs");
   assert.equal(packageJson.scripts["release-governance"], "node scripts/release-governance.mjs");
@@ -62,6 +63,7 @@ test("release-check runs the full local release gate without live Notion command
   assertIncludesInOrder(script, [
     '{ label: "full test suite", command: "npm", args: ["test"] }',
     '{ label: "package contract tests", command: "npm", args: ["run", "test:package-contract"] }',
+    '{ label: "architecture inventory", command: "npm", args: ["run", "architecture-inventory"] }',
     '{ label: "release audit", command: "node", args: ["scripts/release-audit.mjs"] }',
     '{ label: "package dry run", command: "npm", args: ["pack", "--dry-run", "--json", "--ignore-scripts"] }',
     '{ label: "CLI help smoke", command: "node", args: ["src/cli.mjs", "--help"] }',

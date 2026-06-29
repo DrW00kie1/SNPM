@@ -34,7 +34,7 @@ export const PACKED_PRIVATE_PATH_DENYLIST = [
   { label: "browser/session state", pattern: /(?:^|\/)(?:browser|browser-session|browser-sessions|sessions?|storage-state|auth-state)(?:\/|$)|(?:^|\/)(?:cookies|localStorage|sessionStorage|storageState)\.json$/i },
   { label: "retired validation-bundle artifacts", pattern: /validation-bundle/i },
   { label: "retired validation-bundle UI sources", pattern: /^src\/notion-ui(?:\/|$)/i },
-  { label: "internal planning docs", pattern: /^docs\/(?:command-inventory(?:\/|$)|live-notion-docs\.md$|development-plan\.md$|operator-roadmap\.md$|new-thread-handoff\.md$)/i },
+  { label: "internal planning docs", pattern: /^docs\/(?:architecture\.md$|command-inventory(?:\/|$)|live-notion-docs\.md$|development-plan\.md$|operator-roadmap\.md$|new-thread-handoff\.md$)/i },
   { label: "local package artifacts", pattern: /(?:^|\/)(?:node_modules|\.git)(?:\/|$)|\.tgz$/i },
 ];
 

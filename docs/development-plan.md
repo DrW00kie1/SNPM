@@ -24,7 +24,8 @@ Remaining hardening closure queue:
 - N0/N1 Notion CLI Interop Baseline completed the official `ntn` boundary and optional read-only `doctor --notion-cli` local probe
 - N2 Notion CLI Read-Only API Adapter Evaluation: test `ntn api` as an internal read-only provider under SNPM policy before any transport replacement or page-markdown adoption work
 - R3 Plan Quality Gates: implemented advisory `plan-change --quality-gates` context and manifest v2 `sync push --plan-id` journal linkage without making audits blocking gates
-- R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after contracts and release gates are stable
+- R4A Architecture Migration Readiness: add the architecture inventory, boundary checks, and migration map before any physical source moves
+- R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after R4A inventory gates are stable
 - R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
 
 ## Product Direction
@@ -763,7 +764,7 @@ Exit criteria:
 - a planned multi-surface update carries enough context to review, apply, audit, and diagnose later
 
 Status:
-- implemented on `codex/plan-quality-gates`
+- implemented on `main` through `82fbe3f`
 - audit findings remain advisory; they do not change top-level `ok`, mutation budgets, stale-write checks, sidecar refresh behavior, or apply semantics
 - `plan-change` remains JSON-only and read-only; it does not write files, sidecars, journals, review artifacts, or Notion content
 - `sync push --plan-id` is manifest v2 only and records operational `planId` metadata only for applied entries
@@ -774,6 +775,40 @@ Feature goals covered:
 - drift and staleness audit
 - cross-document consistency verifier
 - durable mutation journal
+
+## R4/R5 Architecture Migration
+
+Purpose: make source layout safer to evolve after the command, package, release, and JSON-contract hardening gates are stable.
+
+### Sprint R4A: Architecture Migration Readiness
+
+Goal:
+- inventory the current module boundaries and enforce migration guardrails before moving source files
+
+Deliverables:
+- `npm run architecture-inventory` as a repo-local architecture/readiness gate
+- deterministic module inventory by layer: CLI/registry, commands, contracts, Notion domain, Notion CLI adapter, validators, tests, and release tooling
+- boundary checks for domain-to-command imports, contracts importing runtime code, tests depending on task memory or closeout artifacts, validation-bundle/browser resurrection, and package allowlist drift
+- [Architecture inventory and migration map](./architecture.md) describing current layers, enforced boundaries, R4/R5 migration slices, and non-goals
+- release-check wiring so the inventory runs with local release gates
+
+Exit criteria:
+- source migration can be planned against a documented map and enforced boundary checks
+- existing command behavior, package runtime behavior, Notion mutation semantics, and release posture remain unchanged
+
+Status:
+- implemented on `codex/architecture-migration-readiness`
+- no source files were moved
+- no new SNPM command family, Notion mutation surface, package publishing, TypeScript migration, retry behavior, or N3 page-markdown parity work is included
+
+### R4/R5 Planned Migration Slices
+
+Planned order:
+- command-shell split while keeping `src/cli.mjs` as the package `bin`
+- domain-service grouping for Notion surface modules
+- infrastructure utilities extraction for shared child runner, IO, output, and journal helpers
+- tests-by-layer alignment
+- R6 TypeScript pilot decision or final hardening closeout
 
 ## Recommended First Milestone
 

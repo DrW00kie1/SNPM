@@ -238,9 +238,11 @@ test("package tarball contains runtime files and excludes local-only materials",
   assert.equal(fileSet.has("docs/command-inventory/pre-sprint-0.json"), false);
   assert.equal(fileSet.has("docs/command-inventory/pre-sprint-0.md"), false);
   assert.equal(fileSet.has("docs/live-notion-docs.md"), false);
+  assert.equal(fileSet.has("docs/architecture.md"), false);
   assert.equal(fileSet.has("docs/development-plan.md"), false);
   assert.equal(fileSet.has("docs/operator-roadmap.md"), false);
   assert.equal(fileSet.has("docs/new-thread-handoff.md"), false);
+  assert.equal(fileSet.has("scripts/architecture-inventory.mjs"), false);
   assert.equal(fileSet.has("config/workspaces/infrastructure-hq.json"), false);
   assert.equal(fileSet.has("research.md"), false);
   assert.equal(fileSet.has("plan.md"), false);
