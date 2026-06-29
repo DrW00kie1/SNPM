@@ -858,11 +858,26 @@ Status:
 - implemented on `codex/infrastructure-utilities`
 - no command names, output shapes, exit codes, Notion mutation semantics, Access safety boundaries, retries, package publishing, TypeScript migration, or tests-by-layer moves are included
 
-### R4/R5 Planned Migration Slices
+### Sprint R5A: Tests-By-Layer Alignment And Final Migration Gate
 
-Planned order:
-- tests-by-layer alignment
-- R6 TypeScript pilot decision or final hardening closeout
+Goal:
+- align regression tests with the migrated architecture layers without changing command behavior
+
+Deliverables:
+- tests are grouped under `test/cli`, `test/commands`, `test/notion`, `test/manifest`, `test/access`, `test/infrastructure`, and `test/package`
+- `npm test` remains the full-suite command
+- focused package-contract scripts point at the package/release/architecture test layer
+- architecture inventory and release gates continue to verify retired browser-lane absence, package allowlist boundaries, task-memory exclusion, and invalid import direction
+
+Status:
+- implemented on `codex/tests-by-layer`
+- R4/R5 physical source-layout migration is complete
+- no command names, output shapes, exit codes, Notion mutation semantics, Access safety boundaries, retries, package publishing, or TypeScript migration are included
+
+### R6 Planned Decision
+
+Next:
+- decide whether a narrow TypeScript pilot is justified by the remaining risk profile, or close the hardening phase without TypeScript
 
 ## Recommended First Milestone
 

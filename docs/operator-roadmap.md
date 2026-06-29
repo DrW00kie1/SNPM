@@ -174,7 +174,8 @@ Active hardening sequence:
 - R4B Command Shell Split is complete: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers live in `src/cli/*.mjs` without changing command behavior.
 - R4C Domain-Service Grouping is complete: Notion internals are grouped under `src/notion/{core,project,docs,manifest,planning,validation}` with root compatibility exports.
 - R4D Infrastructure Utilities Extraction is complete: shared child runner, command IO, mutation journal, operational output, and manifest review-output helpers live under `src/infrastructure/` with command-layer compatibility shims.
-- Remaining hardening closure continues with R5A tests-by-layer alignment and the TypeScript/final-closeout decision.
+- R5A Tests-By-Layer Alignment is complete: regression tests are grouped by CLI, command, Notion domain, manifest, Access safety, infrastructure, and package/release layers while `npm test` remains the full suite.
+- Remaining hardening closure continues with the R6 TypeScript pilot versus final hardening closeout decision.
 
 ## Why SNPM Beats A Generic Connector
 

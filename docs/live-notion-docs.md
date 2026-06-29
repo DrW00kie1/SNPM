@@ -560,6 +560,20 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
+## R5A Tests-By-Layer Closeout
+
+Durable Notion summary:
+- Decision Log: Record that R5A completed the final R4/R5 migration slice by grouping tests under layer-specific directories while keeping `npm test` as the full-suite command.
+- Roadmap: Mark R4/R5 architecture migration complete after merge and move the active hardening decision to R6 TypeScript pilot versus final hardening closeout.
+- Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, Access secret behavior, or Notion mutation semantics changed.
+- Product Hardening Plan: Record that command-shell split, domain-service grouping, infrastructure utilities extraction, and tests-by-layer alignment are complete; the remaining decision is R6 TypeScript pilot versus closeout.
+- Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R5A is an internal test-layout alignment.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator steps change
+
 ## Verification
 
 Project-scoped verification:

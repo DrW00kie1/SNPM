@@ -205,6 +205,16 @@ function auditPrivateTestDependencies(files) {
       })));
 }
 
+function auditTestLayerLayout(files) {
+  return files
+    .filter((file) => /^test\/[^/]+\.test\.mjs$/.test(file.path))
+    .map((file) => ({
+      code: "architecture.test-not-layered",
+      file: file.path,
+      message: "Tests must live under a layer directory such as test/cli, test/commands, test/notion, test/manifest, test/access, test/infrastructure, or test/package.",
+    }));
+}
+
 function auditRetiredBrowserLane(files, packageJson) {
   const violations = [];
 
@@ -279,6 +289,7 @@ export function buildArchitectureInventory({ files, packageJson = {} } = {}) {
   const violations = [
     ...auditBoundaryEdges(modules),
     ...auditPrivateTestDependencies(inputFiles),
+    ...auditTestLayerLayout(inputFiles),
     ...auditRetiredBrowserLane(inputFiles, packageJson),
     ...auditPackageBoundary(packageJson),
   ].sort((a, b) => `${a.code}:${a.file}:${a.target || ""}`.localeCompare(`${b.code}:${b.file}:${b.target || ""}`));

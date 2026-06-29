@@ -108,7 +108,7 @@
     "truth-audit": "node src/cli.mjs doctor --truth-audit",
     "architecture-inventory": "node scripts/architecture-inventory.mjs",
     "package-contract": "npm run test:package-contract",
-    "test:package-contract": "node --test test/package-install.test.mjs test/release-check.test.mjs test/release-policy.test.mjs test/release-governance.test.mjs test/architecture-inventory.test.mjs",
+    "test:package-contract": "node --test test/package/package-install.test.mjs test/package/release-check.test.mjs test/package/release-policy.test.mjs test/package/release-governance.test.mjs test/package/architecture-inventory.test.mjs",
     "release-audit": "node scripts/release-audit.mjs",
     "release-governance": "node scripts/release-governance.mjs",
     "release-check": "node scripts/release-check.mjs",
