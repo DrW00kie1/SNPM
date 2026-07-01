@@ -69,16 +69,16 @@ If SNPM later invokes `ntn` internally, the integration must:
 
 ## Current Interop Status
 
-Current shipped interop scope is N0/N1:
+Current shipped interop scope:
 
-- document the SNPM-vs-`ntn` boundary
-- install and detect the local `ntn` binary
-- add a read-only `doctor --notion-cli` probe
+- N0/N1 documents the SNPM-vs-`ntn` boundary, installs/detects the local `ntn` binary, and adds the read-only `doctor --notion-cli` probe.
+- N2 evaluates `ntn api` behind SNPM policy through the read-only `doctor --notion-cli-api` probe.
+- N3 evaluates `ntn pages get` Markdown parity for one approved planning page through the read-only `doctor --notion-cli-pages --page "Planning > Roadmap"` probe.
 
-Out of scope for N0/N1:
+Out of scope for shipped interop probes:
 
 - replacing SNPM's Notion transport
-- invoking `ntn api` from product commands
+- exposing `ntn` as an operator workflow
 - changing mutation behavior
 - adding direct page-id workflows
 - using `ntn` authentication to replace project-token-scoped SNPM commands
@@ -106,15 +106,46 @@ N2 must not:
 
 Any `ntn api` adapter should reject write/destructive methods before child spawn. Read failures may carry operation-policy metadata, but they should not create retry loops or change existing mutation semantics.
 
+## N3 Page-Markdown Replacement-Readiness Probe
+
+N3 evaluates `ntn pages get` as a possible future source for page Markdown only after SNPM resolves the target through approved project policy. It is evidence gathering, not a provider swap.
+
+Use:
+
+```powershell
+npm run doctor -- --project "SNPM" --notion-cli-pages --page "Planning > Roadmap" --project-token-env SNPM_NOTION_TOKEN
+```
+
+The probe:
+
+- requires `--project`, `--project-token-env`, and an approved `Planning > ...` page path
+- resolves the page through SNPM before spawning `ntn`
+- runs only `ntn pages get <resolved-page> --json --notion-version <workspace version>`
+- passes `NOTION_API_TOKEN` from the explicit project-token env and sets `NOTION_KEYRING=0`
+- compares normalized SNPM managed Markdown against the `ntn` Markdown payload
+- returns compact advisory metadata under `notionCliPages`
+
+The probe does not:
+
+- print or return raw Markdown bodies
+- print or return full diffs
+- expose raw page IDs as operator targets
+- run `ntn pages edit`, `ntn pages create`, `ntn pages trash`, `ntn login`, `ntn api`, `--verbose`, or `--unsafe-verbose`
+- mutate Notion
+- write files, sidecars, review artifacts, or mutation journal entries
+
+If the probe reports a mismatch, keep SNPM's fetch-backed page Markdown as the supported implementation and record the normalization evidence for a later replacement decision.
+
 ## Future Evaluation Path
 
 Evaluate deeper `ntn` adoption in this order:
 
 1. Add an optional read-only probe that reports the installed CLI version and warnings.
 2. Prototype an explicit read-only `ntn api` adapter behind SNPM's existing client interface.
-3. Compare `ntn pages get/update` Markdown round trips against SNPM-managed page requirements.
-4. Adopt only the pieces that preserve approved-surface routing, stale-write protection, Access secret safety, redacted output, and mutation journaling.
-5. Delete SNPM internals only after parity and rollback plans are proven.
+3. Compare `ntn pages get` Markdown output against SNPM-managed page requirements through `doctor --notion-cli-pages`.
+4. Consider write-path parity only in a later approved sprint; do not call `ntn pages edit` as part of N3.
+5. Adopt only the pieces that preserve approved-surface routing, stale-write protection, Access secret safety, redacted output, and mutation journaling.
+6. Delete SNPM internals only after parity and rollback plans are proven.
 
 The default assumption is conservative: SNPM may use `ntn` where it reduces low-level maintenance cost, but SNPM remains the policy layer that makes Notion safe for repeated coding-agent use.
 

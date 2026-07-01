@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runDoctor } from "../../src/commands/doctor.mjs";
+import { redactResolvedPageError, runDoctor } from "../../src/commands/doctor.mjs";
+import { NotionApiError } from "../../src/notion/errors.mjs";
 import {
   probeNotionCli,
   resolveNotionCliVersionChildArgs,
@@ -140,6 +141,34 @@ test("runDoctor requires project and project-token-env for the notion-cli-api pr
   );
 });
 
+test("runDoctor requires project, project-token-env, and approved page for the notion-cli-pages probe", async () => {
+  await assert.rejects(
+    () => runDoctor({ notionCliPages: true, notionCliPagePath: "Planning > Roadmap" }),
+    /Provide --project "Project Name"/,
+  );
+  await assert.rejects(
+    () => runDoctor({ projectName: "SNPM", notionCliPages: true, notionCliPagePath: "Planning > Roadmap" }),
+    /Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-pages/,
+  );
+  await assert.rejects(
+    () => runDoctor({
+      projectName: "SNPM",
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      notionCliPages: true,
+    }),
+    /Provide --page "Planning > <Page Name>"/,
+  );
+  await assert.rejects(
+    () => runDoctor({
+      projectName: "SNPM",
+      projectTokenEnv: "SNPM_NOTION_TOKEN",
+      notionCliPages: true,
+      notionCliPagePath: "Access > Database",
+    }),
+    /Approved page targets are limited/,
+  );
+});
+
 test("runDoctor wires notion-cli-api through an injectable project-scoped probe", async () => {
   const result = await runDoctor({
     projectName: "SNPM",
@@ -181,4 +210,72 @@ test("runDoctor wires notion-cli-api through an injectable project-scoped probe"
   assert.equal(result.notionCliApi.checked, true);
   assert.equal(result.notionCliApi.available, true);
   assert.equal(result.notionCliApi.command, "ntn api --method GET pages/<project-page>");
+});
+
+test("runDoctor wires notion-cli-pages through an injectable project-scoped probe", async () => {
+  let probeCalled = false;
+  const result = await runDoctor({
+    projectName: "SNPM",
+    projectTokenEnv: "SNPM_NOTION_TOKEN",
+    workspaceName: "infrastructure-hq.example",
+    notionCliPages: true,
+    notionCliPagePath: "Planning > Roadmap",
+    diagnoseProjectImpl({ config, projectName, projectTokenEnv }) {
+      assert.ok(config.workspace);
+      assert.equal(projectName, "SNPM");
+      assert.equal(projectTokenEnv, "SNPM_NOTION_TOKEN");
+      return {
+        authMode: "project-token",
+        projectName,
+        projectTokenChecked: true,
+        issues: [],
+        recommendations: [],
+      };
+    },
+    notionCliPagesProbeImpl({ config, projectName, projectTokenEnv, workspaceName, pagePath, doctorResult }) {
+      probeCalled = true;
+      assert.ok(config.workspace);
+      assert.equal(projectName, "SNPM");
+      assert.equal(projectTokenEnv, "SNPM_NOTION_TOKEN");
+      assert.equal(workspaceName, "infrastructure-hq.example");
+      assert.equal(pagePath, "Planning > Roadmap");
+      assert.equal(doctorResult.authMode, "project-token");
+      return {
+        checked: true,
+        available: true,
+        targetPath: "Projects > SNPM > Planning > Roadmap",
+        command: "ntn pages get <resolved-page> --json --notion-version <version>",
+        matches: true,
+        hasDiff: false,
+        normalizationNotes: ["lf-newlines"],
+        warnings: [],
+        safeNextCommands: [],
+        recommendation: "ntn-pages-get-is-compatible-for-this-approved-page",
+      };
+    },
+  });
+
+  assert.equal(probeCalled, true);
+  assert.equal(result.projectName, "SNPM");
+  assert.equal(result.notionCliPages.checked, true);
+  assert.equal(result.notionCliPages.available, true);
+  assert.equal(result.notionCliPages.matches, true);
+  assert.equal(result.notionCliPages.command, "ntn pages get <resolved-page> --json --notion-version <version>");
+});
+
+test("redactResolvedPageError removes raw Notion identifiers from probe errors", () => {
+  const error = new NotionApiError("GET blocks/3319f5f6-66d0-81ab-b6e8-c4fe3e2047be/children failed", {
+    method: "GET",
+    apiPath: "blocks/3319f5f6-66d0-81ab-b6e8-c4fe3e2047be/children?page_id=3319f5f666d081abb6e8c4fe3e2047be",
+    status: 404,
+    code: "object_not_found",
+    body: "",
+    details: null,
+  });
+
+  const redacted = redactResolvedPageError(error);
+
+  assert.doesNotMatch(JSON.stringify(redacted), /3319f5f6|3319f5f666d081abb6e8c4fe3e2047be/i);
+  assert.match(redacted.message, /<notion-id>/);
+  assert.match(redacted.apiPath, /<notion-id>/);
 });

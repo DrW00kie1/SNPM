@@ -22,11 +22,12 @@ Remaining hardening closure queue:
 - R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
 - R2 Notion Operation Policy And Safe Retry Design completed explicit Notion operation policy metadata while keeping automatic retries disabled and mutation recovery manual
 - N0/N1 Notion CLI Interop Baseline completed the official `ntn` boundary and optional read-only `doctor --notion-cli` local probe
-- N2 Notion CLI Read-Only API Adapter Evaluation: test `ntn api` as an internal read-only provider under SNPM policy before any transport replacement or page-markdown adoption work
+- N2 Notion CLI Read-Only API Adapter Evaluation completed the internal read-only `ntn api` provider probe under SNPM policy before any transport replacement work
+- N3 Notion CLI Page-Markdown Replacement-Readiness Probe evaluates `ntn pages get` parity for approved planning-page Markdown without replacing SNPM transport or exposing `ntn` as an operator workflow
 - R3 Plan Quality Gates: implemented advisory `plan-change --quality-gates` context and manifest v2 `sync push --plan-id` journal linkage without making audits blocking gates
 - R4A Architecture Migration Readiness: add the architecture inventory, boundary checks, and migration map before any physical source moves
 - R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after R4A inventory gates are stable
-- R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase as complete
+- R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase after N3 evidence is reviewed
 
 ## Product Direction
 
@@ -768,7 +769,7 @@ Status:
 - audit findings remain advisory; they do not change top-level `ok`, mutation budgets, stale-write checks, sidecar refresh behavior, or apply semantics
 - `plan-change` remains JSON-only and read-only; it does not write files, sidecars, journals, review artifacts, or Notion content
 - `sync push --plan-id` is manifest v2 only and records operational `planId` metadata only for applied entries
-- N3 page-markdown parity remains deferred until separately approved
+- N3 page-markdown parity is handled as a separate read-only replacement-readiness probe; any actual provider replacement remains deferred until parity evidence is reviewed
 
 Feature goals covered:
 - `plan-change`

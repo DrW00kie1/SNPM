@@ -290,16 +290,21 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
     const consistencyAudit = options["consistency-audit"] === true;
     const notionCli = options["notion-cli"] === true;
     const notionCliApi = options["notion-cli-api"] === true;
+    const notionCliPages = options["notion-cli-pages"] === true;
     const truthAudit = options["truth-audit"] === true;
     const staleAfterDays = truthAudit || consistencyAudit || options["stale-after-days"] !== undefined
       ? parseStaleAfterDaysOption(options["stale-after-days"])
       : undefined;
     const projectName = options.project || null;
-    if (!projectName && (truthAudit || consistencyAudit || notionCliApi)) {
+    if (!projectName && (truthAudit || consistencyAudit || notionCliApi || notionCliPages)) {
       requireOption(options, "project", 'Provide --project "Project Name".');
     }
     if (notionCliApi) {
       requireOption(options, "project-token-env", "Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-api.");
+    }
+    if (notionCliPages) {
+      requireOption(options, "project-token-env", "Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-pages.");
+      requireOption(options, "page", 'Provide --page "Planning > Roadmap" for --notion-cli-pages.');
     }
     const result = await runDoctor({
       projectName,
@@ -307,6 +312,7 @@ async function main(argv = process.argv.slice(2), { errorFormat = DEFAULT_ERROR_
       ...(consistencyAudit ? { consistencyAudit, staleAfterDays } : {}),
       ...(notionCli ? { notionCli } : {}),
       ...(notionCliApi ? { notionCliApi } : {}),
+      ...(notionCliPages ? { notionCliPages, notionCliPagePath: options.page } : {}),
       ...(truthAudit ? { truthAudit, staleAfterDays } : {}),
       workspaceName,
     });

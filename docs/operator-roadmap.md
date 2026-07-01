@@ -31,7 +31,7 @@ Supported on the current active line:
 - release identity and governance guardrails for source checkout, reviewed Git install, and reviewed tarball install distribution
 - release operations promotion and protection checklist for RC/stable promotion, evidence capture, local live verification, and branch protection after green CI
 - Notion operation policy metadata that classifies failures by operation kind and distinguishes protocol retryability from SNPM-safe retry eligibility
-- Notion CLI interop boundary that treats official `ntn` as an optional low-level provider while keeping SNPM as the approved-surface control plane; N2 evaluates `ntn api` read-only only
+- Notion CLI interop boundary that treats official `ntn` as an optional low-level provider while keeping SNPM as the approved-surface control plane; N2 evaluates `ntn api` read-only only and N3 evaluates `ntn pages get` page-Markdown parity read-only only
 - stdin/stdout ergonomics on the core band
 - strict metadata sidecars and stale-write checks on managed apply paths
 - local redacted mutation journal entries for applied changes
@@ -169,6 +169,7 @@ Active hardening sequence:
 - R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
 - N0/N1 Notion CLI Interop Baseline completed the local `ntn --version` probe and SNPM-vs-`ntn` boundary.
 - N2 Notion CLI Read-Only API Adapter Evaluation is complete: `ntn api` is evaluated behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
+- N3 Notion CLI Page-Markdown Replacement-Readiness Probe is complete when merged: `doctor --notion-cli-pages --page "Planning > Roadmap"` compares SNPM-managed page Markdown with `ntn pages get --json` for an approved planning page, using explicit project-token auth and returning compact advisory metadata only.
 - R3 Plan Quality Gates is complete on `main`: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
 - R4A Architecture Migration Readiness is complete: repo-local architecture inventory, boundary checks, release-gate wiring, and a migration map are in place before broader source moves.
 - R4B Command Shell Split is complete: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers live in `src/cli/*.mjs` without changing command behavior.
@@ -195,7 +196,7 @@ A generic connector gives raw page reach. SNPM gives a narrower tool that is saf
 
 The official Notion CLI (`ntn`) is useful low-level tooling, but it does not replace SNPM's policy boundary. Direct `ntn pages update` or `ntn pages trash`, raw page-id mutation, `ntn --unsafe-verbose`, and keychain workspace auth used to bypass project-token-scoped SNPM commands are outside the normal SNPM operator path. See [Notion CLI interop boundary](./notion-cli-interop.md).
 
-The only approved N2 implementation direction is an internal read-only `ntn api` evaluation. Operators should not treat `ntn api` as a new SNPM command family, a page-id shortcut, or a replacement for SNPM stale-write checks and mutation journals.
+The only approved Notion CLI implementation direction on the active line is internal read-only evaluation. Operators should not treat `ntn api` or `ntn pages get` as a new SNPM command family, a page-id shortcut, or a replacement for SNPM stale-write checks and mutation journals.
 
 ## Managed-Doc Boundary
 
@@ -297,6 +298,7 @@ Keep these boundaries:
 - Notion `retryable` is protocol metadata only; writes, appends, replacements, creates, deletes, and destructive operations remain manual-retry-only unless a later approved retry sprint adds a separate mutation-safe policy
 - read/query requests may be classified as safe automatic retry candidates in error metadata, but current SNPM transport still performs one attempt and does not retry automatically
 - `ntn api` interop may be evaluated only for read/query operations behind SNPM policy; it must not run `ntn login`, rely on broad keychain workspace auth for project-scoped probes, expose raw page IDs as operator targets, or use verbose/unsafe verbose output
+- `ntn pages get` interop may be evaluated only through `doctor --notion-cli-pages` after SNPM resolves an approved planning-page path; it must not print raw Markdown, full diffs, raw page IDs, child stdout/stderr, tokens, stack traces, or use `ntn pages edit/create/trash`
 - CI and release gates must remain secret-free; do not add Notion tokens, private workspace config, live page ids, or live Notion commands to CI
 - current distribution is source checkout plus reviewed Git/tarball install only; do not publish to npm as part of release checks
 - the unscoped `snpm` npm name is not available for this project; future npm publication requires an approved owned scoped package name
