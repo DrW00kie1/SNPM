@@ -533,13 +533,16 @@ test("doctor help and capabilities document the optional Notion CLI probe", () =
 
   assert.match(text, /--notion-cli/);
   assert.match(text, /--notion-cli-api/);
+  assert.match(text, /--notion-cli-pages/);
   assert.match(text, /Notion CLI/i);
   assert.match(text, /ntn --version/);
   assert.match(text, /ntn api --method GET pages\/<project-page>/);
+  assert.match(text, /ntn pages get <resolved-page> --json/);
   assert.match(text, /does not run ntn api/i);
   assert.match(text, /does not run ntn login/i);
+  assert.match(text, /excludes raw Markdown/i);
   assert.ok(command);
-  assert.deepEqual(command.advisoryProbeFlags, ["notion-cli", "notion-cli-api"]);
+  assert.deepEqual(command.advisoryProbeFlags, ["notion-cli", "notion-cli-api", "notion-cli-pages"]);
   assert.equal(command.notionCli, "optional-local-read-only-probe");
   assert.equal(command.notionCliResultField, "notionCli");
   assert.equal(command.notionCliProbeCommand, "ntn --version");
@@ -583,6 +586,38 @@ test("doctor help and capabilities document the optional Notion CLI probe", () =
     "sidecar-writes",
     "mutation-journal",
   ]);
+  assert.equal(command.notionCliPages, "optional-project-scoped-read-only-page-markdown-replacement-readiness-probe");
+  assert.equal(command.notionCliPagesResultField, "notionCliPages");
+  assert.equal(command.notionCliPagesProbeCommand, "ntn pages get <resolved-page> --json --notion-version <version>");
+  assert.deepEqual(command.notionCliPagesRequires, ["project", "project-token-env", "workspace-config", "approved-planning-page"]);
+  assert.deepEqual(command.notionCliPagesProbeFields, [
+    "checked",
+    "available",
+    "targetPath",
+    "command",
+    "matches",
+    "hasDiff",
+    "normalizationNotes",
+    "warnings",
+    "safeNextCommands",
+    "recommendation",
+  ]);
+  assert.deepEqual(command.notionCliPagesNonGoals, [
+    "ntn-pages-edit",
+    "ntn-pages-create",
+    "ntn-pages-trash",
+    "ntn-login",
+    "keychain-auth-bypass",
+    "raw-page-id-workflows",
+    "raw-markdown-output",
+    "full-diff-output",
+    "notion-mutation",
+    "local-file-output",
+    "sidecar-writes",
+    "mutation-journal",
+    "transport-replacement",
+  ]);
+  assert.equal(command.replacementReadiness, true);
   assert.equal(command.notionMutation, "none");
   assert.equal(command.localFileWrites, "none");
   assert.equal(command.journalWrites, "none");
@@ -1296,6 +1331,23 @@ test("parseArgs supports doctor and recommend aliases", () => {
   assert.equal(notionCliApiProbeParsed.options["notion-cli-api"], true);
   assert.equal(notionCliApiProbeParsed.options.project, "SNPM");
   assert.equal(notionCliApiProbeParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
+
+  const notionCliPagesProbeParsed = parseArgs([
+    "doctor",
+    "--notion-cli-pages",
+    "--page",
+    "Planning > Roadmap",
+    "--project",
+    "SNPM",
+    "--project-token-env",
+    "SNPM_NOTION_TOKEN",
+  ]);
+
+  assert.equal(notionCliPagesProbeParsed.command, "doctor");
+  assert.equal(notionCliPagesProbeParsed.options["notion-cli-pages"], true);
+  assert.equal(notionCliPagesProbeParsed.options.page, "Planning > Roadmap");
+  assert.equal(notionCliPagesProbeParsed.options.project, "SNPM");
+  assert.equal(notionCliPagesProbeParsed.options["project-token-env"], "SNPM_NOTION_TOKEN");
 });
 
 test("parseArgs supports doc subcommands", () => {
@@ -2008,11 +2060,14 @@ test("cli doctor help documents the optional local Notion CLI probe boundary", (
   assert.equal(result.status, 0);
   assert.match(result.stdout, /--notion-cli/);
   assert.match(result.stdout, /--notion-cli-api/);
+  assert.match(result.stdout, /--notion-cli-pages/);
   assert.match(result.stdout, /Notion CLI/i);
   assert.match(result.stdout, /ntn --version/);
   assert.match(result.stdout, /--notion-cli-api/);
+  assert.match(result.stdout, /ntn pages get <resolved-page> --json/);
   assert.match(result.stdout, /does not run ntn api/i);
   assert.match(result.stdout, /does not run ntn login/i);
+  assert.match(result.stdout, /excludes raw Markdown/i);
   assert.match(result.stdout, /does not mutate Notion/i);
   assert.equal(result.stderr, "");
 });
@@ -2044,6 +2099,23 @@ test("cli doctor --notion-cli-api requires project and token before live executi
   assert.notEqual(missingToken.status, 0);
   assert.equal(missingToken.stdout, "");
   assert.match(missingToken.stderr, /Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-api/);
+});
+
+test("cli doctor --notion-cli-pages requires project, token, and approved page before live execution", () => {
+  const missingProject = runCli(["doctor", "--notion-cli-pages", "--page", "Planning > Roadmap"]);
+  assert.notEqual(missingProject.status, 0);
+  assert.equal(missingProject.stdout, "");
+  assert.match(missingProject.stderr, /Provide --project "Project Name"/);
+
+  const missingToken = runCli(["doctor", "--notion-cli-pages", "--project", "SNPM", "--page", "Planning > Roadmap"]);
+  assert.notEqual(missingToken.status, 0);
+  assert.equal(missingToken.stdout, "");
+  assert.match(missingToken.stderr, /Provide --project-token-env PROJECT_NAME_NOTION_TOKEN for --notion-cli-pages/);
+
+  const missingPage = runCli(["doctor", "--notion-cli-pages", "--project", "SNPM", "--project-token-env", "SNPM_NOTION_TOKEN"]);
+  assert.notEqual(missingPage.status, 0);
+  assert.equal(missingPage.stdout, "");
+  assert.match(missingPage.stderr, /Provide --page "Planning > Roadmap" for --notion-cli-pages/);
 });
 
 test("cli secret-bearing help documents consume-only exec guidance", () => {

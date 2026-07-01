@@ -53,6 +53,7 @@ test("architecture layer classification covers the migration buckets", () => {
   assert.equal(classifyArchitectureLayer("src/notion/page-markdown.mjs"), "notion-domain");
   assert.equal(classifyArchitectureLayer("src/notion/manifest/manifest-sync-push.mjs"), "notion-domain");
   assert.equal(classifyArchitectureLayer("src/notion-cli/api-adapter.mjs"), "notion-cli-adapter");
+  assert.equal(classifyArchitectureLayer("src/notion-cli/page-markdown-adapter.mjs"), "notion-cli-adapter");
   assert.equal(classifyArchitectureLayer("src/validators.mjs"), "validators");
   assert.equal(classifyArchitectureLayer("test/cli/cli.test.mjs"), "tests");
   assert.equal(classifyArchitectureLayer("scripts/release-check.mjs"), "release-tooling");

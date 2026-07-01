@@ -14,6 +14,8 @@ N0/N1 Notion CLI Installation, Boundary Reconciliation, And Read-Only Probe upda
 
 N2 Notion CLI Read-Only API Adapter Evaluation updates durable planning and decision tracking only if implementation lands. Closeout should record that SNPM evaluated `ntn api` as an internal read-only provider under SNPM policy, not as a default transport replacement or operator page-id workflow. The N2 boundary is: use explicit SNPM project-token env for the probe, reject write/destructive `ntn` operations before child spawn, do not run `ntn login`, do not rely on keychain workspace auth to bypass project-token boundaries, do not use verbose or unsafe verbose output, do not write files/sidecars/journal entries, and do not mutate Notion.
 
+N3 Notion CLI Page-Markdown Replacement-Readiness Probe updates durable planning and decision tracking only if implementation lands. Closeout should record that SNPM compared its managed page Markdown retrieval with official `ntn pages get --json` for an approved planning page, using explicit project-token auth and keychain auth disabled. The N3 boundary is: SNPM resolves approved planning paths first, the probe returns compact advisory metadata only, no raw Markdown/full diff/raw page IDs/child stdout/stderr/tokens/stack traces are returned, no local files/sidecars/journals are written, and no Notion mutation or `ntn pages edit/create/trash/login` command is run.
+
 R4A Architecture Migration Readiness updates durable planning and decision tracking after R3 lands. Closeout should record that R4A adds a repo-local architecture inventory/readiness gate and migration map before physical source moves. It does not move source files, add SNPM commands, mutate Notion, change package publishing posture, add TypeScript, or change runtime command behavior.
 
 Durable Notion closeout targets for planning-baseline reconciliation:
@@ -488,6 +490,19 @@ Durable Notion summary:
 Closeout command families:
 - use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
 - use `doc-*` for `Root > Product Hardening Plan` only when strategic sequence wording needs correction
+- do not update operator runbooks unless public operator steps change
+
+## Sprint N3: Notion CLI Page-Markdown Replacement-Readiness Closeout
+
+Durable Notion summary:
+- Decision Log: Record that `doctor --notion-cli-pages --page "Planning > Roadmap"` is an internal read-only replacement-readiness probe. It compares SNPM-managed page Markdown with official `ntn pages get --json` only after SNPM resolves the approved planning path through project policy.
+- Roadmap: Mark N3 complete after merge only if the adapter and `doctor --notion-cli-pages` probe land; move the active hardening decision to R6 TypeScript pilot versus final closeout, unless parity evidence justifies a separately approved Notion CLI provider-replacement sprint.
+- Current Cycle: Record verification results and the safety boundary: explicit project-token auth, `NOTION_KEYRING=0`, no raw Markdown/full diffs/raw page IDs/child output/tokens/stack traces in output, no files/sidecars/journals, no Notion mutation, and no `ntn pages edit/create/trash/login`.
+- Product Hardening Plan: Record that Notion CLI adoption remains conditional. N3 gathers page-Markdown parity evidence; deleting or replacing SNPM page-Markdown internals requires a later approved implementation plan.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
 ## R3 Plan Quality Gates Closeout

@@ -2,7 +2,7 @@ import { validateChildCommandArgs } from "../validators.mjs";
 import { findCommandHelp, normalizeCommandName } from "../cli-help.mjs";
 import { RAW_SECRET_EXPORT_UNSUPPORTED_MESSAGE } from "../commands/secret-output-safety.mjs";
 
-const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "notion-cli-api", "quality-gates", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
+const BOOLEAN_FLAGS = new Set(["allow-repo-secret-output", "apply", "bundle", "consistency-audit", "explain", "manifest-draft", "notion-cli", "notion-cli-api", "notion-cli-pages", "quality-gates", "raw-secret-output", "refresh-sidecars", "stdin-secret", "truth-audit"]);
 const REPEATABLE_FLAGS = new Set(["entry"]);
 const SECRET_EXEC_COMMANDS = new Set([
   "access-token exec",
