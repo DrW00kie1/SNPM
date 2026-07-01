@@ -17,17 +17,17 @@ Current hardening baseline:
 - Sprint 1H Release Identity And Governance completed the release-governance wedge for distribution identity, npm-name boundaries, manual branch-protection requirements, and release-audit/release-check gates
 - Sprint 1I Release Operations Promotion And Protection completed the release-operations wedge for RC/stable promotion checklists, release evidence, branch protection after green CI, local live SNPM verification, and Notion closeout targets
 
-Remaining hardening closure queue:
+Hardening closure baseline:
 - R0 Planning Baseline Reconciliation: align repo docs and Notion tracking with the shipped Sprint 1I baseline
 - R1 Path And Output Validator Completion completed shared local path validators for command IO, review artifacts, manifest loading, entries-file loading, and scaffold output directories
 - R2 Notion Operation Policy And Safe Retry Design completed explicit Notion operation policy metadata while keeping automatic retries disabled and mutation recovery manual
 - N0/N1 Notion CLI Interop Baseline completed the official `ntn` boundary and optional read-only `doctor --notion-cli` local probe
 - N2 Notion CLI Read-Only API Adapter Evaluation completed the internal read-only `ntn api` provider probe under SNPM policy before any transport replacement work
-- N3 Notion CLI Page-Markdown Replacement-Readiness Probe evaluates `ntn pages get` parity for approved planning-page Markdown without replacing SNPM transport or exposing `ntn` as an operator workflow
+- N3 Notion CLI Page-Markdown Replacement-Readiness Probe evaluated `ntn pages get` parity for approved planning-page Markdown without replacing SNPM transport or exposing `ntn` as an operator workflow
 - R3 Plan Quality Gates: implemented advisory `plan-change --quality-gates` context and manifest v2 `sync push --plan-id` journal linkage without making audits blocking gates
-- R4A Architecture Migration Readiness: add the architecture inventory, boundary checks, and migration map before any physical source moves
-- R4/R5 Deferred Architecture Migration: migrate source layout in behavior-preserving stages after R4A inventory gates are stable
-- R6 TypeScript Decision Or Final Hardening Closeout: decide whether a TypeScript pilot is justified or close the hardening phase after N3 evidence is reviewed
+- R4A Architecture Migration Readiness completed the architecture inventory, boundary checks, and migration map before physical source moves
+- R4/R5 Deferred Architecture Migration completed source-layout migration in behavior-preserving stages after R4A inventory gates stabilized
+- R6A Final Hardening Closeout closes the v1.3 hardening sequence without a TypeScript pilot; JavaScript plus shipped contract, architecture, release, and live-verification gates is the supported baseline
 
 ## Product Direction
 
@@ -875,10 +875,16 @@ Status:
 - R4/R5 physical source-layout migration is complete
 - no command names, output shapes, exit codes, Notion mutation semantics, Access safety boundaries, retries, package publishing, or TypeScript migration are included
 
-### R6 Planned Decision
+### R6A Final Hardening Closeout
 
-Next:
-- decide whether a narrow TypeScript pilot is justified by the remaining risk profile, or close the hardening phase without TypeScript
+Decision:
+- close the hardening phase without a TypeScript pilot
+- keep JavaScript as the implementation language while relying on the shipped architecture inventory, limited JSON contracts, structured errors, package/release gates, CI, and live SNPM verification as the safety baseline
+- keep official Notion CLI adoption as read-only evaluation only until a future approved provider sprint proves parity without weakening SNPM policy boundaries
+
+Status:
+- selected after N3 page-Markdown evidence did not justify replacing SNPM's fetch-backed page Markdown transport
+- future work should start as explicit product sprints rather than continuing the v1.3 hardening plan
 
 ## Recommended First Milestone
 

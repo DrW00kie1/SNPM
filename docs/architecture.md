@@ -1,6 +1,6 @@
 # SNPM Architecture Inventory And Migration Map
 
-Status: R5A tests-by-layer alignment. This document describes the current source layout, the boundary checks enforced by `npm run architecture-inventory`, and the completed R4/R5 migration path. R4C grouped Notion domain internals under surface-oriented directories; R4D moved shared runtime helpers into `src/infrastructure/`; R5A aligned tests under layer-specific directories while preserving command behavior.
+Status: R6A final hardening closeout. This document describes the current JavaScript source layout, the boundary checks enforced by `npm run architecture-inventory`, and the completed R4/R5 migration path. R4C grouped Notion domain internals under surface-oriented directories; R4D moved shared runtime helpers into `src/infrastructure/`; R5A aligned tests under layer-specific directories while preserving command behavior. R6A closes the hardening sequence without a TypeScript pilot.
 
 ## Current Layers
 
@@ -37,7 +37,7 @@ The inventory is intentionally repo-local. It reads source files and `package.js
 2. Domain-service grouping: group `src/notion` by surface and primitive through explicit module boundaries or barrel exports without changing public command behavior. Status: implemented in R4C.
 3. Infrastructure utilities: move reusable runtime utilities such as child runner, file IO helpers, operational output, and journal plumbing out of command-specific paths when they are shared by domain or adapter layers. Status: implemented in R4D.
 4. Tests by layer: align tests with the migrated layers so command-contract, domain-service, transport, package, and release checks remain clear. Status: implemented in R5A.
-5. R6 decision: after staged migration evidence, decide whether a TypeScript pilot adds enough safety to justify the migration cost, or close hardening without TypeScript.
+5. R6A final closeout: JavaScript remains the implementation language. The safety baseline is architecture inventory, limited JSON contracts, structured errors, release/package gates, CI, and live SNPM verification rather than a TypeScript pilot.
 
 ## Non-Goals
 
@@ -45,4 +45,4 @@ The inventory is intentionally repo-local. It reads source files and `package.js
 - No command renames, new commands, output-shape changes, or exit-code changes.
 - No new Notion mutation surface, transport replacement, retries, rollback, generic batch apply, or manifest scope expansion.
 - No package publish, GitHub Release, tag creation, or repository visibility change.
-- No TypeScript migration until the R6 decision.
+- No TypeScript migration in the final hardening baseline; any future TypeScript work requires a separate approved product or architecture sprint.

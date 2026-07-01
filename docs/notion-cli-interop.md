@@ -134,7 +134,19 @@ The probe does not:
 - mutate Notion
 - write files, sidecars, review artifacts, or mutation journal entries
 
-If the probe reports a mismatch, keep SNPM's fetch-backed page Markdown as the supported implementation and record the normalization evidence for a later replacement decision.
+If the probe reports a mismatch or fails to prove parity, keep SNPM's fetch-backed page Markdown as the supported implementation and record the normalization evidence for a later replacement decision.
+
+## Post-N3 Provider Decision
+
+N3 did not promote `ntn pages get` to provider status. The supported baseline remains SNPM's fetch-backed Notion transport and managed page-Markdown implementation.
+
+The shipped Notion CLI integration is limited to read-only diagnostics and replacement-readiness probes:
+
+- `doctor --notion-cli`
+- `doctor --notion-cli-api`
+- `doctor --notion-cli-pages`
+
+Future provider replacement must be a separate approved sprint. It must prove page-Markdown parity across approved surfaces and preserve SNPM's path-based targeting, stale-write sidecars, mutation journals, Access secret boundaries, redaction rules, and command-family ownership.
 
 ## Future Evaluation Path
 

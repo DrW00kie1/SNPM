@@ -16,6 +16,8 @@ N2 Notion CLI Read-Only API Adapter Evaluation updates durable planning and deci
 
 N3 Notion CLI Page-Markdown Replacement-Readiness Probe updates durable planning and decision tracking only if implementation lands. Closeout should record that SNPM compared its managed page Markdown retrieval with official `ntn pages get --json` for an approved planning page, using explicit project-token auth and keychain auth disabled. The N3 boundary is: SNPM resolves approved planning paths first, the probe returns compact advisory metadata only, no raw Markdown/full diff/raw page IDs/child stdout/stderr/tokens/stack traces are returned, no local files/sidecars/journals are written, and no Notion mutation or `ntn pages edit/create/trash/login` command is run.
 
+R6A Final Hardening Closeout updates durable planning and decision tracking after N3 lands. Closeout should record that the v1.3 hardening sequence is closed without a TypeScript pilot, JavaScript remains the supported implementation language, and official Notion CLI adoption remains read-only/probe-only until a separate provider sprint proves parity. Future work should move to explicit product sprints rather than continuing the hardening sequence.
+
 R4A Architecture Migration Readiness updates durable planning and decision tracking after R3 lands. Closeout should record that R4A adds a repo-local architecture inventory/readiness gate and migration map before physical source moves. It does not move source files, add SNPM commands, mutate Notion, change package publishing posture, add TypeScript, or change runtime command behavior.
 
 Durable Notion closeout targets for planning-baseline reconciliation:
@@ -496,7 +498,7 @@ Closeout command families:
 
 Durable Notion summary:
 - Decision Log: Record that `doctor --notion-cli-pages --page "Planning > Roadmap"` is an internal read-only replacement-readiness probe. It compares SNPM-managed page Markdown with official `ntn pages get --json` only after SNPM resolves the approved planning path through project policy.
-- Roadmap: Mark N3 complete after merge only if the adapter and `doctor --notion-cli-pages` probe land; move the active hardening decision to R6 TypeScript pilot versus final closeout, unless parity evidence justifies a separately approved Notion CLI provider-replacement sprint.
+- Roadmap: Mark N3 complete after merge only if the adapter and `doctor --notion-cli-pages` probe land; move the active hardening decision to R6A final closeout, unless parity evidence justifies a separately approved Notion CLI provider-replacement sprint.
 - Current Cycle: Record verification results and the safety boundary: explicit project-token auth, `NOTION_KEYRING=0`, no raw Markdown/full diffs/raw page IDs/child output/tokens/stack traces in output, no files/sidecars/journals, no Notion mutation, and no `ntn pages edit/create/trash/login`.
 - Product Hardening Plan: Record that Notion CLI adoption remains conditional. N3 gathers page-Markdown parity evidence; deleting or replacing SNPM page-Markdown internals requires a later approved implementation plan.
 
@@ -505,11 +507,25 @@ Closeout command families:
 - use `doc-*` for `Root > Product Hardening Plan`
 - do not update operator runbooks unless public operator steps change
 
+## R6A Final Hardening Closeout
+
+Durable Notion summary:
+- Decision Log: Record the final R6A decision: no TypeScript pilot now. JavaScript plus shipped contract, architecture, package/release, CI, and live-verification gates is the supported hardening baseline.
+- Decision Log: Record the post-N3 provider decision: official Notion CLI remains read-only/probe-only, and SNPM keeps fetch-backed transport until a future approved provider sprint proves parity without weakening policy boundaries.
+- Roadmap: Mark the v1.3 hardening sequence complete and move future work to explicit product sprints.
+- Current Cycle: Record R6A verification results, the no-TypeScript closeout, and residual known risks such as existing truth-audit stale warnings.
+- Product Hardening Plan: Mark Sprint 0 through R6A complete, state the final JavaScript architecture/release posture, and preserve future Notion CLI adoption as conditional.
+
+Closeout command families:
+- use `page-*` for `Planning > Decision Log`, `Planning > Roadmap`, and `Planning > Current Cycle`
+- use `doc-*` for `Root > Product Hardening Plan`
+- do not update operator runbooks unless public operator command sequencing changes
+
 ## R3 Plan Quality Gates Closeout
 
 Durable Notion summary:
 - Decision Log: Record that `plan-change --quality-gates` is an opt-in advisory planner context, not a hidden mutation blocker. Record that `sync push --plan-id <id>` links applied manifest v2 journal entries back to a reviewed plan id without changing mutation budgets, stale-write checks, sidecar behavior, or apply semantics.
-- Roadmap: Mark R3 complete after merge and move the active hardening wedge to R4/R5 deferred architecture migration or R6 TypeScript/final closeout, depending on the next approved direction.
+- Roadmap: Mark R3 complete after merge and move the active hardening wedge to R4/R5 deferred architecture migration or R6A final closeout, depending on the next approved direction.
 - Current Cycle: Record verification results, the advisory-only gate boundary, and any known truth-audit stale warnings.
 - Product Hardening Plan: Update the hardening sequence so R3 is implemented and N3 page-markdown parity remains deferred unless separately approved.
 - Runbooks > Notion Workspace Workflow: Update only if operator command sequencing needs to mention the optional `plan-change --quality-gates` -> reviewed manifest -> `sync push --plan-id` loop.
@@ -523,7 +539,7 @@ Closeout command families:
 
 Durable Notion summary:
 - Decision Log: Record that R4A makes source-layout migration readiness explicit before moving files. The new `architecture-inventory` gate audits module layers and fails on boundary regressions such as Notion domain imports from command handlers, contracts importing runtime code, tests depending on task memory or closeout artifacts, validation-bundle/browser resurrection, and package allowlist drift.
-- Roadmap: Mark R4A complete after merge and move the active wedge to the first behavior-preserving R4/R5 source migration slice, or to R6 TypeScript/final closeout if migration is skipped.
+- Roadmap: Mark R4A complete after merge and move the active wedge to the first behavior-preserving R4/R5 source migration slice, or to R6A final closeout if migration is skipped.
 - Current Cycle: Record verification results, the no-source-move boundary, and any residual follow-up findings kept outside R4A scope.
 - Product Hardening Plan: Record that R4A is the readiness prerequisite for physical source-layout migration and that R4/R5 source movement remains deferred until the boundary inventory is green.
 - Runbooks > Notion Workspace Workflow: Do not update unless operator workflow guidance changes; `architecture-inventory` is a repo-local release/readiness gate, not a Notion workspace operation.
@@ -539,7 +555,7 @@ Durable Notion summary:
 - Decision Log: Record that R4B completed the first physical architecture migration slice by splitting CLI-shell internals into `src/cli/*.mjs` while keeping `src/cli.mjs` as the package bin and compatibility export surface.
 - Roadmap: Mark R4B complete after merge and move the active architecture wedge to domain-service grouping or infrastructure utilities extraction.
 - Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, or Notion mutation semantics changed.
-- Product Hardening Plan: Record that the command-shell split is implemented and that remaining R4/R5 migration slices are domain-service grouping, infrastructure utilities extraction, tests-by-layer alignment, and the R6 TypeScript/final-closeout decision.
+- Product Hardening Plan: Record that the command-shell split is implemented and that remaining R4/R5 migration slices are domain-service grouping, infrastructure utilities extraction, tests-by-layer alignment, and the R6A final-closeout decision.
 - Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4B is an internal architecture split.
 
 Closeout command families:
@@ -553,7 +569,7 @@ Durable Notion summary:
 - Decision Log: Record that R4C completed the domain-service grouping slice by moving Notion internals into `src/notion/{core,project,docs,manifest,planning,validation}` while preserving root-level compatibility exports.
 - Roadmap: Mark R4C complete after merge and move the active architecture wedge to infrastructure utilities extraction.
 - Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, or Notion mutation semantics changed.
-- Product Hardening Plan: Record that domain-service grouping is implemented and that remaining R4/R5 migration slices are infrastructure utilities extraction, tests-by-layer alignment, and the R6 TypeScript/final-closeout decision.
+- Product Hardening Plan: Record that domain-service grouping is implemented and that remaining R4/R5 migration slices are infrastructure utilities extraction, tests-by-layer alignment, and the R6A final-closeout decision.
 - Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4C is an internal architecture grouping.
 
 Closeout command families:
@@ -567,7 +583,7 @@ Durable Notion summary:
 - Decision Log: Record that R4D moved shared runtime utilities into `src/infrastructure/` while preserving command-layer compatibility shims.
 - Roadmap: Mark R4D complete after merge and move the active architecture wedge to R5A tests-by-layer alignment.
 - Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, Access secret behavior, or Notion mutation semantics changed.
-- Product Hardening Plan: Record that infrastructure utilities extraction is implemented and that the remaining R4/R5 migration slice is tests-by-layer alignment before the R6 TypeScript/final-closeout decision.
+- Product Hardening Plan: Record that infrastructure utilities extraction is implemented and that the remaining R4/R5 migration slice is tests-by-layer alignment before the R6A final-closeout decision.
 - Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R4D is an internal architecture extraction.
 
 Closeout command families:
@@ -579,9 +595,9 @@ Closeout command families:
 
 Durable Notion summary:
 - Decision Log: Record that R5A completed the final R4/R5 migration slice by grouping tests under layer-specific directories while keeping `npm test` as the full-suite command.
-- Roadmap: Mark R4/R5 architecture migration complete after merge and move the active hardening decision to R6 TypeScript pilot versus final hardening closeout.
+- Roadmap: Mark R4/R5 architecture migration complete after merge and move the active hardening decision to R6A final hardening closeout.
 - Current Cycle: Record verification results, dogfooding through SNPM's own page/doc mutation loop, and the behavior-preserving boundary: no command names, help, capabilities, output placement, exit codes, package behavior, stale-write checks, journal behavior, Access secret behavior, or Notion mutation semantics changed.
-- Product Hardening Plan: Record that command-shell split, domain-service grouping, infrastructure utilities extraction, and tests-by-layer alignment are complete; the remaining decision is R6 TypeScript pilot versus closeout.
+- Product Hardening Plan: Record that command-shell split, domain-service grouping, infrastructure utilities extraction, and tests-by-layer alignment are complete; the remaining decision is R6A final closeout.
 - Runbooks > Notion Workspace Workflow: Do not update unless operator-visible command sequencing changes; R5A is an internal test-layout alignment.
 
 Closeout command families:

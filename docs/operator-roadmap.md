@@ -169,14 +169,15 @@ Active hardening sequence:
 - R2 Notion Operation Policy And Safe Retry Design completed explicit operation policy metadata for Notion failures while preserving one-attempt request behavior and manual mutation recovery.
 - N0/N1 Notion CLI Interop Baseline completed the local `ntn --version` probe and SNPM-vs-`ntn` boundary.
 - N2 Notion CLI Read-Only API Adapter Evaluation is complete: `ntn api` is evaluated behind SNPM policy for read-only calls only, with no transport replacement, no keychain-auth bypass, no raw page-id workflow, and no Notion mutation.
-- N3 Notion CLI Page-Markdown Replacement-Readiness Probe is complete when merged: `doctor --notion-cli-pages --page "Planning > Roadmap"` compares SNPM-managed page Markdown with `ntn pages get --json` for an approved planning page, using explicit project-token auth and returning compact advisory metadata only.
+- N3 Notion CLI Page-Markdown Replacement-Readiness Probe is complete on `main`: `doctor --notion-cli-pages --page "Planning > Roadmap"` compares SNPM-managed page Markdown with `ntn pages get --json` for an approved planning page, using explicit project-token auth and returning compact advisory metadata only.
 - R3 Plan Quality Gates is complete on `main`: advisory planner audit context plus optional manifest v2 plan-id journal linkage.
 - R4A Architecture Migration Readiness is complete: repo-local architecture inventory, boundary checks, release-gate wiring, and a migration map are in place before broader source moves.
 - R4B Command Shell Split is complete: `src/cli.mjs` remains the executable entrypoint while parser, top-level error, and output helpers live in `src/cli/*.mjs` without changing command behavior.
 - R4C Domain-Service Grouping is complete: Notion internals are grouped under `src/notion/{core,project,docs,manifest,planning,validation}` with root compatibility exports.
 - R4D Infrastructure Utilities Extraction is complete: shared child runner, command IO, mutation journal, operational output, and manifest review-output helpers live under `src/infrastructure/` with command-layer compatibility shims.
 - R5A Tests-By-Layer Alignment is complete: regression tests are grouped by CLI, command, Notion domain, manifest, Access safety, infrastructure, and package/release layers while `npm test` remains the full suite.
-- Remaining hardening closure continues with the R6 TypeScript pilot versus final hardening closeout decision.
+- R6A Final Hardening Closeout selects the no-TypeScript path: JavaScript plus shipped contract, architecture, release, CI, and live-verification gates is the supported baseline.
+- The v1.3 hardening sequence is complete after R6A; future work should be planned as explicit product sprints.
 
 ## Why SNPM Beats A Generic Connector
 
@@ -196,7 +197,7 @@ A generic connector gives raw page reach. SNPM gives a narrower tool that is saf
 
 The official Notion CLI (`ntn`) is useful low-level tooling, but it does not replace SNPM's policy boundary. Direct `ntn pages update` or `ntn pages trash`, raw page-id mutation, `ntn --unsafe-verbose`, and keychain workspace auth used to bypass project-token-scoped SNPM commands are outside the normal SNPM operator path. See [Notion CLI interop boundary](./notion-cli-interop.md).
 
-The only approved Notion CLI implementation direction on the active line is internal read-only evaluation. Operators should not treat `ntn api` or `ntn pages get` as a new SNPM command family, a page-id shortcut, or a replacement for SNPM stale-write checks and mutation journals.
+The only approved Notion CLI implementation direction on the active line is internal read-only evaluation. Operators should not treat `ntn api` or `ntn pages get` as a new SNPM command family, a page-id shortcut, or a replacement for SNPM stale-write checks and mutation journals. N3 did not promote `ntn` to provider status; SNPM's fetch-backed transport remains the supported baseline.
 
 ## Managed-Doc Boundary
 
